@@ -60,14 +60,14 @@ async function initAuth0() {
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
-
+app.set('trust proxy', 1);
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', // true behind HTTPS
+    secure: true, // true behind HTTPS
     sameSite: 'lax',
     maxAge: 8 * 60 * 60 * 1000  // 8-hour session
   }
