@@ -8,573 +8,259 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-
-:root {
-  --ink:       #1A1A1A;
-  --ink2:      #666;
-  --ink3:      #999;
-  --border:    #E6E2DC;
-  --border2:   #EEE9E3;
-  --bg:        #F7F4F0;
-  --bg2:       #EDE9E3;
-  --panel:     #FFFFFF;
-  --accent:    #C94B39;
-  --accent-h:  #A83B2B;
-  --accent-bg: #FDF1EF;
-  --success:   #2E7D52;
-  --sbg:       #EAF5EE;
-  --danger:    #C0392B;
-  --dbg:       #FDF1EF;
-  --warn:      #996A1A;
-  --wbg:       #FEF9EC;
-  --sidebar-w: 288px;
-  --topbar-h:  54px;
-  --font:      'DM Sans', sans-serif;
-  --display:   'Fraunces', serif;
-  --r:         8px;
-  --rlg:       12px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
-  --shadow:    0 4px 16px rgba(0,0,0,.07),0 1px 4px rgba(0,0,0,.04);
-  --shadow-lg: 0 20px 60px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.06);
-  --ease:      cubic-bezier(.4,0,.2,1);
+:root{
+  --ink:#1A1A1A;--ink2:#666;--ink3:#999;--border:#E6E2DC;--border2:#EEE9E3;
+  --bg:#F7F4F0;--bg2:#EDE9E3;--panel:#FFFFFF;--accent:#C94B39;--accent-h:#A83B2B;
+  --accent-bg:#FDF1EF;--success:#2E7D52;--sbg:#EAF5EE;--danger:#C0392B;
+  --dbg:#FDF1EF;--warn:#996A1A;--wbg:#FEF9EC;
+  --sidebar-w:288px;--topbar-h:54px;--font:'DM Sans',sans-serif;--display:'Fraunces',serif;
+  --r:8px;--rlg:12px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow:0 4px 16px rgba(0,0,0,.07),0 1px 4px rgba(0,0,0,.04);
+  --shadow-lg:0 20px 60px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.06);
+  --ease:cubic-bezier(.4,0,.2,1);
 }
-
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--ink);
-  font-size: 13.5px;
-  line-height: 1.5;
-  overflow: hidden;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ── Auth screen ── */
-#login-screen {
-  position: fixed; inset: 0;
-  background: var(--bg);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 9999;
-}
-.login-box {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 52px 44px;
-  width: 380px;
-  box-shadow: var(--shadow-lg);
-  text-align: center;
-  animation: fadeUp .35s var(--ease);
-}
-.login-logo {
-  font-family: var(--display);
-  font-weight: 300;
-  font-size: 2.1rem;
-  color: var(--ink);
-  letter-spacing: -0.5px;
-  margin-bottom: 8px;
-}
-.login-logo em { color: var(--accent); font-style: italic; }
-.login-sub { color: var(--ink3); font-size: 0.88rem; margin-bottom: 32px; }
-.login-btn {
-  width: 100%;
-  padding: 13px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--r);
-  font-size: 0.92rem;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: var(--font);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  transition: background 120ms var(--ease);
-}
-.login-btn:hover { background: var(--accent-h); }
-
-/* ── Topbar ── */
-#topbar {
-  height: var(--topbar-h);
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 20px 0 24px;
-  gap: 0;
-  flex-shrink: 0;
-  z-index: 100;
-}
-.t-logo {
-  font-family: var(--display);
-  font-weight: 300;
-  font-size: 1.3rem;
-  color: var(--ink);
-  letter-spacing: -0.3px;
-  margin-right: 28px;
-  flex-shrink: 0;
-}
-.t-logo em { color: var(--accent); font-style: italic; }
-.t-nav { display: flex; gap: 2px; }
-.t-tab {
-  padding: 6px 13px;
-  border-radius: 6px;
-  color: var(--ink3);
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 400;
-  transition: all 120ms var(--ease);
-  border: none;
-  background: none;
-  font-family: var(--font);
-}
-.t-tab:hover { color: var(--ink); background: var(--bg); }
-.t-tab.active { color: var(--ink); font-weight: 500; background: var(--bg2); }
-.t-spacer { flex: 1; }
-.t-actions { display: flex; align-items: center; gap: 8px; }
-.save-ind { font-size: 0.78rem; color: var(--ink3); padding: 0 2px; }
-.save-ind.saved { color: var(--success); }
-.save-ind.saving { color: var(--warn); }
-
-.tbtn {
-  padding: 6px 13px;
-  border-radius: var(--r);
-  font-size: 0.82rem;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: var(--font);
-  border: 1.5px solid transparent;
-  display: inline-flex; align-items: center; gap: 5px;
-  transition: all 120ms var(--ease);
-  white-space: nowrap;
-}
-.tbtn .mi { font-size: 15px !important; }
-.tbtn-ghost { background: none; border-color: var(--border); color: var(--ink2); }
-.tbtn-ghost:hover { border-color: var(--ink3); color: var(--ink); background: var(--bg); }
-.tbtn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.tbtn-primary:hover { background: var(--accent-h); border-color: var(--accent-h); }
-
-#user-badge { display: none; align-items: center; gap: 10px; margin-left: 4px; padding-left: 14px; border-left: 1px solid var(--border); }
-#user-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
-.u-name { font-size: 0.82rem; color: var(--ink2); font-weight: 500; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* ── App shell ── */
-#app { display: none; flex: 1; overflow: hidden; flex-direction: column; }
-
-/* ── Page system ── */
-.page { display: none; flex: 1; overflow: auto; flex-direction: column; }
-.page.active { display: flex; }
-.page-body { width: 100%; max-width: 920px; margin: 0 auto; padding: 32px 28px; }
-.page-body.narrow { max-width: 580px; }
-.page-head { margin-bottom: 28px; }
-.page-head h2 {
-  font-family: var(--display);
-  font-weight: 300;
-  font-size: 1.7rem;
-  color: var(--ink);
-  letter-spacing: -0.4px;
-  margin-bottom: 3px;
-}
-.page-head p { color: var(--ink3); font-size: 0.88rem; }
-
-/* ── Editor layout ── */
-#tab-editor { flex-direction: row; overflow: hidden; }
-
-/* ── Sidebar ── */
-#sidebar {
-  width: var(--sidebar-w);
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.s-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border2); }
-.s-tabs {
-  display: flex;
-  gap: 2px;
-  background: var(--bg);
-  padding: 3px;
-  border-radius: var(--r);
-}
-.stab {
-  flex: 1;
-  padding: 6px 4px;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--ink3);
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 120ms var(--ease);
-  border: none;
-  background: none;
-  font-family: var(--font);
-}
-.stab:hover { color: var(--ink); }
-.stab.active { color: var(--ink); background: var(--panel); box-shadow: var(--shadow-sm); }
-
-.s-panel { display: none; flex: 1; overflow-y: auto; padding: 14px 14px 28px; flex-direction: column; gap: 8px; }
-.s-panel.active { display: flex; }
-.s-panel::-webkit-scrollbar { width: 3px; }
-.s-panel::-webkit-scrollbar-track { background: transparent; }
-.s-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-/* ── Section cards ── */
-.sc {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--rlg);
-  overflow: hidden;
-  transition: box-shadow 120ms var(--ease);
-}
-.sc:hover { box-shadow: var(--shadow-sm); }
-.sc-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 13px;
-  cursor: pointer;
-  user-select: none;
-  transition: background 100ms;
-}
-.sc-head:hover { background: var(--bg2); }
-.dh { color: var(--border); cursor: grab; font-size: 18px !important; transition: color 120ms; flex-shrink: 0; }
-.dh:hover { color: var(--ink3); }
-.dh:active { cursor: grabbing; }
-.sc-title { font-weight: 500; font-size: 0.875rem; flex: 1; }
-.sc-vis { font-size: 16px !important; color: var(--ink3); cursor: pointer; padding: 2px; border-radius: 4px; transition: all 120ms; }
-.sc-vis:hover { color: var(--ink); background: var(--bg); }
-.sc-vis.on { color: var(--accent); }
-.chevron { font-size: 16px !important; color: var(--ink3); transition: transform .2s ease; }
-.sc.open .chevron { transform: rotate(180deg); }
-.sc-body { display: none; border-top: 1px solid var(--border2); padding: 14px 13px; }
-.sc.open .sc-body { display: block; }
-
-/* ── Controls ── */
-.cg { margin-bottom: 11px; }
-.cg:last-child { margin-bottom: 0; }
-.cl { font-size: 0.7rem; font-weight: 600; color: var(--ink3); margin-bottom: 5px; display: block; letter-spacing: 0.07em; text-transform: uppercase; }
-.cr { display: flex; gap: 8px; align-items: center; }
-
-input[type=text],input[type=url],input[type=number],input[type=password],input[type=email],select,textarea {
-  width: 100%;
-  padding: 7px 10px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r);
-  font-size: 0.875rem;
-  font-family: var(--font);
-  color: var(--ink);
-  background: var(--panel);
-  transition: border-color 120ms, box-shadow 120ms;
-  -webkit-appearance: none;
-}
-input:focus,select:focus,textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(201,75,57,.1);
-}
-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 28px;
-}
-textarea { resize: vertical; min-height: 60px; }
-input[type=color] { width: 34px; height: 34px; padding: 3px; border: 1.5px solid var(--border); border-radius: var(--r); cursor: pointer; background: var(--panel); flex-shrink: 0; }
-input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
-
-.color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.color-lbl { font-size: 0.72rem; color: var(--ink3); margin-bottom: 4px; font-weight: 500; }
-
-/* ── Font chips ── */
-.font-picker { display: flex; flex-wrap: wrap; gap: 5px; }
-.fc {
-  padding: 4px 10px;
-  border: 1.5px solid var(--border);
-  border-radius: 20px;
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: all 120ms;
-  white-space: nowrap;
-  color: var(--ink2);
-}
-.fc:hover { border-color: var(--accent); color: var(--accent); }
-.fc.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-/* ── Upload button ── */
-.up-btn {
-  display: flex; align-items: center; justify-content: center; gap: 7px;
-  padding: 7px 12px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r);
-  cursor: pointer; font-size: 0.83rem; color: var(--ink2);
-  background: var(--bg); transition: all 120ms; width: 100%;
-  font-family: var(--font); font-weight: 500;
-}
-.up-btn .mi { font-size: 15px !important; }
-.up-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
-.up-btn.del { color: var(--danger); }
-.up-btn.del:hover { border-color: var(--danger); background: var(--dbg); }
-.img-prev { width: 100%; border-radius: var(--r); margin-top: 8px; max-height: 88px; object-fit: cover; display: none; border: 1px solid var(--border); }
-
-/* ── Field list ── */
-.field-list { display: flex; flex-direction: column; gap: 6px; }
-.fi {
-  background: var(--panel);
-  border: 1.5px solid var(--border);
-  border-radius: var(--r);
-  padding: 8px 11px;
-  display: flex; align-items: center; gap: 7px;
-  transition: border-color 120ms, box-shadow 120ms;
-}
-.fi:hover { border-color: var(--ink3); box-shadow: var(--shadow-sm); }
-.fi-info { flex: 1; min-width: 0; }
-.fi-label { font-weight: 500; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fi-meta { font-size: 0.73rem; color: var(--ink3); margin-top: 1px; }
-.fi-acts { display: flex; gap: 1px; flex-shrink: 0; }
-.ibtn { background: none; border: none; cursor: pointer; padding: 5px; border-radius: 5px; color: var(--ink3); display: flex; align-items: center; transition: all 120ms; }
-.ibtn .mi { font-size: 15px !important; }
-.ibtn:hover { background: var(--bg); color: var(--ink); }
-.ibtn.danger:hover { background: var(--dbg); color: var(--danger); }
-
-.add-field-btn {
-  background: none; border: 1.5px dashed var(--border); border-radius: var(--r);
-  padding: 8px; width: 100%; color: var(--ink3); cursor: pointer;
-  font-size: 0.875rem; font-family: var(--font); font-weight: 500;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  margin-top: 4px; transition: all 120ms;
-}
-.add-field-btn .mi { font-size: 15px !important; }
-.add-field-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
-
-/* ── Preview pane ── */
-#preview-wrap {
-  flex: 1; overflow: auto; background: var(--bg2);
-  display: flex; flex-direction: column; align-items: center;
-}
-.prev-toolbar {
-  background: var(--panel); border-bottom: 1px solid var(--border);
-  padding: 7px 16px; display: flex; align-items: center; gap: 5px;
-  width: 100%; flex-shrink: 0;
-}
-.psz {
-  background: none; border: 1.5px solid var(--border); border-radius: 6px;
-  color: var(--ink3); padding: 5px 11px; cursor: pointer; font-size: 0.78rem;
-  font-family: var(--font); font-weight: 500; display: flex; align-items: center; gap: 4px;
-  transition: all 120ms;
-}
-.psz .mi { font-size: 13px !important; }
-.psz:hover { border-color: var(--ink3); color: var(--ink); }
-.psz.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
-.prev-lbl { color: var(--ink3); font-size: 0.72rem; margin-left: auto; letter-spacing: 0.06em; font-weight: 600; text-transform: uppercase; }
-#prev-frame-wrap { padding: 24px; display: flex; justify-content: center; align-items: flex-start; width: 100%; }
-#preview-frame { border: none; border-radius: var(--rlg); box-shadow: var(--shadow-lg); background: #fff; transition: width .3s ease; }
-
-/* ── Stats ── */
-.stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
-.stat-card {
-  background: var(--panel); border: 1px solid var(--border); border-radius: var(--rlg);
-  padding: 20px 22px;
-}
-.stat-num { font-family: var(--display); font-size: 2.1rem; font-weight: 300; color: var(--ink); line-height: 1; margin-bottom: 5px; }
-.stat-lbl { font-size: 0.72rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; }
-
-/* ── Table ── */
-.table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: var(--rlg); overflow: hidden; }
-.table-bar {
-  padding: 12px 16px; border-bottom: 1px solid var(--border2);
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-}
-.table-bar input[type=text] { max-width: 200px; padding: 6px 10px; }
-.tscroll { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-th {
-  background: var(--bg); color: var(--ink3); font-weight: 600; text-align: left;
-  padding: 9px 14px; border-bottom: 1px solid var(--border);
-  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
-  white-space: nowrap; position: sticky; top: 0;
-}
-td { padding: 10px 14px; border-bottom: 1px solid var(--border2); vertical-align: middle; }
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: #FAFAF8; }
-.email-cell { font-weight: 500; }
-.date-cell { color: var(--ink3); font-size: 0.8rem; white-space: nowrap; }
-.table-foot {
-  padding: 10px 16px; border-top: 1px solid var(--border2);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.t-count { font-size: 0.78rem; color: var(--ink3); }
-
-.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em; }
-.badge.active { background: var(--sbg); color: var(--success); }
-.badge.unsubscribed { background: var(--bg2); color: var(--ink3); }
-
-.pagination { display: flex; align-items: center; gap: 3px; }
-.page-btn {
-  width: 28px; height: 28px; border: 1.5px solid var(--border); border-radius: 6px;
-  background: var(--panel); cursor: pointer; font-size: 0.8rem; font-family: var(--font);
-  color: var(--ink2); display: flex; align-items: center; justify-content: center;
-  transition: all 120ms;
-}
-.page-btn:hover { border-color: var(--accent); color: var(--accent); }
-.page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-/* ── Buttons ── */
-.btn {
-  padding: 7px 14px; border-radius: var(--r); font-size: 0.83rem; font-weight: 500;
-  cursor: pointer; font-family: var(--font); border: 1.5px solid transparent;
-  display: inline-flex; align-items: center; gap: 5px; transition: all 120ms; white-space: nowrap;
-}
-.btn .mi { font-size: 14px !important; }
-.btn-sm { padding: 5px 11px; font-size: 0.79rem; }
-.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn-primary:hover { background: var(--accent-h); border-color: var(--accent-h); }
-.btn-outline { background: var(--panel); border-color: var(--border); color: var(--ink2); }
-.btn-outline:hover { border-color: var(--ink3); color: var(--ink); }
-.btn-danger { background: var(--dbg); color: var(--danger); border-color: transparent; }
-.btn-danger:hover { background: var(--danger); color: #fff; }
-
-/* ── Cards ── */
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--rlg); padding: 22px; }
-.card + .card { margin-top: 14px; }
-.card-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; color: var(--ink); }
-.card-title .mi { font-size: 17px !important; color: var(--ink3); }
-.card-desc { font-size: 0.875rem; color: var(--ink2); line-height: 1.65; margin-bottom: 14px; }
-.card-desc code, .info-box code {
-  background: var(--bg2); border: 1px solid var(--border); padding: 1px 5px;
-  border-radius: 4px; font-size: 0.78rem; color: var(--ink);
-}
-
-/* ── Code blocks ── */
-.code-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
-.code-head {
-  padding: 7px 13px; background: var(--bg2); border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.code-lang { font-size: 0.68rem; font-weight: 700; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.08em; }
-.code-copy {
-  background: none; border: none; cursor: pointer; font-size: 0.76rem; color: var(--ink3);
-  font-family: var(--font); padding: 2px 8px; border-radius: 4px; display: flex; align-items: center; gap: 4px;
-  font-weight: 500; transition: all 120ms;
-}
-.code-copy .mi { font-size: 13px !important; }
-.code-copy:hover { color: var(--accent); background: var(--panel); }
-pre {
-  padding: 13px; font-size: 0.79rem; line-height: 1.65; color: var(--ink);
-  overflow-x: auto; white-space: pre-wrap; word-break: break-all;
-  font-family: 'Cascadia Code','Fira Code','Menlo',monospace;
-}
-
-/* ── Settings ── */
-.setting-row {
-  display: flex; align-items: flex-start; gap: 16px;
-  padding: 14px 0; border-bottom: 1px solid var(--border2);
-}
-.setting-row:last-child { border-bottom: none; padding-bottom: 0; }
-.setting-info { flex: 1; }
-.setting-title { font-weight: 500; font-size: 0.9rem; margin-bottom: 2px; }
-.setting-desc { font-size: 0.8rem; color: var(--ink3); line-height: 1.55; }
-
-/* ── Toggle ── */
-.tgl { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
-.tgl input { opacity: 0; width: 0; height: 0; }
-.tgl-s {
-  position: absolute; inset: 0; background: var(--border); border-radius: 11px;
-  cursor: pointer; transition: background 150ms;
-}
-.tgl-s::before {
-  content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
-  background: #fff; top: 3px; left: 3px; transition: transform 150ms;
-  box-shadow: 0 1px 3px rgba(0,0,0,.2);
-}
-.tgl input:checked + .tgl-s { background: var(--accent); }
-.tgl input:checked + .tgl-s::before { transform: translateX(16px); }
-.tgl-lbl { font-size: 0.875rem; color: var(--ink2); cursor: pointer; }
-
-/* ── GDPR checklist ── */
-.gdpr-list { display: flex; flex-direction: column; gap: 9px; }
-.gdpr-item { display: flex; align-items: center; gap: 9px; font-size: 0.875rem; color: var(--ink2); }
-.gdpr-dot { width: 18px; height: 18px; background: var(--sbg); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.gdpr-dot .mi { font-size: 11px !important; color: var(--success); }
-
-/* ── Info box ── */
-.info-box {
-  background: var(--bg); border: 1px solid var(--border); border-radius: var(--r);
-  padding: 11px 13px; font-size: 0.82rem; color: var(--ink2); line-height: 1.6;
-}
-.warn-box { background: var(--wbg); border-color: #EDD088; color: var(--warn); }
-
-/* ── Embed preview ── */
-.embed-prev-wrap {
-  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--rlg);
-  overflow: hidden; height: 320px;
-}
-.embed-prev-wrap iframe { width: 100%; height: 100%; border: none; }
-
-/* ── Modal ── */
-#field-modal {
-  position: fixed; inset: 0;
-  background: rgba(26,26,26,.45);
-  backdrop-filter: blur(3px);
-  z-index: 500; display: none; align-items: center; justify-content: center;
-}
-#field-modal.open { display: flex; }
-.modal-box {
-  background: var(--panel); border-radius: var(--rlg); padding: 26px; width: 430px;
-  max-width: 95vw; box-shadow: var(--shadow-lg); animation: fadeUp .18s var(--ease);
-}
-.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.modal-head h2 { font-weight: 600; font-size: 1rem; }
-.modal-close { background: none; border: none; cursor: pointer; padding: 4px; color: var(--ink3); border-radius: 4px; display: flex; transition: all 120ms; }
-.modal-close:hover { background: var(--bg); color: var(--ink); }
-.modal-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border2); }
-
-/* ── Toast ── */
-#toast {
-  position: fixed; bottom: 22px; right: 22px;
-  background: var(--ink); color: #fff; padding: 9px 14px; border-radius: var(--r);
-  font-size: 0.875rem; font-weight: 500; opacity: 0; transform: translateY(8px);
-  transition: all .22s ease; pointer-events: none; z-index: 9999;
-  display: flex; align-items: center; gap: 7px; box-shadow: var(--shadow);
-}
-#toast.show { opacity: 1; transform: translateY(0); }
-#toast.success { background: var(--success); }
-#toast.error { background: var(--danger); }
-#toast .mi { font-size: 15px !important; }
-
-/* ── Drag ── */
-.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: var(--r); }
-.dragging { opacity: .35; }
-
-/* ── Embed options grid ── */
-.embed-opts { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 14px; }
-.embed-opts .cg { margin: 0; }
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--ink3); }
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:13.5px;line-height:1.5;overflow:hidden;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.login-box{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:52px 44px;width:380px;box-shadow:var(--shadow-lg);text-align:center;animation:fadeUp .35s var(--ease);}
+.login-logo{font-family:var(--display);font-weight:300;font-size:2.1rem;color:var(--ink);letter-spacing:-0.5px;margin-bottom:8px;}
+.login-logo em{color:var(--accent);font-style:italic;}
+.login-sub{color:var(--ink3);font-size:0.88rem;margin-bottom:32px;}
+.login-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:0.92rem;font-weight:500;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:8px;transition:background 120ms var(--ease);}
+.login-btn:hover{background:var(--accent-h);}
+#topbar{height:var(--topbar-h);background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px 0 24px;gap:0;flex-shrink:0;z-index:100;}
+.t-logo{font-family:var(--display);font-weight:300;font-size:1.3rem;color:var(--ink);letter-spacing:-0.3px;margin-right:28px;flex-shrink:0;}
+.t-logo em{color:var(--accent);font-style:italic;}
+.t-nav{display:flex;gap:2px;}
+.t-tab{padding:6px 13px;border-radius:6px;color:var(--ink3);cursor:pointer;font-size:0.875rem;font-weight:400;transition:all 120ms var(--ease);border:none;background:none;font-family:var(--font);}
+.t-tab:hover{color:var(--ink);background:var(--bg);}
+.t-tab.active{color:var(--ink);font-weight:500;background:var(--bg2);}
+.t-spacer{flex:1;}
+.t-actions{display:flex;align-items:center;gap:8px;}
+.save-ind{font-size:0.78rem;color:var(--ink3);padding:0 2px;}
+.save-ind.saved{color:var(--success);}
+.save-ind.saving{color:var(--warn);}
+.tbtn{padding:6px 13px;border-radius:var(--r);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:var(--font);border:1.5px solid transparent;display:inline-flex;align-items:center;gap:5px;transition:all 120ms var(--ease);white-space:nowrap;}
+.tbtn .mi{font-size:15px!important;}
+.tbtn-ghost{background:none;border-color:var(--border);color:var(--ink2);}
+.tbtn-ghost:hover{border-color:var(--ink3);color:var(--ink);background:var(--bg);}
+.tbtn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tbtn-primary:hover{background:var(--accent-h);border-color:var(--accent-h);}
+#user-badge{display:none;align-items:center;gap:10px;margin-left:4px;padding-left:14px;border-left:1px solid var(--border);}
+#user-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;}
+.u-name{font-size:0.82rem;color:var(--ink2);font-weight:500;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#app{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.page{display:none;flex:1;overflow:auto;flex-direction:column;}
+.page.active{display:flex;}
+.page-body{width:100%;max-width:920px;margin:0 auto;padding:32px 28px;}
+.page-body.narrow{max-width:580px;}
+.page-head{margin-bottom:28px;}
+.page-head h2{font-family:var(--display);font-weight:300;font-size:1.7rem;color:var(--ink);letter-spacing:-0.4px;margin-bottom:3px;}
+.page-head p{color:var(--ink3);font-size:0.88rem;}
+#tab-editor{flex-direction:row;overflow:hidden;}
+#sidebar{width:var(--sidebar-w);background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.s-header{padding:14px 16px 12px;border-bottom:1px solid var(--border2);}
+.s-tabs{display:flex;gap:2px;background:var(--bg);padding:3px;border-radius:var(--r);}
+.stab{flex:1;padding:6px 4px;text-align:center;font-size:0.78rem;font-weight:500;color:var(--ink3);cursor:pointer;border-radius:6px;transition:all 120ms var(--ease);border:none;background:none;font-family:var(--font);}
+.stab:hover{color:var(--ink);}
+.stab.active{color:var(--ink);background:var(--panel);box-shadow:var(--shadow-sm);}
+.s-panel{display:none;flex:1;overflow-y:auto;padding:14px 14px 28px;flex-direction:column;gap:8px;}
+.s-panel.active{display:flex;}
+.s-panel::-webkit-scrollbar{width:3px;}
+.s-panel::-webkit-scrollbar-track{background:transparent;}
+.s-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.sc{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;transition:box-shadow 120ms var(--ease);}
+.sc:hover{box-shadow:var(--shadow-sm);}
+.sc-head{display:flex;align-items:center;gap:7px;padding:10px 13px;cursor:pointer;user-select:none;transition:background 100ms;}
+.sc-head:hover{background:var(--bg2);}
+.dh{color:var(--border);cursor:grab;font-size:18px!important;transition:color 120ms;flex-shrink:0;}
+.dh:hover{color:var(--ink3);}
+.dh:active{cursor:grabbing;}
+.sc-title{font-weight:500;font-size:0.875rem;flex:1;}
+.sc-badge{font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:10px;background:var(--bg2);color:var(--ink3);letter-spacing:0.05em;text-transform:uppercase;}
+.sc-vis{font-size:16px!important;color:var(--ink3);cursor:pointer;padding:2px;border-radius:4px;transition:all 120ms;}
+.sc-vis:hover{color:var(--ink);background:var(--bg);}
+.sc-vis.on{color:var(--accent);}
+.sc-del{font-size:16px!important;color:var(--ink3);cursor:pointer;padding:2px;border-radius:4px;transition:all 120ms;}
+.sc-del:hover{color:var(--danger);background:var(--dbg);}
+.chevron{font-size:16px!important;color:var(--ink3);transition:transform .2s ease;}
+.sc.open .chevron{transform:rotate(180deg);}
+.sc-body{display:none;border-top:1px solid var(--border2);padding:14px 13px;}
+.sc.open .sc-body{display:block;}
+.cg{margin-bottom:11px;}
+.cg:last-child{margin-bottom:0;}
+.cl{font-size:0.7rem;font-weight:600;color:var(--ink3);margin-bottom:5px;display:block;letter-spacing:0.07em;text-transform:uppercase;}
+.cr{display:flex;gap:8px;align-items:center;}
+input[type=text],input[type=url],input[type=number],input[type=password],input[type=email],select,textarea{
+  width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);
+  font-size:0.875rem;font-family:var(--font);color:var(--ink);background:var(--panel);
+  transition:border-color 120ms,box-shadow 120ms;-webkit-appearance:none;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,75,57,.1);}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;}
+textarea{resize:vertical;min-height:60px;}
+input[type=color]{width:34px;height:34px;padding:3px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;background:var(--panel);flex-shrink:0;}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
+.color-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.color-lbl{font-size:0.72rem;color:var(--ink3);margin-bottom:4px;font-weight:500;}
+.font-picker{display:flex;flex-wrap:wrap;gap:5px;}
+.fc{padding:4px 10px;border:1.5px solid var(--border);border-radius:20px;font-size:0.78rem;cursor:pointer;transition:all 120ms;white-space:nowrap;color:var(--ink2);}
+.fc:hover{border-color:var(--accent);color:var(--accent);}
+.fc.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.up-btn{display:flex;align-items:center;justify-content:center;gap:7px;padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;font-size:0.83rem;color:var(--ink2);background:var(--bg);transition:all 120ms;width:100%;font-family:var(--font);font-weight:500;}
+.up-btn .mi{font-size:15px!important;}
+.up-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
+.up-btn.del{color:var(--danger);}
+.up-btn.del:hover{border-color:var(--danger);background:var(--dbg);}
+.img-prev{width:100%;border-radius:var(--r);margin-top:8px;max-height:88px;object-fit:cover;display:none;border:1px solid var(--border);}
+.field-list{display:flex;flex-direction:column;gap:6px;}
+.fi{background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);padding:8px 11px;display:flex;align-items:center;gap:7px;transition:border-color 120ms,box-shadow 120ms;}
+.fi:hover{border-color:var(--ink3);box-shadow:var(--shadow-sm);}
+.fi-info{flex:1;min-width:0;}
+.fi-label{font-weight:500;font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fi-meta{font-size:0.73rem;color:var(--ink3);margin-top:1px;}
+.fi-acts{display:flex;gap:1px;flex-shrink:0;}
+.ibtn{background:none;border:none;cursor:pointer;padding:5px;border-radius:5px;color:var(--ink3);display:flex;align-items:center;transition:all 120ms;}
+.ibtn .mi{font-size:15px!important;}
+.ibtn:hover{background:var(--bg);color:var(--ink);}
+.ibtn.danger:hover{background:var(--dbg);color:var(--danger);}
+.add-field-btn{background:none;border:1.5px dashed var(--border);border-radius:var(--r);padding:8px;width:100%;color:var(--ink3);cursor:pointer;font-size:0.875rem;font-family:var(--font);font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;transition:all 120ms;}
+.add-field-btn .mi{font-size:15px!important;}
+.add-field-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
+#preview-wrap{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;align-items:center;}
+.prev-toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:5px;width:100%;flex-shrink:0;}
+.psz{background:none;border:1.5px solid var(--border);border-radius:6px;color:var(--ink3);padding:5px 11px;cursor:pointer;font-size:0.78rem;font-family:var(--font);font-weight:500;display:flex;align-items:center;gap:4px;transition:all 120ms;}
+.psz .mi{font-size:13px!important;}
+.psz:hover{border-color:var(--ink3);color:var(--ink);}
+.psz.active{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
+.prev-lbl{color:var(--ink3);font-size:0.72rem;margin-left:auto;letter-spacing:0.06em;font-weight:600;text-transform:uppercase;}
+#prev-frame-wrap{padding:24px;display:flex;justify-content:center;align-items:flex-start;width:100%;}
+#preview-frame{border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff;transition:width .3s ease;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 22px;}
+.stat-num{font-family:var(--display);font-size:2.1rem;font-weight:300;color:var(--ink);line-height:1;margin-bottom:5px;}
+.stat-lbl{font-size:0.72rem;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:0.07em;}
+.table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;}
+.table-bar{padding:12px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.table-bar input[type=text]{max-width:200px;padding:6px 10px;}
+.tscroll{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+th{background:var(--bg);color:var(--ink3);font-weight:600;text-align:left;padding:9px 14px;border-bottom:1px solid var(--border);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap;position:sticky;top:0;}
+td{padding:10px 14px;border-bottom:1px solid var(--border2);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#FAFAF8;}
+.email-cell{font-weight:500;}
+.date-cell{color:var(--ink3);font-size:0.8rem;white-space:nowrap;}
+.table-foot{padding:10px 16px;border-top:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;}
+.t-count{font-size:0.78rem;color:var(--ink3);}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:600;letter-spacing:0.03em;}
+.badge.active{background:var(--sbg);color:var(--success);}
+.badge.unsubscribed{background:var(--bg2);color:var(--ink3);}
+.pagination{display:flex;align-items:center;gap:3px;}
+.page-btn{width:28px;height:28px;border:1.5px solid var(--border);border-radius:6px;background:var(--panel);cursor:pointer;font-size:0.8rem;font-family:var(--font);color:var(--ink2);display:flex;align-items:center;justify-content:center;transition:all 120ms;}
+.page-btn:hover{border-color:var(--accent);color:var(--accent);}
+.page-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn{padding:7px 14px;border-radius:var(--r);font-size:0.83rem;font-weight:500;cursor:pointer;font-family:var(--font);border:1.5px solid transparent;display:inline-flex;align-items:center;gap:5px;transition:all 120ms;white-space:nowrap;}
+.btn .mi{font-size:14px!important;}
+.btn-sm{padding:5px 11px;font-size:0.79rem;}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-primary:hover{background:var(--accent-h);border-color:var(--accent-h);}
+.btn-outline{background:var(--panel);border-color:var(--border);color:var(--ink2);}
+.btn-outline:hover{border-color:var(--ink3);color:var(--ink);}
+.btn-danger{background:var(--dbg);color:var(--danger);border-color:transparent;}
+.btn-danger:hover{background:var(--danger);color:#fff;}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);padding:22px;}
+.card+.card{margin-top:14px;}
+.card-title{font-weight:600;font-size:0.9rem;margin-bottom:10px;display:flex;align-items:center;gap:7px;color:var(--ink);}
+.card-title .mi{font-size:17px!important;color:var(--ink3);}
+.card-desc{font-size:0.875rem;color:var(--ink2);line-height:1.65;margin-bottom:14px;}
+.card-desc code,.info-box code{background:var(--bg2);border:1px solid var(--border);padding:1px 5px;border-radius:4px;font-size:0.78rem;color:var(--ink);}
+.code-wrap{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.code-head{padding:7px 13px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.code-lang{font-size:0.68rem;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.08em;}
+.code-copy{background:none;border:none;cursor:pointer;font-size:0.76rem;color:var(--ink3);font-family:var(--font);padding:2px 8px;border-radius:4px;display:flex;align-items:center;gap:4px;font-weight:500;transition:all 120ms;}
+.code-copy .mi{font-size:13px!important;}
+.code-copy:hover{color:var(--accent);background:var(--panel);}
+pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-family:'Cascadia Code','Fira Code','Menlo',monospace;}
+.setting-row{display:flex;align-items:flex-start;gap:16px;padding:14px 0;border-bottom:1px solid var(--border2);}
+.setting-row:last-child{border-bottom:none;padding-bottom:0;}
+.setting-info{flex:1;}
+.setting-title{font-weight:500;font-size:0.9rem;margin-bottom:2px;}
+.setting-desc{font-size:0.8rem;color:var(--ink3);line-height:1.55;}
+.tgl{position:relative;width:38px;height:22px;flex-shrink:0;}
+.tgl input{opacity:0;width:0;height:0;}
+.tgl-s{position:absolute;inset:0;background:var(--border);border-radius:11px;cursor:pointer;transition:background 150ms;}
+.tgl-s::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform 150ms;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.tgl input:checked+.tgl-s{background:var(--accent);}
+.tgl input:checked+.tgl-s::before{transform:translateX(16px);}
+.tgl-lbl{font-size:0.875rem;color:var(--ink2);cursor:pointer;}
+.gdpr-list{display:flex;flex-direction:column;gap:9px;}
+.gdpr-item{display:flex;align-items:center;gap:9px;font-size:0.875rem;color:var(--ink2);}
+.gdpr-dot{width:18px;height:18px;background:var(--sbg);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.gdpr-dot .mi{font-size:11px!important;color:var(--success);}
+.info-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;font-size:0.82rem;color:var(--ink2);line-height:1.6;}
+.warn-box{background:var(--wbg);border-color:#EDD088;color:var(--warn);}
+.embed-prev-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;height:320px;}
+.embed-prev-wrap iframe{width:100%;height:100%;border:none;}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--panel);border-radius:var(--rlg);padding:26px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:fadeUp .18s var(--ease);}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.modal-head h2{font-weight:600;font-size:1rem;}
+.modal-close{background:none;border:none;cursor:pointer;padding:4px;color:var(--ink3);border-radius:4px;display:flex;transition:all 120ms;}
+.modal-close:hover{background:var(--bg);color:var(--ink);}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:16px;border-top:1px solid var(--border2);}
+.modal-section{margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);}
+.modal-section-title{font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;}
+/* Condition rows */
+.cond-row{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:6px 8px;margin-bottom:5px;flex-wrap:wrap;}
+.cond-row select,.cond-row input{flex:1;min-width:60px;padding:4px 7px;font-size:0.79rem;}
+.cond-row .ibtn{flex-shrink:0;}
+/* Reward rows */
+.reward-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.reward-row input[type=text]{flex:1;}
+.reward-row input[type=color]{width:30px;height:30px;}
+.reward-row input[type=number]{width:60px;}
+/* Palette swatches */
+.palette-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.palette-swatch{width:32px;height:32px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform 120ms,border-color 120ms;position:relative;display:flex;align-items:center;justify-content:center;}
+.palette-swatch:hover{transform:scale(1.1);border-color:var(--ink3);}
+.palette-swatch.active::after{content:'✓';color:#fff;font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4);}
+/* Custom font list */
+.custom-font-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:5px;}
+.custom-font-name{flex:1;font-size:0.83rem;font-weight:500;}
+/* Block picker */
+.block-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.block-type-btn{background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer;text-align:center;transition:all 120ms;font-family:var(--font);}
+.block-type-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
+.block-type-btn .mi{font-size:24px!important;display:block;margin-bottom:4px;color:var(--ink3);}
+.block-type-btn:hover .mi{color:var(--accent);}
+.block-type-label{font-size:0.8rem;font-weight:500;}
+.embed-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.embed-opts .cg{margin:0;}
+#toast{position:fixed;bottom:22px;right:22px;background:var(--ink);color:#fff;padding:9px 14px;border-radius:var(--r);font-size:0.875rem;font-weight:500;opacity:0;transform:translateY(8px);transition:all .22s ease;pointer-events:none;z-index:9999;display:flex;align-items:center;gap:7px;box-shadow:var(--shadow);}
+#toast.show{opacity:1;transform:translateY(0);}
+#toast.success{background:var(--success);}
+#toast.error{background:var(--danger);}
+#toast .mi{font-size:15px!important;}
+.drag-over{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:var(--r);}
+.dragging{opacity:.35;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+::-webkit-scrollbar-thumb:hover{background:var(--ink3);}
 </style>
 </head>
 <body>
 
-<!-- Auth -->
+<!-- Auth screen -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">Sign<em>Flow</em></div>
     <p class="login-sub" id="auth-status-msg">Checking session…</p>
     <button class="login-btn" id="auth-login-btn" onclick="window.location='/auth/login'" style="display:none">
-      <span class="material-icons-round mi" style="font-size:17px">lock_open</span>
-      Sign in with Auth0
+      <span class="material-icons-round mi" style="font-size:17px">lock_open</span>Sign in with Auth0
     </button>
   </div>
 </div>
@@ -591,12 +277,8 @@ pre {
   <div class="t-spacer"></div>
   <div class="t-actions">
     <span class="save-ind" id="save-ind">Saved</span>
-    <button class="tbtn tbtn-ghost" onclick="window.open('/','_blank')">
-      <span class="material-icons-round mi">open_in_new</span> View site
-    </button>
-    <button class="tbtn tbtn-primary" onclick="saveConfig()">
-      <span class="material-icons-round mi">save</span> Save
-    </button>
+    <button class="tbtn tbtn-ghost" onclick="window.open('/','_blank')"><span class="material-icons-round mi">open_in_new</span> View site</button>
+    <button class="tbtn tbtn-primary" onclick="saveConfig()"><span class="material-icons-round mi">save</span> Save</button>
     <div id="user-badge">
       <img id="user-avatar" src="" alt="">
       <span class="u-name" id="user-name"></span>
@@ -608,7 +290,7 @@ pre {
 <!-- App -->
 <div id="app">
 
-<!-- ══ EDITOR ══ -->
+<!-- EDITOR -->
 <div id="tab-editor" class="page active">
   <div id="sidebar">
     <div class="s-header">
@@ -622,6 +304,7 @@ pre {
     <!-- Content panel -->
     <div class="s-panel active" id="spanel-content">
 
+      <!-- Static sections: hero, form, footer -->
       <div class="sc open" id="sc-hero" draggable="true">
         <div class="sc-head" onclick="toggleCard('sc-hero')">
           <span class="material-icons-round dh">drag_indicator</span>
@@ -638,14 +321,18 @@ pre {
             <input type="file" id="upload-hero-img" accept="image/*" style="display:none" onchange="handleImageUpload(this,'hero-img')">
             <img id="preview-hero-img" class="img-prev">
           </div>
-          <div class="cg">
-            <label class="cl">Position</label>
+          <div class="cg"><label class="cl">Position</label>
             <select id="c-imgpos" onchange="updateSection('hero','imagePosition',this.value)">
-              <option value="above">Above heading</option>
-              <option value="below">Below heading</option>
+              <option value="above">Above heading</option><option value="below">Below heading</option>
             </select>
           </div>
           <button class="up-btn del" onclick="clearHeroImage()" style="margin-top:4px"><span class="material-icons-round mi">delete</span> Remove image</button>
+          <div class="modal-section"><div class="modal-section-title">Block colors</div>
+            <div class="color-grid">
+              <div><div class="color-lbl">Background</div><div class="cr"><input type="color" oninput="updateSectionColor('hero','bg',this.value)"><input type="text" oninput="updateSectionColorHex('hero','bg',this.value)" placeholder="inherit"></div></div>
+              <div><div class="color-lbl">Text</div><div class="cr"><input type="color" oninput="updateSectionColor('hero','text',this.value)"><input type="text" oninput="updateSectionColorHex('hero','text',this.value)" placeholder="inherit"></div></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -675,6 +362,7 @@ pre {
         </div>
       </div>
 
+      <!-- Logo block -->
       <div class="sc" id="sc-logo">
         <div class="sc-head" onclick="toggleCard('sc-logo')">
           <span class="material-icons-round" style="color:transparent;font-size:18px">drag_indicator</span>
@@ -687,11 +375,12 @@ pre {
             <input type="file" id="upload-logo" accept="image/*" style="display:none" onchange="handleImageUpload(this,'logo')">
             <img id="preview-logo" class="img-prev">
           </div>
-          <div class="cg"><label class="cl">Logo width</label><input type="text" id="c-logowidth" placeholder="180px" oninput="cfg.design.logoWidth=this.value;schedulePreview()"></div>
+          <div class="cg"><label class="cl">Width</label><input type="text" id="c-logowidth" placeholder="180px" oninput="cfg.design.logoWidth=this.value;schedulePreview()"></div>
           <button class="up-btn del" onclick="clearLogo()"><span class="material-icons-round mi">delete</span> Remove logo</button>
         </div>
       </div>
 
+      <!-- Cookie & Legal -->
       <div class="sc" id="sc-legal">
         <div class="sc-head" onclick="toggleCard('sc-legal')">
           <span class="material-icons-round" style="color:transparent;font-size:18px">drag_indicator</span>
@@ -705,6 +394,7 @@ pre {
         </div>
       </div>
 
+      <!-- Background -->
       <div class="sc" id="sc-bg">
         <div class="sc-head" onclick="toggleCard('sc-bg')">
           <span class="material-icons-round" style="color:transparent;font-size:18px">drag_indicator</span>
@@ -719,55 +409,94 @@ pre {
           </div>
           <div class="cg">
             <label class="cl">Overlay — <span id="overlay-val">0.4</span></label>
-            <input type="range" id="c-overlay" min="0" max="0.9" step="0.05"
-              oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
+            <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
           </div>
           <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
         </div>
       </div>
 
+      <!-- Dynamic blocks container -->
+      <div id="dynamic-blocks"></div>
+
+      <!-- Add Block button -->
+      <button class="add-field-btn" onclick="openBlockPicker()">
+        <span class="material-icons-round mi">add_box</span> Add block
+      </button>
+
     </div><!-- /content -->
 
     <!-- Design panel -->
     <div class="s-panel" id="spanel-design">
+
       <div class="cg"><label class="cl">Heading font</label><div class="font-picker" id="heading-font-picker"></div></div>
       <div class="cg"><label class="cl">Body font</label><div class="font-picker" id="body-font-picker"></div></div>
+
+      <!-- Custom fonts -->
+      <div class="cg">
+        <label class="cl">Custom fonts</label>
+        <div id="custom-font-list"></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input type="text" id="custom-font-name" placeholder="Font name (e.g. Futura)" style="flex:1">
+          <label class="up-btn" style="width:auto;white-space:nowrap;cursor:pointer">
+            <span class="material-icons-round mi">upload</span> Upload .woff2
+            <input type="file" id="upload-font-file" accept=".woff,.woff2,.ttf,.otf" style="display:none" onchange="handleFontUpload(this)">
+          </label>
+        </div>
+        <div class="info-box" style="margin-top:6px;font-size:0.75rem">Upload a .woff2 file, enter a name, then click a font chip to select it.</div>
+      </div>
+
+      <div class="cg">
+        <label class="cl">Colour palettes</label>
+        <div class="palette-grid" id="palette-grid"></div>
+      </div>
+
       <div class="cg">
         <label class="cl">Colours</label>
         <div class="color-grid">
-          <div><div class="color-lbl">Primary</div><div class="cr"><input type="color" id="c-primary" oninput="cfg.design.primaryColor=this.value;schedulePreview()"><input type="text" id="c-primary-hex" style="flex:1" oninput="syncColor('primary',this.value)"></div></div>
+          <div><div class="color-lbl">Primary</div><div class="cr"><input type="color" id="c-primary" oninput="cfg.design.primaryColor=this.value;syncHex('primary',this.value);schedulePreview()"><input type="text" id="c-primary-hex" style="flex:1" oninput="syncColor('primary',this.value)"></div></div>
           <div><div class="color-lbl">Accent</div><div class="cr"><input type="color" id="c-accent" oninput="cfg.design.accentColor=this.value;syncHex('accent',this.value);schedulePreview()"><input type="text" id="c-accent-hex" style="flex:1" oninput="syncColor('accent',this.value)"></div></div>
           <div><div class="color-lbl">Background</div><div class="cr"><input type="color" id="c-bg" oninput="cfg.design.backgroundColor=this.value;syncHex('bg',this.value);schedulePreview()"><input type="text" id="c-bg-hex" style="flex:1" oninput="syncColor('bg',this.value)"></div></div>
           <div><div class="color-lbl">Text</div><div class="cr"><input type="color" id="c-text" oninput="cfg.design.textColor=this.value;syncHex('text',this.value);schedulePreview()"><input type="text" id="c-text-hex" style="flex:1" oninput="syncColor('text',this.value)"></div></div>
         </div>
       </div>
-      <div class="cg">
-        <label class="cl">Container width</label>
+
+      <div class="cg"><label class="cl">Container width</label>
         <select id="c-width" onchange="cfg.design.containerWidth=this.value;schedulePreview()">
-          <option value="480px">Narrow (480px)</option>
-          <option value="560px">Medium (560px)</option>
-          <option value="640px">Wide (640px)</option>
-          <option value="720px">Extra wide (720px)</option>
+          <option value="480px">Narrow (480px)</option><option value="560px">Medium (560px)</option>
+          <option value="640px">Wide (640px)</option><option value="720px">Extra wide (720px)</option>
         </select>
       </div>
-      <div class="cg">
-        <label class="cl">Button corners</label>
+
+      <div class="cg"><label class="cl">Button corners</label>
         <select id="c-radius" onchange="cfg.design.buttonRadius=this.value;schedulePreview()">
-          <option value="0px">Square</option>
-          <option value="4px">Slight</option>
-          <option value="8px">Rounded</option>
-          <option value="24px">Pill</option>
+          <option value="0px">Square</option><option value="4px">Slight</option>
+          <option value="8px">Rounded</option><option value="24px">Pill</option>
         </select>
       </div>
+
+      <!-- Layout controls -->
+      <div class="cg"><label class="cl">Card padding (v h)</label>
+        <div class="cr">
+          <input type="text" id="c-card-pad-v" placeholder="48px" style="flex:1" oninput="updateCardPadding()">
+          <input type="text" id="c-card-pad-h" placeholder="40px" style="flex:1" oninput="updateCardPadding()">
+        </div>
+      </div>
+      <div class="cg"><label class="cl">Card corner radius</label>
+        <div class="cr"><input type="range" id="c-card-radius-range" min="0" max="40" step="2" oninput="cfg.design.cardRadius=this.value+'px';document.getElementById('c-card-radius-px').value=this.value;schedulePreview()"><input type="text" id="c-card-radius-px" style="width:52px;flex-shrink:0" oninput="cfg.design.cardRadius=this.value;schedulePreview()"></div>
+      </div>
+      <div class="cg"><label class="cl">Field corner radius</label>
+        <div class="cr"><input type="range" id="c-field-radius-range" min="0" max="24" step="1" oninput="cfg.design.fieldRadius=this.value+'px';document.getElementById('c-field-radius-px').value=this.value;schedulePreview()"><input type="text" id="c-field-radius-px" style="width:52px;flex-shrink:0" oninput="cfg.design.fieldRadius=this.value;schedulePreview()"></div>
+      </div>
+
     </div><!-- /design -->
 
     <!-- Fields panel -->
     <div class="s-panel" id="spanel-fields">
-      <p style="font-size:0.8rem;color:var(--ink3);line-height:1.6">Email is always required. Drag to reorder.</p>
+      <p style="font-size:0.8rem;color:var(--ink3);line-height:1.6">Email is always required. Drag to reorder. Set conditions to show/hide fields dynamically.</p>
       <div class="field-list" id="field-list"></div>
       <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>
       <div class="info-box" style="margin-top:4px">GDPR: Only collect data you need. Mark fields optional where possible.</div>
-    </div><!-- /fields -->
+    </div>
 
   </div><!-- /sidebar -->
 
@@ -786,7 +515,7 @@ pre {
 
 </div><!-- /editor -->
 
-<!-- ══ SUBSCRIBERS ══ -->
+<!-- SUBSCRIBERS -->
 <div id="tab-subscribers" class="page">
   <div class="page-body">
     <div class="page-head"><h2>Subscribers</h2><p>Manage your mailing list and export data.</p></div>
@@ -799,30 +528,22 @@ pre {
       <div class="table-bar">
         <input type="text" placeholder="Search by email…" oninput="debounceSearch(this.value)">
         <select id="sub-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadSubscribers(1)">
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="unsubscribed">Unsubscribed</option>
+          <option value="all">All statuses</option><option value="active">Active</option><option value="unsubscribed">Unsubscribed</option>
         </select>
         <div style="flex:1"></div>
         <button class="btn btn-primary btn-sm" onclick="exportData('csv')"><span class="material-icons-round mi">download</span> CSV</button>
         <button class="btn btn-outline btn-sm" onclick="exportData('json')"><span class="material-icons-round mi">download</span> JSON</button>
       </div>
-      <div class="tscroll">
-        <table><thead><tr id="sub-thead"></tr></thead><tbody id="sub-tbody"></tbody></table>
-      </div>
-      <div class="table-foot">
-        <span class="t-count" id="sub-count"></span>
-        <div class="pagination" id="sub-pagination"></div>
-      </div>
+      <div class="tscroll"><table><thead><tr id="sub-thead"></tr></thead><tbody id="sub-tbody"></tbody></table></div>
+      <div class="table-foot"><span class="t-count" id="sub-count"></span><div class="pagination" id="sub-pagination"></div></div>
     </div>
   </div>
 </div>
 
-<!-- ══ EMBED ══ -->
+<!-- EMBED -->
 <div id="tab-embed" class="page">
   <div class="page-body">
     <div class="page-head"><h2>Embed</h2><p>Drop the signup form into any website with a single line of code.</p></div>
-
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">code</span> JS snippet <span style="font-size:0.72rem;font-weight:400;color:var(--ink3);margin-left:4px">recommended</span></div>
       <p class="card-desc">Auto-resizing iframe. Fires a <code>signflow:success</code> event on the parent page on signup.</p>
@@ -837,40 +558,24 @@ pre {
         <pre id="embed-snippet"></pre>
       </div>
     </div>
-
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">web</span> Raw iframe</div>
-      <p class="card-desc">For CMS platforms that don't allow JavaScript. Height must be set manually.</p>
       <div class="code-wrap">
         <div class="code-head"><span class="code-lang">HTML</span><button class="code-copy" onclick="copyEmbedCode('embed-iframe')"><span class="material-icons-round mi">content_copy</span> Copy</button></div>
         <pre id="embed-iframe"></pre>
       </div>
     </div>
-
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">preview</span> Preview</div>
       <div class="embed-prev-wrap"><iframe id="embed-preview-frame" src="/embed"></iframe></div>
     </div>
-
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">bolt</span> Success event</div>
-      <p class="card-desc">Listen for signups on the parent page:</p>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang">JavaScript</span></div>
-        <pre>window.addEventListener('signflow:success', () => {
-  console.log('New subscriber!');
-});</pre>
-      </div>
-    </div>
-
   </div>
 </div>
 
-<!-- ══ SETTINGS ══ -->
+<!-- SETTINGS -->
 <div id="tab-settings" class="page">
   <div class="page-body narrow">
     <div class="page-head"><h2>Settings</h2><p>CAPTCHA, authentication, and deployment info.</p></div>
-
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">smart_toy</span> hCaptcha</div>
       <p class="card-desc">Privacy-friendly, GDPR-compliant. Free keys at <a href="https://www.hcaptcha.com" target="_blank" style="color:var(--accent)">hcaptcha.com</a>.</p>
@@ -885,16 +590,14 @@ pre {
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveCaptchaSettings()">Save CAPTCHA settings</button>
     </div>
-
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">shield</span> Authentication</div>
-      <p class="card-desc">Admin access is protected by Auth0. Only users with the <code>signflow-admin</code> role can log in. Manage users in your <a href="https://manage.auth0.com" target="_blank" style="color:var(--accent)">Auth0 Dashboard</a>.</p>
+      <p class="card-desc">Admin access is protected by Auth0. Only users with the <code>signflow-admin</code> role can log in.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" onclick="window.open('https://manage.auth0.com','_blank')"><span class="material-icons-round mi">manage_accounts</span> Auth0 Dashboard</button>
         <button class="btn btn-outline btn-sm" onclick="window.location='/auth/logout'"><span class="material-icons-round mi">logout</span> Sign out</button>
       </div>
     </div>
-
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">verified_user</span> GDPR compliance</div>
       <div class="gdpr-list">
@@ -906,23 +609,17 @@ pre {
         <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> Export to CSV / JSON for data portability</div>
       </div>
     </div>
-
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">terminal</span> Deployment</div>
-      <div class="info-box">
-        Data: <code>data/subscribers.json</code> · <code>data/config.json</code><br>
-        Uploads: <code>public/uploads/</code><br>
-        Logs: <code>pm2 logs signflow</code> · Deploy: <code>~/deploy.sh</code>
-      </div>
+      <div class="info-box">Data: <code>data/subscribers.json</code> · <code>data/config.json</code><br>Uploads: <code>public/uploads/</code><br>Logs: <code>pm2 logs signflow</code> · Deploy: <code>~/deploy.sh</code></div>
     </div>
-
   </div>
 </div>
 
 </div><!-- /app -->
 
-<!-- Field modal -->
-<div id="field-modal">
+<!-- Field Modal -->
+<div id="field-modal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-head">
       <h2 id="modal-title">Add field</h2>
@@ -940,18 +637,118 @@ pre {
         <option value="textarea">Long text</option>
         <option value="select">Dropdown</option>
         <option value="checkbox">Checkbox</option>
-        <option value="date">Date</option>
+        <option value="date">Date (native)</option>
+        <option value="age">Age (range-limited)</option>
+        <option value="slider">Slider</option>
+        <option value="year">Year picker</option>
+        <option value="yearmonth">Year + Month picker</option>
       </select>
     </div>
+    <!-- Dropdown options -->
     <div class="cg" id="modal-options-group" style="display:none"><label class="cl">Options (one per line)</label><textarea id="modal-options" rows="4" placeholder="Option 1&#10;Option 2"></textarea></div>
+    <!-- Placeholder -->
     <div class="cg" id="modal-placeholder-group"><label class="cl">Placeholder</label><input type="text" id="modal-placeholder"></div>
-    <div class="cg" style="display:flex;align-items:center;gap:10px">
+    <!-- Age config -->
+    <div id="modal-age-group" style="display:none">
+      <div class="cr">
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Min age</label><input type="number" id="modal-age-min" placeholder="18" min="0" max="120"></div>
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Max age</label><input type="number" id="modal-age-max" placeholder="99" min="0" max="120"></div>
+      </div>
+    </div>
+    <!-- Date config -->
+    <div id="modal-date-group" style="display:none">
+      <div class="cg"><label class="cl">Date mode</label>
+        <select id="modal-date-mode" onchange="onDateModeChange()">
+          <option value="free">Free (any date)</option>
+          <option value="range">Date range</option>
+          <option value="specific">Specific dates only</option>
+        </select>
+      </div>
+      <div id="modal-date-range-group" style="display:none">
+        <div class="cr">
+          <div style="flex:1"><label class="cl">From</label><input type="date" id="modal-date-min"></div>
+          <div style="flex:1"><label class="cl">To</label><input type="date" id="modal-date-max"></div>
+        </div>
+      </div>
+      <div id="modal-date-specific-group" style="display:none">
+        <label class="cl">Allowed dates (one per line)</label>
+        <textarea id="modal-date-specific" rows="4" placeholder="2025-12-24&#10;2025-12-25"></textarea>
+      </div>
+    </div>
+    <!-- Year config -->
+    <div id="modal-year-group" style="display:none">
+      <div class="cr">
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Min year</label><input type="number" id="modal-year-min" placeholder="1920"></div>
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Max year</label><input type="number" id="modal-year-max" placeholder="2010"></div>
+      </div>
+    </div>
+    <!-- Slider config -->
+    <div id="modal-slider-group" style="display:none">
+      <div class="cr" style="gap:6px">
+        <div style="flex:1"><label class="cl">Min</label><input type="number" id="modal-slider-min" value="0"></div>
+        <div style="flex:1"><label class="cl">Max</label><input type="number" id="modal-slider-max" value="100"></div>
+        <div style="flex:1"><label class="cl">Step</label><input type="number" id="modal-slider-step" value="1" min="0.01"></div>
+        <div style="flex:1"><label class="cl">Default</label><input type="number" id="modal-slider-default" value="50"></div>
+      </div>
+      <div class="cg" style="margin-top:8px"><label class="cl">Track style</label>
+        <select id="modal-slider-track">
+          <option value="linear">Linear (horizontal)</option>
+          <option value="angled">Angled (tilted)</option>
+          <option value="arc">Arc (semicircle)</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Slide mode</label>
+        <select id="modal-slider-mode">
+          <option value="smooth">Smooth (continuous)</option>
+          <option value="step">Stepped (snaps to step)</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Knob icon (emoji or char)</label><input type="text" id="modal-slider-icon" placeholder="● ★ 🎯" maxlength="4"></div>
+      <div class="cg" style="display:flex;align-items:center;gap:10px">
+        <label class="tgl"><input type="checkbox" id="modal-slider-showval" checked><span class="tgl-s"></span></label>
+        <label class="tgl-lbl">Show current value</label>
+      </div>
+    </div>
+    <!-- Required toggle -->
+    <div class="cg" style="display:flex;align-items:center;gap:10px;margin-top:8px">
       <label class="tgl"><input type="checkbox" id="modal-required"><span class="tgl-s"></span></label>
       <label for="modal-required" class="tgl-lbl">Required field</label>
+    </div>
+    <!-- Conditions -->
+    <div class="modal-section" id="modal-conditions-section">
+      <div class="modal-section-title">Conditional visibility</div>
+      <div id="modal-conditions-list"></div>
+      <button class="add-field-btn" onclick="addCondition()" style="margin-top:4px">
+        <span class="material-icons-round mi">add</span> Add condition
+      </button>
     </div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeFieldModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveField()">Save field</button>
+    </div>
+  </div>
+</div>
+
+<!-- Block picker modal -->
+<div id="block-modal" class="modal-overlay">
+  <div class="modal-box" style="width:360px">
+    <div class="modal-head">
+      <h2>Add block</h2>
+      <button class="modal-close" onclick="closeBlockPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div class="block-picker">
+      <button class="block-type-btn" onclick="addBlock('divider')">
+        <span class="material-icons-round mi">horizontal_rule</span>
+        <span class="block-type-label">Divider</span>
+      </button>
+      <button class="block-type-btn" onclick="addBlock('video')">
+        <span class="material-icons-round mi">play_circle</span>
+        <span class="block-type-label">Video</span>
+      </button>
+      <button class="block-type-btn" onclick="addBlock('spinwheel')">
+        <span class="material-icons-round mi">casino</span>
+        <span class="block-type-label">Spin Wheel</span>
+      </button>
     </div>
   </div>
 </div>
@@ -961,8 +758,17 @@ pre {
 <script>
 let cfg=null,previewTimer=null,editingFieldId=null,subPage=1,subSearch='',searchTimer=null,currentTab='editor';
 
-const HEADING_FONTS=['Playfair Display','Merriweather','Lora','Cormorant Garamond','Libre Baskerville','Raleway','Montserrat','Oswald','Bebas Neue','DM Serif Display'];
-const BODY_FONTS=['Lato','Open Sans','Nunito','Source Sans 3','Roboto','PT Sans','Mulish','Karla','Fira Sans','IBM Plex Sans'];
+const HEADING_FONTS=['Playfair Display','Merriweather','Lora','Cormorant Garamond','Libre Baskerville','Raleway','Montserrat','Oswald','Bebas Neue','DM Serif Display','Noto Serif','Noto Display'];
+const BODY_FONTS=['Lato','Open Sans','Nunito','Source Sans 3','Roboto','PT Sans','Mulish','Karla','Fira Sans','IBM Plex Sans','Noto Sans','Jost'];
+
+const PALETTES=[
+  {name:'Classic',colors:{primary:'#1a1a2e',accent:'#e94560',bg:'#f8f5f0',text:'#1a1a2e'}},
+  {name:'Ocean',colors:{primary:'#0d3b66',accent:'#ee964b',bg:'#f5f0e8',text:'#0d3b66'}},
+  {name:'Forest',colors:{primary:'#1b4332',accent:'#52b788',bg:'#f0f4f0',text:'#1b4332'}},
+  {name:'Noir',colors:{primary:'#111111',accent:'#ffffff',bg:'#111111',text:'#ffffff'}},
+  {name:'Rose',colors:{primary:'#6d2b3d',accent:'#e8a598',bg:'#fdf4f5',text:'#3d1c26'}},
+  {name:'Sky',colors:{primary:'#0077b6',accent:'#00b4d8',bg:'#f0f8ff',text:'#023e8a'}},
+];
 
 // ── Auth ──
 async function checkSession(){
@@ -970,25 +776,24 @@ async function checkSession(){
   try{
     const j=await fetch('/auth/me').then(r=>r.json());
     if(j.authenticated){
-      const badge=document.getElementById('user-badge'),av=document.getElementById('user-avatar'),nm=document.getElementById('user-name');
-      if(badge) badge.style.display='flex';
-      if(av&&j.picture) av.src=j.picture;
-      if(nm&&j.name) nm.textContent=j.name.split(' ')[0];
+      const badge=document.getElementById('user-badge');
+      if(badge)badge.style.display='flex';
+      const av=document.getElementById('user-avatar');if(av&&j.picture)av.src=j.picture;
+      const nm=document.getElementById('user-name');if(nm&&j.name)nm.textContent=j.name.split(' ')[0];
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').style.display='flex';
-      await loadConfig(); buildFontPickers();
-    } else {
-      msg.textContent='Sign in to access the admin panel.';
-      btn.style.display='flex';
-    }
-  } catch(e){ msg.textContent='Could not reach server. Please refresh.'; }
+      await loadConfig();buildFontPickers();buildPalettes();
+    }else{msg.textContent='Sign in to access the admin panel.';btn.style.display='flex';}
+  }catch(e){msg.textContent='Could not reach server. Please refresh.';}
 }
 
 // ── Config ──
 async function loadConfig(){
   const r=await fetch('/api/admin/config');
   if(r.status===401){window.location='/auth/login';return;}
-  cfg=await r.json(); populateControls(); refreshPreview();
+  cfg=await r.json();
+  if(!cfg.design.customFonts)cfg.design.customFonts=[];
+  populateControls();refreshPreview();
 }
 
 function populateControls(){
@@ -1004,12 +809,21 @@ function populateControls(){
   document.getElementById('overlay-val').textContent=cfg.design.backgroundOverlay;
   sc('primary',cfg.design.primaryColor);sc('accent',cfg.design.accentColor);sc('bg',cfg.design.backgroundColor);sc('text',cfg.design.textColor);
   sv('c-width',cfg.design.containerWidth);sv('c-radius',cfg.design.buttonRadius);
-  const ce=document.getElementById('captcha-enabled');if(ce) ce.checked=!!cfg.site.captchaEnabled;
+  // Layout
+  const pad=cfg.design.cardPadding||'48px 40px';const padParts=pad.split(' ');
+  sv('c-card-pad-v',padParts[0]||'48px');sv('c-card-pad-h',padParts[1]||'40px');
+  const cr=parseInt(cfg.design.cardRadius)||12;
+  document.getElementById('c-card-radius-range').value=cr;document.getElementById('c-card-radius-px').value=cfg.design.cardRadius||'12px';
+  const fr=parseInt(cfg.design.fieldRadius)||6;
+  document.getElementById('c-field-radius-range').value=fr;document.getElementById('c-field-radius-px').value=cfg.design.fieldRadius||'6px';
+  // Captcha
+  const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
   sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
-  toggleCaptchaFields(); renderFieldList();
+  toggleCaptchaFields();
+  renderFieldList();renderDynamicBlocks();renderCustomFontList();
 }
 
-function sv(id,val){const e=document.getElementById(id);if(e) e.value=val||'';}
+function sv(id,val){const e=document.getElementById(id);if(e)e.value=val||'';}
 function sc(n,val){const e=document.getElementById('c-'+n);if(e)e.value=val;const h=document.getElementById('c-'+n+'-hex');if(h)h.value=val;}
 function syncColor(n,val){if(/^#[0-9a-fA-F]{6}$/.test(val)){const e=document.getElementById('c-'+n);if(e)e.value=val;const m={primary:'primaryColor',accent:'accentColor',bg:'backgroundColor',text:'textColor'};cfg.design[m[n]]=val;schedulePreview();}}
 function syncHex(n,val){const e=document.getElementById('c-'+n+'-hex');if(e)e.value=val;}
@@ -1017,6 +831,13 @@ function updateSection(id,key,val){const s=cfg.sections.find(s=>s.id===id);if(s)
 function toggleSection(e,id){e.stopPropagation();const s=cfg.sections.find(s=>s.id===id);if(s){s.visible=!s.visible;updateVis('toggle-'+id,s.visible);schedulePreview();}}
 function updateVis(id,v){const e=document.getElementById(id);if(e){e.textContent=v?'visibility':'visibility_off';e.classList.toggle('on',v);}}
 function toggleCard(id){document.getElementById(id).classList.toggle('open');}
+function updateCardPadding(){
+  const v=document.getElementById('c-card-pad-v').value||'48px';
+  const h=document.getElementById('c-card-pad-h').value||'40px';
+  cfg.design.cardPadding=v+' '+h;schedulePreview();
+}
+function updateSectionColor(id,key,val){const s=cfg.sections.find(s=>s.id===id);if(s){if(!s.colors)s.colors={};s.colors[key]=val;schedulePreview();}}
+function updateSectionColorHex(id,key,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||val===''){updateSectionColor(id,key,val);}}
 
 // ── Save ──
 async function saveConfig(){
@@ -1027,11 +848,7 @@ async function saveConfig(){
     else{setSaveInd('');toast('Save failed','error');}
   }catch(e){toast('Network error','error');}
 }
-function setSaveInd(s){
-  const e=document.getElementById('save-ind');
-  e.className='save-ind '+(s||'');
-  e.textContent=s==='saving'?'Saving…':s==='saved'?'Saved':'Unsaved changes';
-}
+function setSaveInd(s){const e=document.getElementById('save-ind');e.className='save-ind '+(s||'');e.textContent=s==='saving'?'Saving…':s==='saved'?'Saved':'Unsaved changes';}
 
 // ── Preview ──
 function schedulePreview(){setSaveInd('');clearTimeout(previewTimer);previewTimer=setTimeout(refreshPreview,600);}
@@ -1066,10 +883,40 @@ function clearLogo(){cfg.design.logoUrl='';document.getElementById('preview-logo
 function clearBg(){cfg.design.backgroundImage='';document.getElementById('preview-bg').style.display='none';schedulePreview();}
 function clearHeroImage(){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl='';document.getElementById('preview-hero-img').style.display='none';schedulePreview();}
 
+async function handleFontUpload(input){
+  const file=input.files[0];if(!file)return;
+  const name=document.getElementById('custom-font-name').value.trim();
+  if(!name){toast('Enter a font name first','error');return;}
+  const fd=new FormData();fd.append('font',file);
+  try{
+    const j=await fetch('/api/admin/upload-font',{method:'POST',body:fd}).then(r=>r.json());
+    if(j.url){
+      if(!cfg.design.customFonts)cfg.design.customFonts=[];
+      cfg.design.customFonts.push({name,url:j.url});
+      document.getElementById('custom-font-name').value='';
+      input.value='';
+      renderCustomFontList();buildFontPickers();schedulePreview();toast('Font uploaded: '+name,'success');
+    }
+  }catch(e){toast('Upload failed','error');}
+}
+function removeCustomFont(name){
+  cfg.design.customFonts=cfg.design.customFonts.filter(f=>f.name!==name);
+  renderCustomFontList();buildFontPickers();schedulePreview();
+}
+function renderCustomFontList(){
+  const list=document.getElementById('custom-font-list');list.innerHTML='';
+  (cfg.design.customFonts||[]).forEach(f=>{
+    const item=document.createElement('div');item.className='custom-font-item';
+    item.innerHTML=`<span class="custom-font-name" style="font-family:'${f.name}'">${f.name}</span><button class="ibtn danger" onclick="removeCustomFont('${f.name}')"><span class="material-icons-round mi">delete</span></button>`;
+    list.appendChild(item);
+  });
+}
+
 // ── Fonts ──
 function buildFontPickers(){
-  buildPicker('heading-font-picker',HEADING_FONTS,cfg.design.googleFont,f=>{cfg.design.googleFont=f;schedulePreview();});
-  buildPicker('body-font-picker',BODY_FONTS,cfg.design.bodyFont,f=>{cfg.design.bodyFont=f;schedulePreview();});
+  const customFonts=(cfg.design.customFonts||[]).map(f=>f.name);
+  buildPicker('heading-font-picker',[...HEADING_FONTS,...customFonts],cfg.design.googleFont,f=>{cfg.design.googleFont=f;schedulePreview();});
+  buildPicker('body-font-picker',[...BODY_FONTS,...customFonts],cfg.design.bodyFont,f=>{cfg.design.bodyFont=f;schedulePreview();});
 }
 function buildPicker(cid,fonts,current,onChange){
   const c=document.getElementById(cid);c.innerHTML='';
@@ -1081,16 +928,169 @@ function buildPicker(cid,fonts,current,onChange){
   });
 }
 
+// ── Palettes ──
+function buildPalettes(){
+  const grid=document.getElementById('palette-grid');grid.innerHTML='';
+  PALETTES.forEach(p=>{
+    const sw=document.createElement('div');sw.className='palette-swatch';
+    sw.title=p.name;
+    sw.style.background=`linear-gradient(135deg, ${p.colors.primary} 0%, ${p.colors.primary} 50%, ${p.colors.accent} 50%)`;
+    sw.onclick=()=>{
+      cfg.design.primaryColor=p.colors.primary;cfg.design.accentColor=p.colors.accent;
+      cfg.design.backgroundColor=p.colors.bg;cfg.design.textColor=p.colors.text;
+      sc('primary',p.colors.primary);sc('accent',p.colors.accent);sc('bg',p.colors.bg);sc('text',p.colors.text);
+      schedulePreview();toast('Palette applied: '+p.name,'success');
+    };
+    grid.appendChild(sw);
+  });
+}
+
+// ── Dynamic blocks ──
+const DYNAMIC_TYPES=['divider','video','spinwheel'];
+
+function renderDynamicBlocks(){
+  const container=document.getElementById('dynamic-blocks');container.innerHTML='';
+  cfg.sections.filter(s=>DYNAMIC_TYPES.includes(s.type)).forEach(block=>{
+    container.appendChild(createBlockCard(block));
+  });
+}
+
+function createBlockCard(block){
+  const card=document.createElement('div');
+  card.className='sc open';card.id='sc-block-'+block.id;
+  const typeLabel={divider:'Divider',video:'Video',spinwheel:'Spin Wheel'}[block.type]||block.type;
+  const icon={divider:'horizontal_rule',video:'play_circle',spinwheel:'casino'}[block.type]||'widgets';
+
+  card.innerHTML=`
+    <div class="sc-head" onclick="toggleCard('sc-block-${block.id}')">
+      <span class="material-icons-round dh">drag_indicator</span>
+      <span class="material-icons-round" style="font-size:16px;color:var(--ink3)">${icon}</span>
+      <span class="sc-title">${typeLabel}</span>
+      <span class="sc-badge">${block.type}</span>
+      <span class="material-icons-round sc-vis ${block.visible?'on':''}" onclick="toggleBlockVis(event,'${block.id}')">${block.visible?'visibility':'visibility_off'}</span>
+      <span class="material-icons-round sc-del" onclick="deleteBlock(event,'${block.id}')">delete</span>
+      <span class="material-icons-round chevron">expand_more</span>
+    </div>
+    <div class="sc-body">${renderBlockEditor(block)}</div>`;
+  return card;
+}
+
+function renderBlockEditor(block){
+  if(block.type==='divider'){
+    return `
+      <div class="cg"><label class="cl">Style</label>
+        <select onchange="updateBlockProp('${block.id}','style',this.value)">
+          <option value="line" ${block.style==='line'?'selected':''}>Line</option>
+          <option value="dots" ${block.style==='dots'?'selected':''}>Dots</option>
+          <option value="wave" ${block.style==='wave'?'selected':''}>Wave</option>
+          <option value="space" ${block.style==='space'?'selected':''}>Space only</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Color</label>
+        <div class="cr"><input type="color" value="${block.color||'#e0e0e0'}" oninput="updateBlockProp('${block.id}','color',this.value)">
+        <input type="text" value="${block.color||'#e0e0e0'}" oninput="updateBlockProp('${block.id}','color',this.value)"></div>
+      </div>
+      <div class="cr">
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Thickness (px)</label><input type="number" value="${block.thickness||1}" min="1" max="8" oninput="updateBlockProp('${block.id}','thickness',+this.value)"></div>
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Spacing (px)</label><input type="number" value="${block.spacing||20}" min="0" max="80" oninput="updateBlockProp('${block.id}','spacing',+this.value)"></div>
+      </div>`;
+  }
+  if(block.type==='video'){
+    return `
+      <div class="cg"><label class="cl">Video URL</label>
+        <input type="text" value="${block.url||''}" placeholder="YouTube, Vimeo, or direct .mp4" oninput="updateBlockProp('${block.id}','url',this.value)">
+      </div>
+      <div class="cg"><label class="cl">Aspect ratio</label>
+        <select onchange="updateBlockProp('${block.id}','aspectRatio',this.value)">
+          <option value="16:9" ${block.aspectRatio==='16:9'?'selected':''}>16:9 (widescreen)</option>
+          <option value="4:3" ${block.aspectRatio==='4:3'?'selected':''}>4:3 (classic)</option>
+          <option value="1:1" ${block.aspectRatio==='1:1'?'selected':''}>1:1 (square)</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Caption (optional)</label>
+        <input type="text" value="${block.caption||''}" oninput="updateBlockProp('${block.id}','caption',this.value)">
+      </div>`;
+  }
+  if(block.type==='spinwheel'){
+    const rewards=block.rewards||[];
+    const rewardRows=rewards.map((r,i)=>`
+      <div class="reward-row">
+        <input type="color" value="${r.color||'#e94560'}" oninput="updateReward('${block.id}',${i},'color',this.value)">
+        <input type="text" value="${r.label||''}" placeholder="Prize label" oninput="updateReward('${block.id}',${i},'label',this.value)">
+        <input type="number" value="${r.probability||1}" min="0.1" max="10" step="0.1" title="Weight" oninput="updateReward('${block.id}',${i},'probability',+this.value)" style="width:60px">
+        <button class="ibtn danger" onclick="removeReward('${block.id}',${i})"><span class="material-icons-round mi">delete</span></button>
+      </div>`).join('');
+    return `
+      <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:8px">Up to 8 rewards. Weight controls probability (higher = more likely).</p>
+      <div id="rewards-list-${block.id}">${rewardRows}</div>
+      ${rewards.length<8?`<button class="add-field-btn" onclick="addReward('${block.id}')"><span class="material-icons-round mi">add</span> Add reward</button>`:''}
+      <div class="cg" style="margin-top:8px"><label class="cl">Spin button text</label>
+        <input type="text" value="${block.spinButtonText||'Spin!'}" oninput="updateBlockProp('${block.id}','spinButtonText',this.value)">
+      </div>`;
+  }
+  return '';
+}
+
+function updateBlockProp(id,key,val){
+  const block=cfg.sections.find(s=>s.id===id);if(block){block[key]=val;schedulePreview();}
+}
+function toggleBlockVis(e,id){
+  e.stopPropagation();
+  const block=cfg.sections.find(s=>s.id===id);if(!block)return;
+  block.visible=!block.visible;
+  const el=e.target;el.textContent=block.visible?'visibility':'visibility_off';
+  el.classList.toggle('on',block.visible);
+  schedulePreview();
+}
+function deleteBlock(e,id){
+  e.stopPropagation();
+  if(!confirm('Remove this block?'))return;
+  cfg.sections=cfg.sections.filter(s=>s.id!==id);
+  renderDynamicBlocks();schedulePreview();
+}
+function updateReward(blockId,idx,key,val){
+  const block=cfg.sections.find(s=>s.id===blockId);
+  if(block&&block.rewards&&block.rewards[idx]){block.rewards[idx][key]=val;schedulePreview();}
+}
+function addReward(blockId){
+  const block=cfg.sections.find(s=>s.id===blockId);
+  if(!block)return;if(!block.rewards)block.rewards=[];
+  if(block.rewards.length>=8){toast('Maximum 8 rewards','error');return;}
+  const defaultColors=['#e94560','#e67e22','#27ae60','#2980b9','#8e44ad','#f39c12','#16a085','#c0392b'];
+  block.rewards.push({label:'Prize '+(block.rewards.length+1),color:defaultColors[block.rewards.length%8],probability:1});
+  renderDynamicBlocks();schedulePreview();
+}
+function removeReward(blockId,idx){
+  const block=cfg.sections.find(s=>s.id===blockId);
+  if(block&&block.rewards){block.rewards.splice(idx,1);renderDynamicBlocks();schedulePreview();}
+}
+
+function openBlockPicker(){document.getElementById('block-modal').classList.add('open');}
+function closeBlockPicker(){document.getElementById('block-modal').classList.remove('open');}
+function addBlock(type){
+  closeBlockPicker();
+  const id=type+'-'+Date.now();
+  const defaults={
+    divider:{id,type:'divider',visible:true,style:'line',color:'#e0e0e0',thickness:1,spacing:20,colors:{}},
+    video:{id,type:'video',visible:true,url:'',aspectRatio:'16:9',caption:'',colors:{}},
+    spinwheel:{id,type:'spinwheel',visible:true,rewards:[{label:'Prize 1',color:'#e94560',probability:1}],spinButtonText:'Spin!',colors:{}},
+  };
+  cfg.sections.push(defaults[type]);
+  renderDynamicBlocks();schedulePreview();
+  toast(type+' block added','success');
+}
+
 // ── Fields ──
 function renderFieldList(){
   const list=document.getElementById('field-list');list.innerHTML='';
   cfg.fields.forEach(f=>{
+    const condCount=(f.conditions||[]).length;
     const item=document.createElement('div');item.className='fi';item.draggable=!f.system;item.dataset.id=f.id;
     item.innerHTML=`
       <span class="material-icons-round dh" style="${f.system?'visibility:hidden':''}">drag_indicator</span>
       <div class="fi-info">
         <div class="fi-label">${f.label}</div>
-        <div class="fi-meta">${f.type} · ${f.required?'Required':'Optional'}${f.system?' · System':''}</div>
+        <div class="fi-meta">${f.type} · ${f.required?'Required':'Optional'}${f.system?' · System':''}${condCount?' · '+condCount+' condition'+(condCount>1?'s':''):''}</div>
       </div>
       <div class="fi-acts">
         <button class="ibtn" onclick="openFieldModal('${f.id}')" title="Edit"><span class="material-icons-round mi">edit</span></button>
@@ -1111,6 +1111,7 @@ function dropField(dragId,targetId){
   if(di===-1||ti===-1)return;const[item]=cfg.fields.splice(di,1);cfg.fields.splice(ti,0,item);
   renderFieldList();schedulePreview();
 }
+
 function openFieldModal(fieldId){
   editingFieldId=fieldId||null;
   document.getElementById('modal-title').textContent=fieldId?'Edit field':'Add field';
@@ -1120,19 +1121,48 @@ function openFieldModal(fieldId){
     sv('modal-placeholder',f.placeholder||'');sv('modal-options',(f.options||[]).join('\n'));
     document.getElementById('modal-required').checked=f.required;
     document.getElementById('modal-id').disabled=f.system;document.getElementById('modal-type').disabled=f.system;
-  } else {
-    ['modal-label','modal-id','modal-placeholder','modal-options'].forEach(id=>sv(id,''));
-    sv('modal-type','text');document.getElementById('modal-required').checked=false;
+    // Age
+    if(f.type==='age'){sv('modal-age-min',f.minAge||'');sv('modal-age-max',f.maxAge||'');}
+    // Date
+    if(f.type==='date'){sv('modal-date-mode',f.dateMode||'free');sv('modal-date-min',f.minDate||'');sv('modal-date-max',f.maxDate||'');sv('modal-date-specific',(f.allowedDates||[]).join('\n'));}
+    // Year/YearMonth
+    if(f.type==='year'||f.type==='yearmonth'){sv('modal-year-min',f.minYear||'');sv('modal-year-max',f.maxYear||'');}
+    // Slider
+    if(f.type==='slider'){
+      sv('modal-slider-min',f.min??0);sv('modal-slider-max',f.max??100);sv('modal-slider-step',f.step??1);sv('modal-slider-default',f.defaultValue??50);
+      sv('modal-slider-track',f.trackStyle||'linear');sv('modal-slider-mode',f.slideMode||'smooth');sv('modal-slider-icon',f.knobIcon||'●');
+      document.getElementById('modal-slider-showval').checked=f.showValue!==false;
+    }
+    renderConditions(f.conditions||[]);
+  }else{
+    ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon'].forEach(id=>sv(id,''));
+    sv('modal-type','text');sv('modal-date-mode','free');sv('modal-slider-min','0');sv('modal-slider-max','100');sv('modal-slider-step','1');sv('modal-slider-default','50');sv('modal-slider-track','linear');sv('modal-slider-mode','smooth');sv('modal-slider-icon','●');
+    document.getElementById('modal-required').checked=false;
     document.getElementById('modal-id').disabled=false;document.getElementById('modal-type').disabled=false;
+    document.getElementById('modal-slider-showval').checked=true;
+    renderConditions([]);
   }
-  onModalTypeChange();document.getElementById('field-modal').classList.add('open');
+  onModalTypeChange();
+  document.getElementById('field-modal').classList.add('open');
 }
 function closeFieldModal(){document.getElementById('field-modal').classList.remove('open');}
+
 function onModalTypeChange(){
   const t=document.getElementById('modal-type').value;
   document.getElementById('modal-options-group').style.display=t==='select'?'block':'none';
-  document.getElementById('modal-placeholder-group').style.display=t==='checkbox'?'none':'block';
+  document.getElementById('modal-placeholder-group').style.display=['checkbox','age','slider','year','yearmonth'].includes(t)?'none':'block';
+  document.getElementById('modal-age-group').style.display=t==='age'?'block':'none';
+  document.getElementById('modal-date-group').style.display=t==='date'?'block':'none';
+  document.getElementById('modal-year-group').style.display=['year','yearmonth'].includes(t)?'block':'none';
+  document.getElementById('modal-slider-group').style.display=t==='slider'?'block':'none';
+  if(t==='date')onDateModeChange();
 }
+function onDateModeChange(){
+  const m=document.getElementById('modal-date-mode').value;
+  document.getElementById('modal-date-range-group').style.display=m==='range'?'block':'none';
+  document.getElementById('modal-date-specific-group').style.display=m==='specific'?'block':'none';
+}
+
 function saveField(){
   const label=document.getElementById('modal-label').value.trim();
   const id=document.getElementById('modal-id').value.trim().replace(/\s+/g,'');
@@ -1144,8 +1174,29 @@ function saveField(){
   if(!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(id)){toast('ID must start with a letter, no spaces','error');return;}
   const existing=cfg.fields.find(f=>f.id===id);
   if(existing&&existing.id!==editingFieldId){toast('Field ID already exists','error');return;}
+
   const field={id,label,type,required,placeholder,system:false};
   if(type==='select')field.options=options;
+  if(type==='age'){field.minAge=parseInt(document.getElementById('modal-age-min').value)||0;field.maxAge=parseInt(document.getElementById('modal-age-max').value)||120;}
+  if(type==='date'){
+    field.dateMode=document.getElementById('modal-date-mode').value;
+    field.minDate=document.getElementById('modal-date-min').value||'';
+    field.maxDate=document.getElementById('modal-date-max').value||'';
+    field.allowedDates=document.getElementById('modal-date-specific').value.split('\n').map(d=>d.trim()).filter(Boolean);
+  }
+  if(type==='year'||type==='yearmonth'){field.minYear=parseInt(document.getElementById('modal-year-min').value)||1920;field.maxYear=parseInt(document.getElementById('modal-year-max').value)||new Date().getFullYear();}
+  if(type==='slider'){
+    field.min=parseFloat(document.getElementById('modal-slider-min').value)||0;
+    field.max=parseFloat(document.getElementById('modal-slider-max').value)||100;
+    field.step=parseFloat(document.getElementById('modal-slider-step').value)||1;
+    field.defaultValue=parseFloat(document.getElementById('modal-slider-default').value)||0;
+    field.trackStyle=document.getElementById('modal-slider-track').value;
+    field.slideMode=document.getElementById('modal-slider-mode').value;
+    field.knobIcon=document.getElementById('modal-slider-icon').value||'●';
+    field.showValue=document.getElementById('modal-slider-showval').checked;
+  }
+  field.conditions=collectConditions();
+
   if(editingFieldId){const idx=cfg.fields.findIndex(f=>f.id===editingFieldId);cfg.fields[idx]={...cfg.fields[idx],...field};}
   else cfg.fields.push(field);
   renderFieldList();schedulePreview();closeFieldModal();
@@ -1154,6 +1205,45 @@ function deleteField(id){
   if(!confirm('Delete this field?'))return;
   cfg.fields=cfg.fields.filter(f=>f.id!==id);renderFieldList();schedulePreview();
 }
+
+// ── Conditions ──
+let _conditions=[];
+function renderConditions(conds){
+  _conditions=[...conds];
+  const list=document.getElementById('modal-conditions-list');list.innerHTML='';
+  _conditions.forEach((c,i)=>list.appendChild(createConditionRow(c,i)));
+}
+function createConditionRow(c,i){
+  const row=document.createElement('div');row.className='cond-row';
+  const fieldOpts=cfg.fields.filter(f=>f.id!==editingFieldId).map(f=>`<option value="${f.id}" ${c.fieldId===f.id?'selected':''}>${f.label}</option>`).join('');
+  row.innerHTML=`
+    <span style="font-size:0.75rem;color:var(--ink3);white-space:nowrap">When</span>
+    <select onchange="_conditions[${i}].fieldId=this.value"><option value="">—field—</option>${fieldOpts}</select>
+    <select onchange="_conditions[${i}].operator=this.value">
+      <option value="eq" ${c.operator==='eq'?'selected':''}>equals</option>
+      <option value="neq" ${c.operator==='neq'?'selected':''}>≠</option>
+      <option value="contains" ${c.operator==='contains'?'selected':''}>contains</option>
+      <option value="gt" ${c.operator==='gt'?'selected':''}>></option>
+      <option value="lt" ${c.operator==='lt'?'selected':''}>< </option>
+      <option value="empty" ${c.operator==='empty'?'selected':''}>is empty</option>
+      <option value="notempty" ${c.operator==='notempty'?'selected':''}>not empty</option>
+    </select>
+    <input type="text" value="${c.value||''}" placeholder="value" oninput="_conditions[${i}].value=this.value">
+    <select onchange="_conditions[${i}].action=this.value">
+      <option value="show" ${c.action==='show'||!c.action?'selected':''}>→ show</option>
+      <option value="hide" ${c.action==='hide'?'selected':''}>→ hide</option>
+    </select>
+    <button class="ibtn danger" onclick="removeCondition(${i})"><span class="material-icons-round mi">close</span></button>`;
+  return row;
+}
+function addCondition(){
+  _conditions.push({fieldId:'',operator:'eq',value:'',action:'show'});
+  renderConditions(_conditions);
+}
+function removeCondition(i){
+  _conditions.splice(i,1);renderConditions(_conditions);
+}
+function collectConditions(){return _conditions.filter(c=>c.fieldId);}
 
 // ── Tabs ──
 function switchTab(tab,btn){
@@ -1181,7 +1271,6 @@ async function loadSubscribers(page){
   document.getElementById('stat-total').textContent=all.total;
   document.getElementById('stat-active').textContent=all.subscribers.filter(s=>s.status==='active').length;
   document.getElementById('stat-unsub').textContent=all.subscribers.filter(s=>s.status==='unsubscribed').length;
-
   const thead=document.getElementById('sub-thead');thead.innerHTML='';
   ['Email','Status','Subscribed',...cfg.fields.filter(f=>!f.system).map(f=>f.label),''].forEach(h=>{
     const th=document.createElement('th');th.textContent=h;thead.appendChild(th);
@@ -1193,12 +1282,9 @@ async function loadSubscribers(page){
     tr.innerHTML=`<td class="email-cell">${s.email}</td><td><span class="badge ${s.status}">${s.status}</span></td><td class="date-cell">${new Date(s.subscribedAt).toLocaleDateString()}</td>${fields}<td><button class="btn btn-danger btn-sm" onclick="deleteSubscriber('${s.id}','${s.email}')">Delete</button></td>`;
     tbody.appendChild(tr);
   });
-  const cnt=document.getElementById('sub-count');
-  if(cnt)cnt.textContent=`${j.total} subscriber${j.total!==1?'s':''}`;
+  const cnt=document.getElementById('sub-count');if(cnt)cnt.textContent=`${j.total} subscriber${j.total!==1?'s':''}`;
   const pg=document.getElementById('sub-pagination');pg.innerHTML='';
-  for(let i=1;i<=j.pages;i++){
-    const btn=document.createElement('button');btn.className='page-btn'+(i===j.page?' active':'');btn.textContent=i;btn.onclick=()=>loadSubscribers(i);pg.appendChild(btn);
-  }
+  for(let i=1;i<=j.pages;i++){const btn=document.createElement('button');btn.className='page-btn'+(i===j.page?' active':'');btn.textContent=i;btn.onclick=()=>loadSubscribers(i);pg.appendChild(btn);}
 }
 function debounceSearch(val){clearTimeout(searchTimer);subSearch=val;searchTimer=setTimeout(()=>loadSubscribers(1),300);}
 async function deleteSubscriber(id,email){
@@ -1218,7 +1304,7 @@ function updateEmbedCode(){
   const sn=document.getElementById('embed-snippet'),ifr=document.getElementById('embed-iframe');
   if(!sn||!ifr)return;
   sn.textContent=`<!-- SignFlow Embed -->\n<div data-signflow\n     data-width="${width}"\n     data-radius="${radius}"\n     data-shadow="${shadow}"\n     data-min-height="${minH}">\n</div>\n<script src="${origin}/embed.js"><\/script>`;
-  ifr.textContent=`<iframe\n  src="${origin}/embed"\n  width="${width}"\n  height="${minH}"\n  style="border:none; border-radius:${radius}; ${shadow==='true'?'box-shadow:0 4px 30px rgba(0,0,0,.12);':''} display:block; width:${width};"\n  scrolling="no"\n  title="Newsletter Signup">\n</iframe>`;
+  ifr.textContent=`<iframe\n  src="${origin}/embed"\n  width="${width}"\n  height="${minH}"\n  style="border:none; border-radius:${radius}; ${shadow==='true'?'box-shadow:0 4px 30px rgba(0,0,0,.12);':''} display:block;"\n  scrolling="no"\n  title="Newsletter Signup">\n</iframe>`;
 }
 function refreshEmbedPreview(){const f=document.getElementById('embed-preview-frame');if(f){f.src='';f.src='/embed';}}
 async function copyEmbedCode(elId){
@@ -1249,6 +1335,7 @@ function toast(msg,type=''){
 // ── Init ──
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveConfig();}});
 document.getElementById('field-modal').addEventListener('click',e=>{if(e.target===document.getElementById('field-modal'))closeFieldModal();});
+document.getElementById('block-modal').addEventListener('click',e=>{if(e.target===document.getElementById('block-modal'))closeBlockPicker();});
 checkSession();
 </script>
 </body>
