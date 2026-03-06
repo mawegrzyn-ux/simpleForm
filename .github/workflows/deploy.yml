@@ -1,0 +1,25 @@
+name: Deploy to Lightsail
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 13.37.62.63
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/signflow
+            git pull origin main
+            npm install --omit=dev
+            pm2 restart signflow
+            pm2 save
+            echo "✔ Deployed at $(date)"
