@@ -1,0 +1,57 @@
+{
+  "site": {
+    "title": "Stay in the Loop",
+    "favicon": "",
+    "adminPassword": "changeme123",
+    "cookieBannerText": "We use cookies to manage your subscription preferences and ensure GDPR compliance.",
+    "privacyPolicyUrl": "/privacy",
+    "unsubscribeEnabled": true,
+    "captchaEnabled": false,
+    "hcaptchaSiteKey": "",
+    "hcaptchaSecretKey": ""
+  },
+  "design": {
+    "googleFont": "Playfair Display",
+    "bodyFont": "Lato",
+    "primaryColor": "#1a1a2e",
+    "accentColor": "#e94560",
+    "backgroundColor": "#f8f5f0",
+    "textColor": "#1a1a2e",
+    "buttonText": "Subscribe Now",
+    "buttonRadius": "4px",
+    "containerWidth": "600px",
+    "backgroundImage": "",
+    "backgroundOverlay": 0.4,
+    "logoUrl": "",
+    "logoWidth": "180px"
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "type": "hero",
+      "visible": true,
+      "heading": "Don't Miss a Thing",
+      "subheading": "Join thousands of readers getting the best content delivered straight to their inbox.",
+      "imageUrl": "",
+      "imagePosition": "above"
+    },
+    {
+      "id": "form",
+      "type": "form",
+      "visible": true,
+      "submitSuccessMessage": "🎉 You're in! Check your inbox for a confirmation.",
+      "submitErrorMessage": "Something went wrong. Please try again."
+    },
+    {
+      "id": "footer",
+      "type": "footer",
+      "visible": true,
+      "text": "© 2025 · You can unsubscribe at any time · No spam, ever."
+    }
+  ],
+  "fields": [
+    { "id": "email", "label": "Email Address", "type": "email", "required": true, "placeholder": "you@example.com", "system": true },
+    { "id": "firstName", "label": "First Name", "type": "text", "required": true, "placeholder": "Your first name", "system": false },
+    { "id": "lastName", "label": "Last Name", "type": "text", "required": false, "placeholder": "Your last name", "system": false }
+  ]
+}

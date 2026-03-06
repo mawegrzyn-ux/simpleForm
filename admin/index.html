@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SignFlow Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+/* ─── Reset & Base ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #0f0f10;
+  --ink2: #444;
+  --border: #e2e2e8;
+  --bg: #f5f5f7;
+  --panel: #fff;
+  --accent: #5b4cf5;
+  --accent-h: #4538e0;
+  --danger: #e53e3e;
+  --success: #38a169;
+  --warn: #d69e2e;
+  --sidebar-w: 340px;
+  --topbar-h: 56px;
+  --font: 'Inter', sans-serif;
+  --radius: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,.09);
+}
+body { font-family: var(--font); background: var(--bg); color: var(--ink); font-size: 14px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+/* ─── Login Screen ─── */
+#login-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.login-box { background: #fff; border-radius: 16px; padding: 48px 40px; width: 360px; box-shadow: 0 30px 80px rgba(0,0,0,.4); text-align: center; }
+.login-box h1 { font-size: 1.6rem; color: var(--ink); margin-bottom: 6px; }
+.login-box p { color: var(--ink2); margin-bottom: 28px; font-size: 0.9rem; }
+.login-box input { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: var(--radius); font-size: 1rem; margin-bottom: 12px; font-family: var(--font); }
+.login-box input:focus { outline: none; border-color: var(--accent); }
+.login-box button { width: 100%; padding: 13px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 1rem; font-weight: 600; cursor: pointer; font-family: var(--font); }
+.login-box button:hover { background: var(--accent-h); }
+.login-err { color: var(--danger); font-size: 0.85rem; margin-top: 10px; display: none; }
+
+/* ─── Topbar ─── */
+#topbar { height: var(--topbar-h); background: var(--ink); color: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; flex-shrink: 0; z-index: 100; }
+#topbar .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+#topbar .logo span { font-size: 1.3rem; }
+.topbar-tabs { display: flex; gap: 4px; margin-left: 24px; }
+.topbar-tab { padding: 6px 16px; border-radius: 6px; color: rgba(255,255,255,.6); cursor: pointer; font-size: 0.88rem; font-weight: 500; transition: all .15s; border: none; background: none; font-family: var(--font); }
+.topbar-tab:hover { color: #fff; background: rgba(255,255,255,.1); }
+.topbar-tab.active { color: #fff; background: var(--accent); }
+.topbar-spacer { flex: 1; }
+.topbar-btn { padding: 8px 18px; border-radius: 6px; font-size: 0.88rem; font-weight: 600; cursor: pointer; font-family: var(--font); border: none; display: flex; align-items: center; gap: 6px; }
+.btn-save { background: var(--accent); color: #fff; }
+.btn-save:hover { background: var(--accent-h); }
+.btn-preview { background: rgba(255,255,255,.12); color: #fff; }
+.btn-preview:hover { background: rgba(255,255,255,.2); }
+.save-indicator { font-size: 0.82rem; color: rgba(255,255,255,.5); }
+.save-indicator.saved { color: #68d391; }
+.save-indicator.saving { color: #fbd38d; }
+
+/* ─── Main Layout ─── */
+#app { display: none; flex: 1; overflow: hidden; }
+#editor-layout { display: flex; height: 100%; }
+
+/* ─── Sidebar ─── */
+#sidebar { width: var(--sidebar-w); background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+.sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); }
+.stab { flex: 1; padding: 10px 4px; text-align: center; font-size: 0.78rem; font-weight: 600; color: var(--ink2); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; letter-spacing: 0.02em; text-transform: uppercase; }
+.stab:hover { color: var(--ink); }
+.stab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--panel); }
+.sidebar-panel { display: none; flex: 1; overflow-y: auto; padding: 20px; flex-direction: column; gap: 16px; }
+.sidebar-panel.active { display: flex; }
+
+/* ─── Sidebar Controls ─── */
+.section-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.section-card-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; user-select: none; }
+.section-card-header .drag-handle { color: #bbb; cursor: grab; font-size: 18px; }
+.section-card-header .drag-handle:active { cursor: grabbing; }
+.section-card-title { font-weight: 600; font-size: 0.88rem; flex: 1; }
+.section-card-toggle { font-size: 18px; color: #bbb; cursor: pointer; }
+.section-card-toggle.on { color: var(--accent); }
+.section-card-body { padding: 0 14px 14px; display: none; }
+.section-card.open .section-card-body { display: block; }
+.section-card-header .chevron { font-size: 18px; color: #bbb; transition: transform .2s; }
+.section-card.open .chevron { transform: rotate(180deg); }
+
+.ctrl-group { margin-bottom: 14px; }
+.ctrl-label { font-size: 0.76rem; font-weight: 600; color: var(--ink2); margin-bottom: 6px; display: block; letter-spacing: 0.04em; text-transform: uppercase; }
+.ctrl-row { display: flex; gap: 8px; align-items: center; }
+input[type=text], input[type=url], input[type=number], input[type=password], select, textarea {
+  width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 6px;
+  font-size: 0.88rem; font-family: var(--font); color: var(--ink); background: #fff;
+  transition: border-color .15s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+textarea { resize: vertical; min-height: 60px; }
+input[type=color] { width: 36px; height: 32px; padding: 2px; border: 1.5px solid var(--border); border-radius: 6px; cursor: pointer; background: #fff; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.range-val { font-size: 0.82rem; color: var(--ink2); white-space: nowrap; min-width: 32px; text-align: right; }
+
+/* Field builder */
+.field-list { display: flex; flex-direction: column; gap: 8px; }
+.field-item { background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+.field-item .drag-handle { color: #ccc; cursor: grab; font-size: 18px; }
+.field-item-info { flex: 1; }
+.field-item-label { font-weight: 600; font-size: 0.85rem; }
+.field-item-meta { font-size: 0.75rem; color: var(--ink2); }
+.field-actions { display: flex; gap: 4px; }
+.icon-btn { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; color: var(--ink2); display: flex; align-items: center; }
+.icon-btn:hover { background: var(--bg); color: var(--ink); }
+.icon-btn.danger:hover { background: #fff5f5; color: var(--danger); }
+.add-field-btn { background: none; border: 2px dashed var(--border); border-radius: var(--radius); padding: 10px; width: 100%; color: var(--ink2); cursor: pointer; font-size: 0.88rem; font-family: var(--font); font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; transition: all .15s; }
+.add-field-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(91,76,245,.04); }
+
+/* Font picker */
+.font-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.font-chip { padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 20px; font-size: 0.82rem; cursor: pointer; transition: all .15s; white-space: nowrap; }
+.font-chip:hover { border-color: var(--accent); }
+.font-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Upload btn */
+.upload-btn { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--ink2); background: var(--bg); transition: all .15s; width: 100%; justify-content: center; font-family: var(--font); }
+.upload-btn:hover { border-color: var(--accent); color: var(--accent); }
+.img-preview { width: 100%; border-radius: 6px; margin-top: 8px; max-height: 100px; object-fit: cover; display: none; }
+
+/* Subscribers tab */
+#sub-search { margin-bottom: 12px; }
+.sub-stats { display: flex; gap: 8px; margin-bottom: 16px; }
+.stat-card { flex: 1; background: var(--bg); border-radius: var(--radius); padding: 12px; text-align: center; }
+.stat-num { font-size: 1.4rem; font-weight: 700; color: var(--ink); }
+.stat-lbl { font-size: 0.75rem; color: var(--ink2); }
+.export-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.btn-sm { padding: 7px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: var(--font); border: none; display: flex; align-items: center; gap: 5px; }
+.btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--ink2); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-accent { background: var(--accent); color: #fff; }
+.btn-accent:hover { background: var(--accent-h); }
+.btn-danger { background: var(--danger); color: #fff; }
+.sub-table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th { background: var(--bg); color: var(--ink2); font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.75rem; position: sticky; top: 0; }
+td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+.badge { display: inline-flex; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+.badge.active { background: #c6f6d5; color: #276749; }
+.badge.unsubscribed { background: #fed7d7; color: #9b2c2c; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+.page-btn { padding: 5px 10px; border: 1.5px solid var(--border); border-radius: 5px; background: #fff; cursor: pointer; font-size: 0.82rem; font-family: var(--font); }
+.page-btn:hover { border-color: var(--accent); }
+.page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Settings */
+.settings-section { background: var(--bg); border-radius: var(--radius); padding: 16px; }
+.settings-section h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 12px; color: var(--ink); }
+
+/* ─── Preview Area ─── */
+#preview-wrap { flex: 1; overflow: auto; background: #d1d5db; display: flex; flex-direction: column; align-items: center; }
+.preview-toolbar { background: var(--ink); padding: 8px 16px; display: flex; align-items: center; gap: 8px; width: 100%; flex-shrink: 0; }
+.preview-size-btn { background: none; border: 1.5px solid rgba(255,255,255,.3); border-radius: 5px; color: rgba(255,255,255,.7); padding: 4px 12px; cursor: pointer; font-size: 0.78rem; font-family: var(--font); display: flex; align-items: center; gap: 4px; }
+.preview-size-btn.active { border-color: var(--accent); color: #fff; background: var(--accent); }
+.preview-label { color: rgba(255,255,255,.4); font-size: 0.78rem; margin-left: auto; }
+#preview-frame-wrap { padding: 24px; display: flex; justify-content: center; align-items: flex-start; width: 100%; }
+#preview-frame { border: none; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,.25); background: #fff; transition: width .3s ease; }
+
+/* ─── Field Modal ─── */
+#field-modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 500; display: none; align-items: center; justify-content: center; }
+#field-modal.open { display: flex; }
+.modal-box { background: #fff; border-radius: 12px; padding: 32px; width: 440px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.modal-box h2 { margin-bottom: 20px; font-size: 1.1rem; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+
+/* ─── Toast ─── */
+#toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a1a; color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 0.88rem; opacity: 0; transform: translateY(10px); transition: all .3s; pointer-events: none; z-index: 9999; }
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.success { background: var(--success); }
+#toast.error { background: var(--danger); }
+
+/* ─── Drag over highlight ─── */
+.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.dragging { opacity: .4; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Auth Screen (shown while checking session) -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>✦ SignFlow</h1>
+    <p id="auth-status-msg">Checking session…</p>
+    <button id="auth-login-btn" onclick="window.location='/auth/login'" style="display:none">
+      Sign in with Auth0
+    </button>
+    <p class="login-err" id="login-err"></p>
+  </div>
+</div>
+
+<!-- Topbar -->
+<div id="topbar">
+  <div class="logo"><span>✦</span> SignFlow</div>
+  <div class="topbar-tabs">
+    <button class="topbar-tab active" onclick="switchTab('editor')">Editor</button>
+    <button class="topbar-tab" onclick="switchTab('subscribers')">Subscribers</button>
+    <button class="topbar-tab" onclick="switchTab('embed')">Embed</button>
+    <button class="topbar-tab" onclick="switchTab('settings')">Settings</button>
+  </div>
+  <div class="topbar-spacer"></div>
+  <span class="save-indicator" id="save-indicator">All changes saved</span>
+  <button class="topbar-btn btn-preview" onclick="window.open('/','_blank')"><span class="material-icons" style="font-size:16px">open_in_new</span> View Site</button>
+  <button class="topbar-btn btn-save" onclick="saveConfig()"><span class="material-icons" style="font-size:16px">save</span> Save</button>
+  <div id="user-badge" style="display:flex;align-items:center;gap:8px;margin-left:4px;display:none">
+    <img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.3)" alt="">
+    <button class="topbar-btn" style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);padding:6px 12px;font-size:0.8rem" onclick="window.location='/auth/logout'">Sign out</button>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app">
+
+<!-- EDITOR TAB -->
+<div id="tab-editor" style="display:flex;height:100%;overflow:hidden;">
+  <div id="editor-layout" style="display:flex;width:100%;overflow:hidden;">
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="sidebar-tabs">
+        <div class="stab active" onclick="switchSidebar('content')">Content</div>
+        <div class="stab" onclick="switchSidebar('design')">Design</div>
+        <div class="stab" onclick="switchSidebar('fields')">Fields</div>
+      </div>
+
+      <!-- CONTENT PANEL -->
+      <div class="sidebar-panel active" id="spanel-content">
+        <!-- Hero Section -->
+        <div class="section-card open" id="sc-hero" draggable="true">
+          <div class="section-card-header" onclick="toggleCard('sc-hero')">
+            <span class="material-icons drag-handle">drag_indicator</span>
+            <span class="section-card-title">Hero Section</span>
+            <span class="material-icons section-card-toggle" id="toggle-hero" onclick="toggleSection(event,'hero')" title="Toggle visibility">visibility</span>
+            <span class="material-icons chevron">expand_more</span>
+          </div>
+          <div class="section-card-body">
+            <div class="ctrl-group">
+              <label class="ctrl-label">Heading</label>
+              <input type="text" id="c-heading" oninput="updateSection('hero','heading',this.value)">
+            </div>
+            <div class="ctrl-group">
+              <label class="ctrl-label">Subheading</label>
+              <textarea id="c-subheading" rows="2" oninput="updateSection('hero','subheading',this.value)"></textarea>
+            </div>
+            <div class="ctrl-group">
+              <label class="ctrl-label">Hero Image</label>
+              <button class="upload-btn" onclick="triggerUpload('hero-img')"><span class="material-icons" style="font-size:16px">upload</span> Upload Image</button>
+              <input type="file" id="upload-hero-img" accept="image/*" style="display:none" onchange="handleImageUpload(this,'hero-img')">
+              <img id="preview-hero-img" class="img-preview">
+              <div style="margin-top:8px">
+                <label class="ctrl-label">Position</label>
+                <select id="c-imgpos" onchange="updateSection('hero','imagePosition',this.value)">
+                  <option value="above">Above heading</option>
+                  <option value="below">Below heading</option>
+                </select>
+              </div>
+              <div style="margin-top:8px">
+                <button class="upload-btn" style="color:#e53e3e" onclick="clearHeroImage()"><span class="material-icons" style="font-size:14px">delete</span> Remove Image</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form Section -->
+        <div class="section-card open" id="sc-form">
+          <div class="section-card-header" onclick="toggleCard('sc-form')">
+            <span class="material-icons drag-handle">drag_indicator</span>
+            <span class="section-card-title">Signup Form</span>
+            <span class="material-icons section-card-toggle" id="toggle-form" onclick="toggleSection(event,'form')" title="Toggle visibility">visibility</span>
+            <span class="material-icons chevron">expand_more</span>
+          </div>
+          <div class="section-card-body">
+            <div class="ctrl-group">
+              <label class="ctrl-label">Button Label</label>
+              <input type="text" id="c-btntext" oninput="cfg.design.buttonText=this.value;schedulePreview()">
+            </div>
+            <div class="ctrl-group">
+              <label class="ctrl-label">Success Message</label>
+              <textarea id="c-success" rows="2" oninput="updateSection('form','submitSuccessMessage',this.value)"></textarea>
+            </div>
+            <div class="ctrl-group">
+              <label class="ctrl-label">Error Message</label>
+              <input type="text" id="c-error" oninput="updateSection('form','submitErrorMessage',this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Section -->
+        <div class="section-card open" id="sc-footer">
+          <div class="section-card-header" onclick="toggleCard('sc-footer')">
+            <span class="material-icons drag-handle">drag_indicator</span>
+            <span class="section-card-title">Footer</span>
+            <span class="material-icons section-card-toggle" id="toggle-footer" onclick="toggleSection(event,'footer')" title="Toggle visibility">visibility</span>
+            <span class="material-icons chevron">expand_more</span>
+          </div>
+          <div class="section-card-body">
+            <div class="ctrl-group">
+              <label class="ctrl-label">Footer Text</label>
+              <textarea id="c-footer" rows="2" oninput="updateSection('footer','text',this.value)"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logo -->
+        <div class="section-card" id="sc-logo">
+          <div class="section-card-header" onclick="toggleCard('sc-logo')">
+            <span class="material-icons drag-handle" style="visibility:hidden">drag_indicator</span>
+            <span class="section-card-title">Logo</span>
+            <span class="material-icons chevron">expand_more</span>
+          </div>
+          <div class="section-card-body">
+            <div class="ctrl-group">
+              <button class="upload-btn" onclick="triggerUpload('logo')"><span class="material-icons" style="font-size:16px">upload</span> Upload Logo</button>
+              <input type="file" id="upload-logo" accept="image/*" style="display:none" onchange="handleImageUpload(this,'logo')">
+              <img id="preview-logo" class="img-preview">
+            </div>
+            <div class="ctrl-group">
+              <label class="ctrl-label">Logo Width</label>
+              <input type="text" id="c-logowidth" placeholder="180px" oninput="cfg.design.logoWidth=this.value;schedulePreview()">
+            </div>
+            <div class="ctrl-group">
+              <button class="upload-btn" style="color:#e53e3e" onclick="clearLogo()"><span class="material-icons" style="font-size:14px">delete</span> Remove Logo</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cookie & Legal -->
+        <div class="section-card" id="sc-legal">
+          <div class="section-card-header" onclick="toggleCard('sc-legal')">
+            <span class="material-icons" style="visibility:hidden;font-size:18px">drag_indicator</span>
+            <span class="section-card-title">Cookie & Legal</span>
+            <span class="material-icons chevron">expand_more</span>
+          </div>
+          <div class="section-card-body">
+            <div class="ctrl-group">
+              <label class="ctrl-label">Cookie Banner Text</label>
+              <textarea id="c-cookie" rows="2" oninput="cfg.site.cookieBannerText=this.value;schedulePreview()"></textarea>
+            </div>
+            <div class="ctrl-group">
+              <label class="ctrl-label">Privacy Policy URL</label>
+              <input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()">
+            </div>
+            <div class="ctrl-group">
+              <label class="ctrl-label">Site Title (browser tab)</label>
+              <input type="text" id="c-sitetitle" oninput="cfg.site.title=this.value;schedulePreview()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Background -->
+        <div class="section-card" id="sc-bg">
+          <div class="section-card-header" onclick="toggleCard('sc-bg')">
+            <span class="material-icons" style="visibility:hidden;font-size:18px">drag_indicator</span>
+            <span class="section-card-title">Background</span>
+            <span class="material-icons chevron">expand_more</span>
+          </div>
+          <div class="section-card-body">
+            <div class="ctrl-group">
+              <button class="upload-btn" onclick="triggerUpload('bg')"><span class="material-icons" style="font-size:16px">upload</span> Upload Background Image</button>
+              <input type="file" id="upload-bg" accept="image/*" style="display:none" onchange="handleImageUpload(this,'bg')">
+              <img id="preview-bg" class="img-preview">
+            </div>
+            <div class="ctrl-group">
+              <label class="ctrl-label">Overlay Opacity <span id="overlay-val">0.4</span></label>
+              <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
+            </div>
+            <div class="ctrl-group">
+              <button class="upload-btn" style="color:#e53e3e" onclick="clearBg()"><span class="material-icons" style="font-size:14px">delete</span> Remove Background</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DESIGN PANEL -->
+      <div class="sidebar-panel" id="spanel-design">
+        <!-- Heading Font -->
+        <div class="ctrl-group">
+          <label class="ctrl-label">Heading Font</label>
+          <div class="font-picker" id="heading-font-picker"></div>
+        </div>
+        <!-- Body Font -->
+        <div class="ctrl-group">
+          <label class="ctrl-label">Body Font</label>
+          <div class="font-picker" id="body-font-picker"></div>
+        </div>
+        <!-- Colors -->
+        <div class="ctrl-group">
+          <label class="ctrl-label">Colors</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:0.75rem;color:var(--ink2);margin-bottom:4px">Primary</div>
+              <div class="ctrl-row"><input type="color" id="c-primary" oninput="cfg.design.primaryColor=this.value;schedulePreview()"><input type="text" id="c-primary-hex" style="flex:1" oninput="syncColor('primary',this.value)"></div>
+            </div>
+            <div>
+              <div style="font-size:0.75rem;color:var(--ink2);margin-bottom:4px">Accent</div>
+              <div class="ctrl-row"><input type="color" id="c-accent" oninput="cfg.design.accentColor=this.value;syncHex('accent',this.value);schedulePreview()"><input type="text" id="c-accent-hex" style="flex:1" oninput="syncColor('accent',this.value)"></div>
+            </div>
+            <div>
+              <div style="font-size:0.75rem;color:var(--ink2);margin-bottom:4px">Background</div>
+              <div class="ctrl-row"><input type="color" id="c-bg" oninput="cfg.design.backgroundColor=this.value;syncHex('bg',this.value);schedulePreview()"><input type="text" id="c-bg-hex" style="flex:1" oninput="syncColor('bg',this.value)"></div>
+            </div>
+            <div>
+              <div style="font-size:0.75rem;color:var(--ink2);margin-bottom:4px">Text</div>
+              <div class="ctrl-row"><input type="color" id="c-text" oninput="cfg.design.textColor=this.value;syncHex('text',this.value);schedulePreview()"><input type="text" id="c-text-hex" style="flex:1" oninput="syncColor('text',this.value)"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Layout -->
+        <div class="ctrl-group">
+          <label class="ctrl-label">Container Width</label>
+          <select id="c-width" onchange="cfg.design.containerWidth=this.value;schedulePreview()">
+            <option value="480px">Narrow (480px)</option>
+            <option value="560px">Medium (560px)</option>
+            <option value="640px">Wide (640px)</option>
+            <option value="720px">Extra Wide (720px)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Button Corner Radius</label>
+          <select id="c-radius" onchange="cfg.design.buttonRadius=this.value;schedulePreview()">
+            <option value="0px">Square (0px)</option>
+            <option value="4px">Slight (4px)</option>
+            <option value="8px">Rounded (8px)</option>
+            <option value="24px">Pill (24px)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- FIELDS PANEL -->
+      <div class="sidebar-panel" id="spanel-fields">
+        <p style="font-size:0.82rem;color:var(--ink2);line-height:1.5">Define what information you collect. Email is always required. Drag to reorder.</p>
+        <div class="field-list" id="field-list"></div>
+        <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons" style="font-size:16px">add</span> Add Field</button>
+        <div style="background:var(--bg);border-radius:var(--radius);padding:12px;font-size:0.8rem;color:var(--ink2);line-height:1.5">
+          <strong>GDPR note:</strong> Only collect data you need. Mark fields as optional where possible.
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div id="preview-wrap">
+      <div class="preview-toolbar">
+        <button class="preview-size-btn active" onclick="setPreviewSize('desktop',this)"><span class="material-icons" style="font-size:14px">desktop_mac</span> Desktop</button>
+        <button class="preview-size-btn" onclick="setPreviewSize('tablet',this)"><span class="material-icons" style="font-size:14px">tablet_mac</span> Tablet</button>
+        <button class="preview-size-btn" onclick="setPreviewSize('mobile',this)"><span class="material-icons" style="font-size:14px">smartphone</span> Mobile</button>
+        <span class="preview-label">Live Preview</span>
+      </div>
+      <div id="preview-frame-wrap">
+        <iframe id="preview-frame" src="/" style="width:100%;height:680px"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SUBSCRIBERS TAB -->
+<div id="tab-subscribers" style="display:none;flex:1;overflow:auto;padding:24px;">
+  <div style="max-width:960px;margin:0 auto;">
+    <h2 style="margin-bottom:16px">Subscribers</h2>
+    <div class="sub-stats" id="sub-stats">
+      <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-lbl">Total</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-active">—</div><div class="stat-lbl">Active</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-unsub">—</div><div class="stat-lbl">Unsubscribed</div></div>
+    </div>
+    <div class="export-row">
+      <button class="btn-sm btn-accent" onclick="exportData('csv')"><span class="material-icons" style="font-size:14px">download</span> Export CSV</button>
+      <button class="btn-sm btn-outline" onclick="exportData('json')"><span class="material-icons" style="font-size:14px">download</span> Export JSON</button>
+      <select id="sub-status-filter" class="btn-sm btn-outline" style="cursor:pointer" onchange="loadSubscribers(1)">
+        <option value="all">All Statuses</option>
+        <option value="active">Active Only</option>
+        <option value="unsubscribed">Unsubscribed Only</option>
+      </select>
+    </div>
+    <div id="sub-search">
+      <input type="text" placeholder="Search by email…" oninput="debounceSearch(this.value)" style="max-width:300px">
+    </div>
+    <div class="sub-table-wrap">
+      <table>
+        <thead><tr id="sub-thead"></tr></thead>
+        <tbody id="sub-tbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="sub-pagination"></div>
+  </div>
+</div>
+
+<!-- EMBED TAB -->
+<div id="tab-embed" style="display:none;flex:1;overflow:auto;padding:24px;">
+  <div style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+    <h2>Embed on Another Website</h2>
+    <p style="color:var(--ink2);font-size:0.9rem;line-height:1.6">Drop the signup form into any website using a single script tag. The iframe auto-resizes to fit its content and posts a message event on successful signup.</p>
+
+    <!-- Method 1: JS Snippet -->
+    <div class="settings-section">
+      <h3>Method 1 — JS Snippet <span style="background:#c6f6d5;color:#276749;font-size:0.72rem;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px">Recommended</span></h3>
+      <p style="font-size:0.82rem;color:var(--ink2);line-height:1.6;margin-bottom:16px">Add a placeholder div where you want the form, then include the script once. Auto-resizes, handles all styling.</p>
+
+      <label class="ctrl-label" style="margin-bottom:8px">Customise embed options</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div>
+          <div style="font-size:0.75rem;color:var(--ink2);margin-bottom:4px">Width</div>
+          <select id="embed-width" onchange="updateEmbedCode()">
+            <option value="100%">Full width (100%)</option>
+            <option value="600px">Fixed 600px</option>
+            <option value="500px">Fixed 500px</option>
+            <option value="400px">Fixed 400px</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:var(--ink2);margin-bottom:4px">Corner Radius</div>
+          <select id="embed-radius" onchange="updateEmbedCode()">
+            <option value="12px">Rounded (12px)</option>
+            <option value="0px">Square (0px)</option>
+            <option value="24px">Pill (24px)</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:var(--ink2);margin-bottom:4px">Drop Shadow</div>
+          <select id="embed-shadow" onchange="updateEmbedCode()">
+            <option value="true">Enabled</option>
+            <option value="false">Disabled</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:var(--ink2);margin-bottom:4px">Min Height (px)</div>
+          <input type="number" id="embed-minheight" value="420" min="200" max="1200" oninput="updateEmbedCode()">
+        </div>
+      </div>
+
+      <label class="ctrl-label" style="margin-bottom:6px">Copy this code</label>
+      <div style="position:relative">
+        <pre id="embed-snippet" style="background:#1a1a2e;color:#a8dadc;padding:16px;border-radius:8px;font-size:0.8rem;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace"></pre>
+        <button onclick="copyEmbedCode('embed-snippet')" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:0.78rem;font-family:var(--font)">Copy</button>
+      </div>
+    </div>
+
+    <!-- Method 2: Raw iframe -->
+    <div class="settings-section">
+      <h3>Method 2 — Raw iFrame</h3>
+      <p style="font-size:0.82rem;color:var(--ink2);line-height:1.6;margin-bottom:16px">Paste directly into any HTML editor. You may need to adjust the height manually if content changes.</p>
+      <div style="position:relative">
+        <pre id="embed-iframe" style="background:#1a1a2e;color:#a8dadc;padding:16px;border-radius:8px;font-size:0.8rem;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace"></pre>
+        <button onclick="copyEmbedCode('embed-iframe')" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:0.78rem;font-family:var(--font)">Copy</button>
+      </div>
+    </div>
+
+    <!-- Success event hook -->
+    <div class="settings-section">
+      <h3>Success Event Hook (optional)</h3>
+      <p style="font-size:0.82rem;color:var(--ink2);line-height:1.6;margin-bottom:12px">The embed fires a custom event on the parent page when a form is submitted successfully — useful for analytics, redirects, or showing a custom thank-you.</p>
+      <pre style="background:#1a1a2e;color:#a8dadc;padding:16px;border-radius:8px;font-size:0.8rem;line-height:1.6;font-family:monospace">window.addEventListener('signflow:success', function() {
+  // e.g. gtag('event', 'signup'); or redirect
+  console.log('Form submitted successfully!');
+});</pre>
+    </div>
+
+    <!-- Preview -->
+    <div class="settings-section">
+      <h3>Embed Preview</h3>
+      <p style="font-size:0.82rem;color:var(--ink2);margin-bottom:12px">This is how the form looks when embedded (transparent background, no card chrome).</p>
+      <div style="background:#f0f0f0;padding:20px;border-radius:8px">
+        <iframe id="embed-preview-frame" src="/embed" style="width:100%;height:500px;border:none;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.12);background:#fff;display:block"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div id="tab-settings" style="display:none;flex:1;overflow:auto;padding:24px;">
+  <div style="max-width:540px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+    <h2>Settings</h2>
+    <div class="settings-section">
+      <h3>🤖 CAPTCHA (hCaptcha)</h3>
+      <p style="font-size:0.82rem;color:var(--ink2);line-height:1.6;margin-bottom:12px">
+        hCaptcha is privacy-friendly and GDPR-compliant (no Google). Get free keys at 
+        <a href="https://www.hcaptcha.com" target="_blank" style="color:var(--accent)">hcaptcha.com</a>.
+      </p>
+      <div class="ctrl-group" style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <input type="checkbox" id="captcha-enabled" style="width:auto;accent-color:var(--accent)" onchange="cfg.site.captchaEnabled=this.checked;toggleCaptchaFields()">
+        <label for="captcha-enabled" style="font-size:0.9rem;font-weight:500;cursor:pointer">Enable CAPTCHA on signup form</label>
+      </div>
+      <div id="captcha-fields" style="display:none">
+        <div class="ctrl-group">
+          <label class="ctrl-label">Site Key (public)</label>
+          <input type="text" id="hcaptcha-site-key" placeholder="10000000-ffff-ffff-ffff-000000000001" oninput="cfg.site.hcaptchaSiteKey=this.value">
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Secret Key (private — keep safe!)</label>
+          <input type="password" id="hcaptcha-secret-key" placeholder="0x0000000000000000000000000000000000000000" oninput="cfg.site.hcaptchaSecretKey=this.value">
+        </div>
+        <p style="font-size:0.78rem;color:var(--warn);line-height:1.5">⚠️ The secret key is stored in config.json on your server. Never share it or commit it to a public repo.</p>
+      </div>
+      <button class="btn-sm btn-accent" style="margin-top:10px" onclick="saveCaptchaSettings()">Save CAPTCHA Settings</button>
+    </div>
+    <div class="settings-section">
+      <h3>🔐 Authentication (Auth0)</h3>
+      <p style="font-size:0.85rem;color:var(--ink2);line-height:1.6">
+        Admin access is protected by Auth0. Only users with the <code>signflow-admin</code> role in your Auth0 tenant can log in.<br><br>
+        To manage users and roles, go to your <a href="https://manage.auth0.com" target="_blank" style="color:var(--accent)">Auth0 Dashboard</a> → User Management → Roles.
+      </p>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn-sm btn-outline" onclick="window.open('https://manage.auth0.com','_blank')">
+          <span class="material-icons" style="font-size:14px">manage_accounts</span> Auth0 Dashboard
+        </button>
+        <button class="btn-sm btn-outline" onclick="window.location='/auth/logout'">
+          <span class="material-icons" style="font-size:14px">logout</span> Sign Out
+        </button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>GDPR Compliance</h3>
+      <p style="font-size:0.85rem;color:var(--ink2);line-height:1.6">
+        ✅ Consent recorded with timestamp and IP on every subscription<br>
+        ✅ Unsubscribe links generated per subscriber<br>
+        ✅ Data deletion endpoint available (/delete-data)<br>
+        ✅ Cookie consent banner on public page<br>
+        ✅ Privacy policy page at /privacy<br>
+        ✅ Admin can delete individual records<br>
+        ✅ Export to CSV/JSON for data portability
+      </p>
+    </div>
+    <div class="settings-section">
+      <h3>Deployment Info</h3>
+      <p style="font-size:0.85rem;color:var(--ink2);line-height:1.6">
+        Data is stored in <code>data/subscribers.json</code> and <code>data/config.json</code>.<br>
+        Uploaded images are in <code>public/uploads/</code>.<br>
+        Run <code>npm start</code> on your Lightsail instance. Use PM2 for persistence:<br>
+        <code>npm install -g pm2 && pm2 start server.js --name signflow && pm2 save</code>
+      </p>
+    </div>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<!-- Field Modal -->
+<div id="field-modal">
+  <div class="modal-box">
+    <h2 id="modal-title">Add Field</h2>
+    <input type="hidden" id="modal-field-id-orig">
+    <div class="ctrl-group">
+      <label class="ctrl-label">Field Label</label>
+      <input type="text" id="modal-label" placeholder="e.g. Company Name">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Field ID (no spaces)</label>
+      <input type="text" id="modal-id" placeholder="e.g. companyName">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Field Type</label>
+      <select id="modal-type" onchange="onModalTypeChange()">
+        <option value="text">Text</option>
+        <option value="email">Email</option>
+        <option value="number">Number</option>
+        <option value="tel">Phone</option>
+        <option value="textarea">Long Text</option>
+        <option value="select">Dropdown</option>
+        <option value="checkbox">Checkbox</option>
+        <option value="date">Date</option>
+      </select>
+    </div>
+    <div class="ctrl-group" id="modal-options-group" style="display:none">
+      <label class="ctrl-label">Options (one per line)</label>
+      <textarea id="modal-options" rows="4" placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
+    </div>
+    <div class="ctrl-group" id="modal-placeholder-group">
+      <label class="ctrl-label">Placeholder</label>
+      <input type="text" id="modal-placeholder">
+    </div>
+    <div class="ctrl-group" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="modal-required" style="width:auto">
+      <label for="modal-required" style="font-size:0.88rem;font-weight:500">Required field</label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-outline" onclick="closeFieldModal()">Cancel</button>
+      <button class="btn-sm btn-accent" onclick="saveField()">Save Field</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let cfg = null;
+let previewTimer = null;
+let editingFieldId = null;
+let subPage = 1;
+let subSearch = '';
+let searchTimer = null;
+let currentTab = 'editor';
+
+const HEADING_FONTS = ['Playfair Display','Merriweather','Lora','Cormorant Garamond','Libre Baskerville','Raleway','Montserrat','Oswald','Bebas Neue','DM Serif Display'];
+const BODY_FONTS = ['Lato','Open Sans','Nunito','Source Sans 3','Roboto','PT Sans','Mulish','Karla','Fira Sans','IBM Plex Sans'];
+
+// ════════════════════════════════════════════
+// AUTH — Auth0 session-based
+// ════════════════════════════════════════════
+async function checkSession() {
+  const statusMsg  = document.getElementById('auth-status-msg');
+  const loginBtn   = document.getElementById('auth-login-btn');
+  try {
+    const r = await fetch('/auth/me');
+    const j = await r.json();
+    if (j.authenticated) {
+      // Show user badge
+      const badge  = document.getElementById('user-badge');
+      const avatar = document.getElementById('user-avatar');
+      if (badge)  { badge.style.display = 'flex'; }
+      if (avatar && j.picture) avatar.src = j.picture;
+
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      await loadConfig();
+      buildFontPickers();
+    } else {
+      statusMsg.textContent = 'You need to sign in to access the admin panel.';
+      loginBtn.style.display = 'block';
+    }
+  } catch(e) {
+    statusMsg.textContent = 'Could not reach server. Please refresh.';
+  }
+}
+
+// ════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════
+async function loadConfig() {
+  const r = await fetch('/api/admin/config');
+  if (r.status === 401) { window.location = '/auth/login'; return; }
+  cfg = await r.json();
+  populateControls();
+  refreshPreview();
+}
+
+function populateControls() {
+  // Content
+  const hero = cfg.sections.find(s=>s.id==='hero');
+  const form = cfg.sections.find(s=>s.id==='form');
+  const footer = cfg.sections.find(s=>s.id==='footer');
+
+  if(hero) {
+    setVal('c-heading', hero.heading);
+    setVal('c-subheading', hero.subheading);
+    setVal('c-imgpos', hero.imagePosition);
+    if(hero.imageUrl) { const el=document.getElementById('preview-hero-img'); el.src=hero.imageUrl; el.style.display='block'; }
+    updateToggleIcon('toggle-hero', hero.visible);
+  }
+  if(form) {
+    setVal('c-btntext', cfg.design.buttonText);
+    setVal('c-success', form.submitSuccessMessage);
+    setVal('c-error', form.submitErrorMessage);
+    updateToggleIcon('toggle-form', form.visible);
+  }
+  if(footer) {
+    setVal('c-footer', footer.text);
+    updateToggleIcon('toggle-footer', footer.visible);
+  }
+
+  // Logo
+  setVal('c-logowidth', cfg.design.logoWidth);
+  if(cfg.design.logoUrl) { const el=document.getElementById('preview-logo'); el.src=cfg.design.logoUrl; el.style.display='block'; }
+
+  // Cookie
+  setVal('c-cookie', cfg.site.cookieBannerText);
+  setVal('c-privacy', cfg.site.privacyPolicyUrl);
+  setVal('c-sitetitle', cfg.site.title);
+
+  // Background
+  if(cfg.design.backgroundImage) { const el=document.getElementById('preview-bg'); el.src=cfg.design.backgroundImage; el.style.display='block'; }
+  const overlayEl = document.getElementById('c-overlay');
+  overlayEl.value = cfg.design.backgroundOverlay;
+  document.getElementById('overlay-val').textContent = cfg.design.backgroundOverlay;
+
+  // Design
+  setColor('primary', cfg.design.primaryColor);
+  setColor('accent', cfg.design.accentColor);
+  setColor('bg', cfg.design.backgroundColor);
+  setColor('text', cfg.design.textColor);
+  setVal('c-width', cfg.design.containerWidth);
+  setVal('c-radius', cfg.design.buttonRadius);
+
+  // Captcha
+  const captchaEnabledEl = document.getElementById('captcha-enabled');
+  if (captchaEnabledEl) captchaEnabledEl.checked = !!cfg.site.captchaEnabled;
+  setVal('hcaptcha-site-key', cfg.site.hcaptchaSiteKey || '');
+  setVal('hcaptcha-secret-key', cfg.site.hcaptchaSecretKey || '');
+  toggleCaptchaFields();
+
+  // Fields
+  renderFieldList();
+}
+
+function setVal(id, val) {
+  const el = document.getElementById(id);
+  if(el) el.value = val || '';
+}
+function setColor(name, val) {
+  const el = document.getElementById('c-'+name);
+  if(el) el.value = val;
+  const hex = document.getElementById('c-'+name+'-hex');
+  if(hex) hex.value = val;
+}
+function syncColor(name, val) {
+  if(/^#[0-9a-fA-F]{6}$/.test(val)) {
+    const el = document.getElementById('c-'+name);
+    if(el) el.value = val;
+    const map = {primary:'primaryColor',accent:'accentColor',bg:'backgroundColor',text:'textColor'};
+    cfg.design[map[name]] = val;
+    schedulePreview();
+  }
+}
+function syncHex(name, val) {
+  const el = document.getElementById('c-'+name+'-hex');
+  if(el) el.value = val;
+}
+
+function updateSection(id, key, val) {
+  const s = cfg.sections.find(s=>s.id===id);
+  if(s) s[key] = val;
+  schedulePreview();
+}
+
+function toggleSection(e, id) {
+  e.stopPropagation();
+  const s = cfg.sections.find(s=>s.id===id);
+  if(s) { s.visible = !s.visible; updateToggleIcon('toggle-'+id, s.visible); schedulePreview(); }
+}
+function updateToggleIcon(id, visible) {
+  const el = document.getElementById(id);
+  if(el) { el.textContent = visible ? 'visibility' : 'visibility_off'; el.style.color = visible ? '' : '#ccc'; }
+}
+
+function toggleCard(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// ════════════════════════════════════════════
+// SAVE
+// ════════════════════════════════════════════
+async function saveConfig() {
+  setSaveStatus('saving');
+  try {
+    const r = await fetch('/api/admin/config', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+    if(r.ok) { setSaveStatus('saved'); refreshPreview(); toast('Changes saved!','success'); }
+    else { setSaveStatus(''); toast('Save failed','error'); }
+  } catch(e) { toast('Network error','error'); }
+}
+
+function setSaveStatus(state) {
+  const el = document.getElementById('save-indicator');
+  el.className = 'save-indicator ' + state;
+  el.textContent = state==='saving' ? 'Saving…' : state==='saved' ? 'All changes saved' : 'Unsaved changes';
+}
+
+// ════════════════════════════════════════════
+// PREVIEW
+// ════════════════════════════════════════════
+function schedulePreview() {
+  setSaveStatus('');
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(refreshPreview, 600);
+}
+
+async function refreshPreview() {
+  // Save silently then reload iframe
+  await fetch('/api/admin/config', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+  const frame = document.getElementById('preview-frame');
+  frame.src = frame.src;
+}
+
+function setPreviewSize(size, btn) {
+  document.querySelectorAll('.preview-size-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const frame = document.getElementById('preview-frame');
+  const wrap = document.getElementById('preview-frame-wrap');
+  if(size==='mobile') { frame.style.width='390px'; frame.style.height='844px'; }
+  else if(size==='tablet') { frame.style.width='768px'; frame.style.height='1024px'; }
+  else { frame.style.width='100%'; frame.style.height='680px'; }
+}
+
+// ════════════════════════════════════════════
+// UPLOADS
+// ════════════════════════════════════════════
+function triggerUpload(type) {
+  document.getElementById('upload-'+type).click();
+}
+
+async function handleImageUpload(input, type) {
+  const file = input.files[0];
+  if(!file) return;
+  const fd = new FormData();
+  fd.append('image', file);
+  try {
+    const r = await fetch('/api/admin/upload', {method:'POST',headers:{},body:fd});
+    const j = await r.json();
+    if(j.url) {
+      if(type==='logo') { cfg.design.logoUrl=j.url; const el=document.getElementById('preview-logo'); el.src=j.url; el.style.display='block'; }
+      else if(type==='bg') { cfg.design.backgroundImage=j.url; const el=document.getElementById('preview-bg'); el.src=j.url; el.style.display='block'; }
+      else if(type==='hero-img') {
+        const s=cfg.sections.find(s=>s.id==='hero'); if(s) s.imageUrl=j.url;
+        const el=document.getElementById('preview-hero-img'); el.src=j.url; el.style.display='block';
+      }
+      schedulePreview();
+      toast('Image uploaded','success');
+    }
+  } catch(e) { toast('Upload failed','error'); }
+}
+
+function clearLogo() { cfg.design.logoUrl=''; document.getElementById('preview-logo').style.display='none'; schedulePreview(); }
+function clearBg() { cfg.design.backgroundImage=''; document.getElementById('preview-bg').style.display='none'; schedulePreview(); }
+function clearHeroImage() { const s=cfg.sections.find(s=>s.id==='hero'); if(s) s.imageUrl=''; document.getElementById('preview-hero-img').style.display='none'; schedulePreview(); }
+
+// ════════════════════════════════════════════
+// FONTS
+// ════════════════════════════════════════════
+function buildFontPickers() {
+  buildPicker('heading-font-picker', HEADING_FONTS, cfg.design.googleFont, (f)=>{ cfg.design.googleFont=f; schedulePreview(); });
+  buildPicker('body-font-picker', BODY_FONTS, cfg.design.bodyFont, (f)=>{ cfg.design.bodyFont=f; schedulePreview(); });
+}
+
+function buildPicker(containerId, fonts, current, onChange) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = '';
+  fonts.forEach(f => {
+    const chip = document.createElement('div');
+    chip.className = 'font-chip' + (f===current?' active':'');
+    chip.textContent = f;
+    chip.style.fontFamily = `'${f}', serif`;
+    chip.onclick = () => {
+      c.querySelectorAll('.font-chip').forEach(ch=>ch.classList.remove('active'));
+      chip.classList.add('active');
+      onChange(f);
+    };
+    c.appendChild(chip);
+  });
+}
+
+// ════════════════════════════════════════════
+// FIELDS
+// ════════════════════════════════════════════
+function renderFieldList() {
+  const list = document.getElementById('field-list');
+  list.innerHTML = '';
+  cfg.fields.forEach(f => {
+    const item = document.createElement('div');
+    item.className = 'field-item';
+    item.draggable = !f.system;
+    item.dataset.id = f.id;
+    item.innerHTML = `
+      <span class="material-icons drag-handle" style="${f.system?'visibility:hidden':''}">drag_indicator</span>
+      <div class="field-item-info">
+        <div class="field-item-label">${f.label}</div>
+        <div class="field-item-meta">${f.type} · ${f.required?'Required':'Optional'} ${f.system?'· <em>System</em>':''}</div>
+      </div>
+      <div class="field-actions">
+        <button class="icon-btn" onclick="openFieldModal('${f.id}')" title="Edit"><span class="material-icons" style="font-size:18px">edit</span></button>
+        ${!f.system ? `<button class="icon-btn danger" onclick="deleteField('${f.id}')" title="Delete"><span class="material-icons" style="font-size:18px">delete</span></button>` : ''}
+      </div>`;
+    // Drag events
+    if(!f.system) {
+      item.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain',f.id); item.classList.add('dragging'); });
+      item.addEventListener('dragend', ()=>item.classList.remove('dragging'));
+      item.addEventListener('dragover', e=>{ e.preventDefault(); item.classList.add('drag-over'); });
+      item.addEventListener('dragleave', ()=>item.classList.remove('drag-over'));
+      item.addEventListener('drop', e=>{ e.preventDefault(); item.classList.remove('drag-over'); dropField(e.dataTransfer.getData('text/plain'), f.id); });
+    }
+    list.appendChild(item);
+  });
+}
+
+function dropField(dragId, targetId) {
+  const dragIdx = cfg.fields.findIndex(f=>f.id===dragId);
+  const targetIdx = cfg.fields.findIndex(f=>f.id===targetId);
+  if(dragIdx===-1||targetIdx===-1) return;
+  const [item] = cfg.fields.splice(dragIdx,1);
+  cfg.fields.splice(targetIdx,0,item);
+  renderFieldList();
+  schedulePreview();
+}
+
+function openFieldModal(fieldId) {
+  editingFieldId = fieldId || null;
+  const modal = document.getElementById('field-modal');
+  document.getElementById('modal-title').textContent = fieldId ? 'Edit Field' : 'Add Field';
+  if(fieldId) {
+    const f = cfg.fields.find(f=>f.id===fieldId);
+    setVal('modal-label', f.label);
+    setVal('modal-id', f.id);
+    setVal('modal-type', f.type);
+    setVal('modal-placeholder', f.placeholder||'');
+    setVal('modal-options', (f.options||[]).join('\n'));
+    document.getElementById('modal-required').checked = f.required;
+    document.getElementById('modal-id').disabled = f.system;
+    document.getElementById('modal-type').disabled = f.system;
+  } else {
+    setVal('modal-label',''); setVal('modal-id',''); setVal('modal-type','text');
+    setVal('modal-placeholder',''); setVal('modal-options','');
+    document.getElementById('modal-required').checked = false;
+    document.getElementById('modal-id').disabled = false;
+    document.getElementById('modal-type').disabled = false;
+  }
+  onModalTypeChange();
+  modal.classList.add('open');
+}
+
+function closeFieldModal() { document.getElementById('field-modal').classList.remove('open'); }
+
+function onModalTypeChange() {
+  const t = document.getElementById('modal-type').value;
+  document.getElementById('modal-options-group').style.display = t==='select'?'block':'none';
+  document.getElementById('modal-placeholder-group').style.display = t==='checkbox'?'none':'block';
+}
+
+function saveField() {
+  const label = document.getElementById('modal-label').value.trim();
+  const id = document.getElementById('modal-id').value.trim().replace(/\s+/g,'');
+  const type = document.getElementById('modal-type').value;
+  const placeholder = document.getElementById('modal-placeholder').value.trim();
+  const required = document.getElementById('modal-required').checked;
+  const optionsRaw = document.getElementById('modal-options').value;
+  const options = optionsRaw.split('\n').map(o=>o.trim()).filter(Boolean);
+
+  if(!label||!id) { toast('Label and ID are required','error'); return; }
+  if(!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(id)) { toast('ID must start with a letter, no spaces','error'); return; }
+
+  const existing = cfg.fields.find(f=>f.id===id);
+  if(existing && existing.id !== editingFieldId) { toast('Field ID already exists','error'); return; }
+
+  const field = { id, label, type, required, placeholder, system: false };
+  if(type==='select') field.options = options;
+
+  if(editingFieldId) {
+    const idx = cfg.fields.findIndex(f=>f.id===editingFieldId);
+    cfg.fields[idx] = { ...cfg.fields[idx], ...field };
+  } else {
+    cfg.fields.push(field);
+  }
+  renderFieldList();
+  schedulePreview();
+  closeFieldModal();
+}
+
+function deleteField(id) {
+  if(!confirm('Delete this field? Existing subscriber data for this field will remain in the JSON but won\'t be shown.')) return;
+  cfg.fields = cfg.fields.filter(f=>f.id!==id);
+  renderFieldList();
+  schedulePreview();
+}
+
+// ════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.topbar-tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-editor').style.display = tab==='editor'?'flex':'none';
+  document.getElementById('tab-subscribers').style.display = tab==='subscribers'?'flex':'none';
+  document.getElementById('tab-embed').style.display = tab==='embed'?'flex':'none';
+  document.getElementById('tab-settings').style.display = tab==='settings'?'flex':'none';
+  if(tab==='subscribers') loadSubscribers(1);
+  if(tab==='embed') { updateEmbedCode(); refreshEmbedPreview(); }
+}
+
+function switchSidebar(panel) {
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.sidebar-panel').forEach(p=>p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('spanel-'+panel).classList.add('active');
+}
+
+// ════════════════════════════════════════════
+// SUBSCRIBERS
+// ════════════════════════════════════════════
+async function loadSubscribers(page) {
+  subPage = page || 1;
+  const status = document.getElementById('sub-status-filter').value;
+  const r = await fetch(`/api/admin/subscribers?page=${subPage}&search=${encodeURIComponent(subSearch)}&status=${status}`, {});
+  const j = await r.json();
+
+  // Stats
+  const allR = await fetch('/api/admin/subscribers?limit=9999', {});
+  const allJ = await allR.json();
+  document.getElementById('stat-total').textContent = allJ.total;
+  document.getElementById('stat-active').textContent = allJ.subscribers.filter(s=>s.status==='active').length;
+  document.getElementById('stat-unsub').textContent = allJ.subscribers.filter(s=>s.status==='unsubscribed').length;
+
+  // Build table headers from config fields
+  const thead = document.getElementById('sub-thead');
+  thead.innerHTML = '';
+  ['Email','Status','Subscribed',...cfg.fields.filter(f=>!f.system).map(f=>f.label),'Actions'].forEach(h=>{
+    const th = document.createElement('th'); th.textContent=h; thead.appendChild(th);
+  });
+
+  // Rows
+  const tbody = document.getElementById('sub-tbody');
+  tbody.innerHTML = '';
+  j.subscribers.forEach(s => {
+    const tr = document.createElement('tr');
+    const fields = cfg.fields.filter(f=>!f.system).map(f=>`<td>${s.customFields?.[f.id]||'—'}</td>`).join('');
+    tr.innerHTML = `
+      <td><strong>${s.email}</strong></td>
+      <td><span class="badge ${s.status}">${s.status}</span></td>
+      <td>${new Date(s.subscribedAt).toLocaleDateString()}</td>
+      ${fields}
+      <td><button class="btn-sm" style="background:#fff5f5;color:var(--danger);border:1px solid #fed7d7" onclick="deleteSubscriber('${s.id}','${s.email}')">Delete</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Pagination
+  const pg = document.getElementById('sub-pagination');
+  pg.innerHTML = '';
+  for(let i=1;i<=j.pages;i++) {
+    const btn = document.createElement('button');
+    btn.className = 'page-btn' + (i===j.page?' active':'');
+    btn.textContent = i;
+    btn.onclick = ()=>loadSubscribers(i);
+    pg.appendChild(btn);
+  }
+}
+
+function debounceSearch(val) {
+  clearTimeout(searchTimer);
+  subSearch = val;
+  searchTimer = setTimeout(()=>loadSubscribers(1), 300);
+}
+
+async function deleteSubscriber(id, email) {
+  if(!confirm(`Permanently delete data for ${email}? This cannot be undone.`)) return;
+  const r = await fetch(`/api/admin/subscribers/${id}`, {method:'DELETE'});
+  if(r.ok) { toast('Subscriber deleted','success'); loadSubscribers(subPage); }
+  else toast('Delete failed','error');
+}
+
+function exportData(fmt) {
+  window.open(`/api/admin/export?format=${fmt}`,'_blank');
+}
+
+// ════════════════════════════════════════════
+// EMBED
+// ════════════════════════════════════════════
+function getEmbedOrigin() {
+  return window.location.origin;
+}
+
+function updateEmbedCode() {
+  const origin = getEmbedOrigin();
+  const width    = document.getElementById('embed-width')?.value     || '100%';
+  const radius   = document.getElementById('embed-radius')?.value    || '12px';
+  const shadow   = document.getElementById('embed-shadow')?.value    || 'true';
+  const minH     = document.getElementById('embed-minheight')?.value || '420';
+
+  const snippet = document.getElementById('embed-snippet');
+  const iframeEl = document.getElementById('embed-iframe');
+  if (!snippet || !iframeEl) return;
+
+  snippet.textContent =
+`<!-- SignFlow Embed -->
+<div data-signflow
+     data-width="${width}"
+     data-radius="${radius}"
+     data-shadow="${shadow}"
+     data-min-height="${minH}">
+</div>
+<script src="${origin}/embed.js"><\/script>`;
+
+  iframeEl.textContent =
+`<iframe
+  src="${origin}/embed"
+  width="${width === '100%' ? '100%' : width}"
+  height="${minH}"
+  style="border:none; border-radius:${radius}; ${shadow==='true'?'box-shadow:0 4px 30px rgba(0,0,0,.12);':''} display:block; width:${width};"
+  scrolling="no"
+  title="Newsletter Signup">
+</iframe>`;
+}
+
+function refreshEmbedPreview() {
+  const fr = document.getElementById('embed-preview-frame');
+  if (fr) { fr.src = ''; fr.src = '/embed'; }
+}
+
+async function copyEmbedCode(elId) {
+  const text = document.getElementById(elId)?.textContent || '';
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied to clipboard!', 'success');
+  } catch(e) {
+    toast('Select the code and copy manually', '');
+  }
+}
+
+// ════════════════════════════════════════════
+// CAPTCHA
+// ════════════════════════════════════════════
+function toggleCaptchaFields() {
+  const enabled = document.getElementById('captcha-enabled')?.checked;
+  const fields = document.getElementById('captcha-fields');
+  if (fields) fields.style.display = enabled ? 'block' : 'none';
+}
+
+async function saveCaptchaSettings() {
+  cfg.site.captchaEnabled = document.getElementById('captcha-enabled').checked;
+  cfg.site.hcaptchaSiteKey = document.getElementById('hcaptcha-site-key').value.trim();
+  cfg.site.hcaptchaSecretKey = document.getElementById('hcaptcha-secret-key').value.trim();
+  await saveConfig();
+}
+
+// ════════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════════
+// Password management is handled via Auth0 dashboard.
+// Users can reset passwords at: https://YOUR_AUTH0_DOMAIN/
+
+// ════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.className=''; }, 3000);
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if((e.metaKey||e.ctrlKey) && e.key==='s') { e.preventDefault(); saveConfig(); }
+});
+document.getElementById('field-modal').addEventListener('click', e => {
+  if(e.target===document.getElementById('field-modal')) closeFieldModal();
+});
+
+checkSession();
+</script>
+</body>
+</html>
