@@ -679,8 +679,9 @@ function sliderPickerCSS(accent) {
   .sf-slider-icon{font-size:calc(var(--sf-knob,32px) * 0.48);line-height:1;pointer-events:none;user-select:none;}
 
   /* Angled */
-  .sf-slider-angled{padding:20px 0 28px;}
-  .sf-slider-angled .sf-slider-track{transform:rotate(-8deg);transform-origin:center;}
+  .sf-field--slider{overflow:visible;}
+  .sf-slider-angled{padding:20px 0 28px;overflow:visible;}
+  .sf-slider-angled .sf-slider-track{transform:rotate(-8deg);transform-origin:center;overflow:visible;}
   .sf-slider-angled .sf-slider-handle{transition:none;}
 
   /* Arc slider */
@@ -738,7 +739,6 @@ function sliderPickerJS() {
       return Math.max(min,Math.min(max,v));
     }
     function pctFromVal(v){return((v-min)/(max-min))*100;}
-    function valFromPct(p){return snap(min+(max-min)*(p/100));}
     function setVal(v){
       v=snap(v);
       var p=pctFromVal(v);
@@ -748,37 +748,26 @@ function sliderPickerJS() {
       inp.value=v;
       if(valEl) valEl.textContent=v;
     }
-    function pctFromPointer(e){
-      if(!rect) rect=track.getBoundingClientRect();
-      var isAngled=wrap.classList.contains('sf-slider-angled');
-      var cx=e.clientX;
-      if(isAngled){
-        // de-rotate 8 degrees around track center
-        var cx0=rect.left+rect.width/2,cy0=rect.top+rect.height/2;
-        var dx=cx-(cx0),dy=e.clientY-cy0;
-        var angle=8*Math.PI/180;
-        cx=cx0+dx*Math.cos(angle)+dy*Math.sin(angle);
-      }
-      return Math.max(0,Math.min(100,(cx-rect.left)/rect.width*100));
+    function pctFromClient(clientX){
+      // rect is always in screen-space; works for both flat and rotated track
+      return Math.max(0,Math.min(100,(clientX-rect.left)/rect.width*100));
     }
 
-    handle.addEventListener('pointerdown',function(e){
-      dragging=true;rect=track.getBoundingClientRect();
-      handle.setPointerCapture(e.pointerId);
+    // Capture to TRACK so pointermove always fires on track during drag
+    track.addEventListener('pointerdown',function(e){
+      dragging=true;
+      rect=track.getBoundingClientRect();
+      track.setPointerCapture(e.pointerId);
+      setVal(snap(min+(max-min)*(pctFromClient(e.clientX)/100)));
       e.preventDefault();
     });
-    window.addEventListener('pointermove',function(e){
+    track.addEventListener('pointermove',function(e){
       if(!dragging)return;
-      setVal(valFromPct(pctFromPointer(e)));
+      setVal(snap(min+(max-min)*(pctFromClient(e.clientX)/100)));
     });
-    window.addEventListener('pointerup',function(){dragging=false;rect=null;});
-    track.addEventListener('pointerdown',function(e){
-      if(e.target===handle||e.target.closest('.sf-slider-handle'))return;
-      rect=track.getBoundingClientRect();
-      setVal(valFromPct(pctFromPointer(e)));
-      dragging=true;handle.setPointerCapture(e.pointerId);
-    });
-    // keyboard
+    track.addEventListener('pointerup',function(){dragging=false;rect=null;});
+    track.addEventListener('pointercancel',function(){dragging=false;rect=null;});
+    // keyboard on handle
     handle.addEventListener('keydown',function(e){
       var v=parseFloat(inp.value);
       if(e.key==='ArrowRight'||e.key==='ArrowUp'){setVal(v+step);e.preventDefault();}
@@ -787,6 +776,8 @@ function sliderPickerJS() {
   });
 
   /* ── Arc slider ── */
+  // Upper semicircle: handle at left (CX-R, CY) = pct 0 (0° rotation).
+  // Dragging clockwise to right = pct 1 (180° rotation).
   document.querySelectorAll('.sf-slider-arc').forEach(function(wrap){
     var svg=wrap.querySelector('.sf-arc-svg');
     var fillPath=wrap.querySelector('.sf-arc-fill');
@@ -809,31 +800,25 @@ function sliderPickerJS() {
     function setArc(v){
       v=snap(v);
       var pct=(v-min)/(max-min);
-      var fill=pct*arcLen;
-      fillPath.setAttribute('stroke-dasharray',fill+' '+arcLen);
-      // rotate handle: at pct=0 → 180deg, at pct=1 → 0deg
-      var deg=180-pct*180;
-      handleG.setAttribute('transform','rotate('+deg+' '+CX+' '+CY+')');
+      fillPath.setAttribute('stroke-dasharray',(pct*arcLen)+' '+arcLen);
+      // pct=0 → 0° (handle at left), pct=1 → 180° (handle at right)
+      handleG.setAttribute('transform','rotate('+(pct*180)+' '+CX+' '+CY+')');
       inp.value=v;
       if(valEl) valEl.textContent=v;
     }
     function valFromPointer(e){
-      if(!svgRect) svgRect=svg.getBoundingClientRect();
-      // convert client coords to SVG viewBox coords (viewBox="0 0 220 120")
-      var scaleX=220/svgRect.width;
-      var scaleY=120/svgRect.height;
+      // Convert screen coords → SVG viewBox (0 0 220 125)
+      var scaleX=220/svgRect.width, scaleY=125/svgRect.height;
       var svgX=(e.clientX-svgRect.left)*scaleX;
       var svgY=(e.clientY-svgRect.top)*scaleY;
       var dx=svgX-CX, dy=svgY-CY;
-      // angle from center: atan2(dy,dx), convert to 0-1 range
-      // at left (180°) → 0, at right (0°) → 1
-      var angle=Math.atan2(dy,dx)*180/Math.PI; // -180 to 180
-      if(angle>0) angle=180; // below center → clamp to edges
-      // angle at left = -180 (or 180), at right = 0
-      // normalise: pct = (180 + angle) / 180  where angle ∈ [-180, 0]
-      angle=Math.max(-180,Math.min(0,angle));
-      var pct=(180+angle)/180;
-      return min+(max-min)*pct;
+      // atan2 gives angle from positive-x axis: left=-180°/180°, right=0°, top=-90°
+      var angle=Math.atan2(dy,dx)*180/Math.PI;
+      // Clamp to upper semicircle [-180, 0]: if below center, snap to nearest end
+      if(angle>0) angle=(dx<0)?-180:0;
+      // Map [-180, 0] → [0, 1]
+      var pct=(angle+180)/180;
+      return snap(min+(max-min)*pct);
     }
     svg.addEventListener('pointerdown',function(e){
       svgRect=svg.getBoundingClientRect();
@@ -912,7 +897,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
     --font-body: '${d.bodyFont}', sans-serif;
   }
   body { font-family: var(--font-body); ${bgStyle} min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
-  .sf-card { background: #fff; border-radius: 12px; padding: 48px 40px; max-width: var(--container); width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+  .sf-card { background: #fff; border-radius: ${d.cardRadius || '12px'}; padding: ${d.cardPadding || '48px 40px'}; max-width: var(--container); width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
   .sf-logo { text-align: center; margin-bottom: 24px; }
   .sf-logo img { width: ${d.logoWidth}; max-width: 100%; }
   .sf-hero-img { width: 100%; border-radius: 8px; margin-bottom: 28px; object-fit: cover; max-height: 280px; }
@@ -922,7 +907,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   .sf-field { margin-bottom: 16px; }
   .sf-field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
   .req { color: var(--accent); }
-  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 6px; font-family: var(--font-body); font-size: 1rem; color: var(--text); transition: border-color 0.2s; background: #fafafa; }
+  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-body); font-size: 1rem; color: var(--text); transition: border-color 0.2s; background: #fafafa; }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }
@@ -1127,7 +1112,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   .sf-field { margin-bottom: 14px; }
   .sf-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
   .req { color: var(--accent); }
-  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 6px; font-family: var(--font-body); font-size: 0.97rem; color: var(--text); transition: border-color 0.2s; background: #fafafa; }
+  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-body); font-size: 0.97rem; color: var(--text); transition: border-color 0.2s; background: #fafafa; }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }
