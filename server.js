@@ -477,6 +477,403 @@ function googleFontTag(cfg) {
   return `<link href="https://fonts.googleapis.com/css2?family=${query}:wght@300;400;600;700&display=swap" rel="stylesheet">`;
 }
 
+// ── Shared field renderer ─────────────────────────────────────────────────────
+function renderFormField(f, cfg) {
+  const d = cfg.design;
+  const accent = d.accentColor || '#e94560';
+  const req = f.required ? ' <span class="req">*</span>' : '';
+  const condAttr = (f.conditions && f.conditions.length)
+    ? ` data-sf-cond='${JSON.stringify(f.conditions)}'` : '';
+
+  // ── select ──
+  if (f.type === 'select') {
+    return `<div class="sf-field"${condAttr}>
+      <label for="sf_${f.id}">${f.label}${req}</label>
+      <select id="sf_${f.id}" name="${f.id}" ${f.required ? 'required' : ''}>
+        <option value="">— Select —</option>
+        ${(f.options || []).map(o => `<option value="${o}">${o}</option>`).join('')}
+      </select></div>`;
+  }
+
+  // ── checkbox ──
+  if (f.type === 'checkbox') {
+    return `<div class="sf-field sf-field--check"${condAttr}>
+      <label><input type="checkbox" name="${f.id}" value="yes" ${f.required ? 'required' : ''}> ${f.label}${req}</label></div>`;
+  }
+
+  // ── textarea ──
+  if (f.type === 'textarea') {
+    return `<div class="sf-field"${condAttr}>
+      <label for="sf_${f.id}">${f.label}${req}</label>
+      <textarea id="sf_${f.id}" name="${f.id}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''} rows="3"></textarea></div>`;
+  }
+
+  // ── age ──
+  if (f.type === 'age') {
+    const curYear = new Date().getFullYear();
+    const minAge = f.minAge || 0;
+    const maxAge = f.maxAge || 120;
+    const minYear = curYear - maxAge;
+    const maxYear = curYear - minAge;
+    return `<div class="sf-field"${condAttr}>
+      <label for="sf_${f.id}">${f.label}${req}</label>
+      <input type="number" id="sf_${f.id}" name="${f.id}" placeholder="Your age"
+        min="${minAge}" max="${maxAge}" ${f.required ? 'required' : ''}
+        data-sf-age-min="${minAge}" data-sf-age-max="${maxAge}"></div>`;
+  }
+
+  // ── date ──
+  if (f.type === 'date') {
+    const minAttr = f.minDate ? `min="${f.minDate}"` : '';
+    const maxAttr = f.maxDate ? `max="${f.maxDate}"` : '';
+    const listId = f.dateMode === 'specific' && f.allowedDates && f.allowedDates.length
+      ? `sf_datalist_${f.id}` : '';
+    const datalist = listId
+      ? `<datalist id="${listId}">${f.allowedDates.map(d => `<option value="${d}">`).join('')}</datalist>` : '';
+    return `<div class="sf-field"${condAttr}>
+      <label for="sf_${f.id}">${f.label}${req}</label>
+      ${datalist}
+      <input type="date" id="sf_${f.id}" name="${f.id}"
+        ${minAttr} ${maxAttr} ${listId ? `list="${listId}"` : ''} ${f.required ? 'required' : ''}></div>`;
+  }
+
+  // ── year ──
+  if (f.type === 'year') {
+    const minY = f.minYear || 1920;
+    const maxY = f.maxYear || new Date().getFullYear();
+    const mid = Math.round((minY + maxY) / 2);
+    const years = [];
+    for (let y = maxY; y >= minY; y--) years.push(y);
+    return `<div class="sf-field sf-field--picker"${condAttr}>
+      <label>${f.label}${req}</label>
+      <div class="sf-picker-wrap">
+        <div class="sf-picker-drum" id="sf_drum_${f.id}">
+          ${years.map(y => `<div class="sf-pick-item" data-val="${y}">${y}</div>`).join('')}
+        </div>
+        <div class="sf-picker-overlay"></div>
+      </div>
+      <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${mid}"></div>`;
+  }
+
+  // ── yearmonth ──
+  if (f.type === 'yearmonth') {
+    const minY = f.minYear || 1920;
+    const maxY = f.maxYear || new Date().getFullYear();
+    const midY = Math.round((minY + maxY) / 2);
+    const years = [];
+    for (let y = maxY; y >= minY; y--) years.push(y);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `<div class="sf-field sf-field--picker"${condAttr}>
+      <label>${f.label}${req}</label>
+      <div class="sf-picker-wrap sf-picker-dual">
+        <div class="sf-picker-drum" id="sf_drum_m_${f.id}">
+          ${months.map((m, i) => `<div class="sf-pick-item" data-val="${String(i+1).padStart(2,'0')}">${m}</div>`).join('')}
+        </div>
+        <div class="sf-picker-drum" id="sf_drum_y_${f.id}">
+          ${years.map(y => `<div class="sf-pick-item" data-val="${y}">${y}</div>`).join('')}
+        </div>
+        <div class="sf-picker-overlay"></div>
+      </div>
+      <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${midY}-01"></div>`;
+  }
+
+  // ── slider ──
+  if (f.type === 'slider') {
+    const track   = f.trackStyle  || 'linear';
+    const mode    = f.slideMode   || 'smooth';
+    const icon    = f.knobIcon    || '●';
+    const showVal = f.showValue   !== false;
+    const min     = f.min         ?? 0;
+    const max     = f.max         ?? 100;
+    const step    = f.step        ?? 1;
+    const def     = f.defaultValue ?? Math.round((min + max) / 2);
+    const knobPx  = f.knobSize    || 32;
+    const trackPx = f.trackSize   || 6;
+    const minLbl  = f.minLabel    || '';
+    const maxLbl  = f.maxLabel    || '';
+    const valSize = f.valueSize   || 14;
+    const pct     = ((def - min) / (max - min)) * 100;
+
+    const dataAttrs = `data-min="${min}" data-max="${max}" data-step="${step}" data-mode="${mode}" data-track="${track}"`;
+
+    if (track === 'arc') {
+      // SVG semicircle: center (110,110), radius 90, arc from 180° to 0°
+      const R = 90, CX = 110, CY = 110;
+      const arcLen = Math.PI * R; // half-circle circumference ≈ 283
+      const fillLen = (pct / 100) * arcLen;
+      return `<div class="sf-field sf-field--slider"${condAttr}>
+        <label>${f.label}${req}</label>
+        <div class="sf-slider-wrap sf-slider-arc" style="--sf-accent:${accent};--sf-knob:${knobPx}px;--sf-val-size:${valSize}px">
+          ${(minLbl || maxLbl) ? `<div class="sf-slider-lbls sf-slider-lbls--arc"><span>${minLbl}</span><span>${maxLbl}</span></div>` : ''}
+          <svg class="sf-arc-svg" viewBox="0 0 220 120" xmlns="http://www.w3.org/2000/svg" style="touch-action:none">
+            <path class="sf-arc-bg" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="#e0e0e0" stroke-width="${trackPx}" stroke-linecap="round"/>
+            <path class="sf-arc-fill" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="${accent}" stroke-width="${trackPx}" stroke-linecap="round"
+              stroke-dasharray="${fillLen} ${arcLen}" stroke-dashoffset="0"/>
+            <g class="sf-arc-handle" transform="rotate(${180 - pct * 1.8} ${CX} ${CY})" style="cursor:grab;touch-action:none">
+              <circle cx="${CX - R}" cy="${CY}" r="${knobPx / 2}" fill="${accent}"/>
+              <text x="${CX - R}" y="${CY + 1}" text-anchor="middle" dominant-baseline="middle"
+                font-size="${knobPx * 0.45}" fill="#fff" style="pointer-events:none;user-select:none">${icon}</text>
+            </g>
+          </svg>
+          ${showVal ? `<div class="sf-slider-val" style="font-size:var(--sf-val-size)">${def}</div>` : ''}
+          <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${def}" ${dataAttrs} ${f.required ? 'required' : ''}>
+        </div></div>`;
+    }
+
+    // linear or angled
+    const angledClass = track === 'angled' ? ' sf-slider-angled' : '';
+    return `<div class="sf-field sf-field--slider"${condAttr}>
+      <label>${f.label}${req}</label>
+      <div class="sf-slider-wrap${angledClass}" style="--sf-accent:${accent};--sf-knob:${knobPx}px;--sf-track:${trackPx}px;--sf-val-size:${valSize}px">
+        ${(minLbl || maxLbl) ? `<div class="sf-slider-lbls"><span>${minLbl}</span><span>${maxLbl}</span></div>` : ''}
+        <div class="sf-slider-track" style="touch-action:none">
+          <div class="sf-slider-fill" style="width:${pct}%"></div>
+          <div class="sf-slider-handle" tabindex="0" role="slider"
+            aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${def}"
+            style="left:${pct}%">
+            <span class="sf-slider-icon">${icon}</span>
+          </div>
+        </div>
+        ${showVal ? `<div class="sf-slider-val" style="font-size:var(--sf-val-size)">${def}</div>` : ''}
+        <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${def}" ${dataAttrs} ${f.required ? 'required' : ''}>
+      </div></div>`;
+  }
+
+  // ── default (text, email, number, tel, etc.) ──
+  return `<div class="sf-field"${condAttr}>
+    <label for="sf_${f.id}">${f.label}${req}</label>
+    <input type="${f.type || 'text'}" id="sf_${f.id}" name="${f.id}"
+      placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''}></div>`;
+}
+
+// ── Slider + picker CSS (injected into page <style>) ─────────────────────────
+function sliderPickerCSS(accent) {
+  return `
+  /* Picker (year / yearmonth) */
+  .sf-field--picker .sf-picker-wrap{position:relative;height:120px;overflow:hidden;border:2px solid #e0e0e0;border-radius:8px;background:#fafafa;user-select:none;}
+  .sf-picker-dual{display:flex;}
+  .sf-picker-dual .sf-picker-drum{flex:1;border-right:1px solid #e0e0e0;}
+  .sf-picker-dual .sf-picker-drum:last-child{border-right:none;}
+  .sf-picker-drum{overflow-y:scroll;height:100%;scrollbar-width:none;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;}
+  .sf-picker-drum::-webkit-scrollbar{display:none;}
+  .sf-pick-item{height:40px;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#555;scroll-snap-align:center;cursor:pointer;}
+  .sf-pick-item.active{color:${accent};font-weight:700;font-size:1.1rem;}
+  .sf-picker-overlay{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(250,250,250,.85) 0%,transparent 35%,transparent 65%,rgba(250,250,250,.85) 100%);}
+  .sf-picker-overlay::after{content:'';position:absolute;top:50%;left:4px;right:4px;height:40px;transform:translateY(-50%);border-top:2px solid ${accent};border-bottom:2px solid ${accent};border-radius:4px;}
+
+  /* Slider shared */
+  .sf-field--slider .sf-slider-wrap{padding:4px 0 8px;position:relative;}
+  .sf-slider-lbls{display:flex;justify-content:space-between;font-size:0.75rem;color:#aaa;margin-bottom:6px;}
+  .sf-slider-lbls--arc{margin-bottom:0;margin-top:4px;padding:0 8px;}
+  .sf-slider-val{text-align:center;font-weight:700;color:${accent};margin-top:8px;line-height:1;}
+
+  /* Linear/Angled slider */
+  .sf-slider-track{position:relative;height:var(--sf-track,6px);background:#e0e0e0;border-radius:99px;cursor:pointer;margin:calc(var(--sf-knob,32px)/2) 0;}
+  .sf-slider-fill{position:absolute;left:0;top:0;height:100%;background:var(--sf-accent,#e94560);border-radius:99px;pointer-events:none;transition:width .05s linear;}
+  .sf-slider-handle{position:absolute;top:50%;transform:translate(-50%,-50%);width:var(--sf-knob,32px);height:var(--sf-knob,32px);background:var(--sf-accent,#e94560);border-radius:50%;cursor:grab;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:2;transition:left .05s linear;}
+  .sf-slider-handle:active{cursor:grabbing;transform:translate(-50%,-50%) scale(1.12);}
+  .sf-slider-icon{font-size:calc(var(--sf-knob,32px) * 0.48);line-height:1;pointer-events:none;user-select:none;}
+
+  /* Angled */
+  .sf-slider-angled{padding:20px 0 28px;}
+  .sf-slider-angled .sf-slider-track{transform:rotate(-8deg);transform-origin:center;}
+  .sf-slider-angled .sf-slider-handle{transition:none;}
+
+  /* Arc slider */
+  .sf-slider-arc .sf-arc-svg{width:100%;max-width:220px;display:block;margin:0 auto;overflow:visible;}
+  .sf-arc-handle{transition:transform .05s linear;}`;
+}
+
+// ── Slider + picker JS (injected at end of page <script>) ────────────────────
+function sliderPickerJS() {
+  return `
+(function(){
+  /* ── Picker drums (year / yearmonth) ── */
+  document.querySelectorAll('.sf-picker-drum').forEach(function(drum){
+    var inp=drum.closest('.sf-field--picker').querySelector('input[type=hidden]');
+    var isMonth=drum.id&&drum.id.includes('_m_');
+    var items=drum.querySelectorAll('.sf-pick-item');
+    var itemH=40;
+    // scroll to middle item initially
+    var mid=Math.floor(items.length/2);
+    drum.scrollTop=mid*itemH;
+    function update(){
+      var idx=Math.round(drum.scrollTop/itemH);
+      idx=Math.max(0,Math.min(items.length-1,idx));
+      items.forEach(function(el,i){el.classList.toggle('active',i===idx);});
+      var val=items[idx]?items[idx].dataset.val:'';
+      if(isMonth){
+        var cur=inp.value||'';var parts=cur.split('-');
+        inp.value=(parts[0]||new Date().getFullYear())+'-'+val;
+      } else {
+        var cur2=inp.value||'';
+        if(cur2.includes('-')){var p2=cur2.split('-');inp.value=val+'-'+(p2[1]||'01');}
+        else inp.value=val;
+      }
+    }
+    drum.addEventListener('scroll',function(){clearTimeout(drum._st);drum._st=setTimeout(update,80);},{passive:true});
+    update();
+  });
+
+  /* ── Linear / Angled slider ── */
+  document.querySelectorAll('.sf-slider-track').forEach(function(track){
+    var wrap=track.closest('.sf-slider-wrap');
+    var handle=track.querySelector('.sf-slider-handle');
+    var fill=track.querySelector('.sf-slider-fill');
+    var inp=wrap.querySelector('input[type=hidden]');
+    var valEl=wrap.querySelector('.sf-slider-val');
+    var min=parseFloat(inp.dataset.min||0);
+    var max=parseFloat(inp.dataset.max||100);
+    var step=parseFloat(inp.dataset.step||1);
+    var isStep=inp.dataset.mode==='step';
+    var dragging=false;
+    var rect=null;
+
+    function snap(v){
+      if(isStep) v=Math.round((v-min)/step)*step+min;
+      return Math.max(min,Math.min(max,v));
+    }
+    function pctFromVal(v){return((v-min)/(max-min))*100;}
+    function valFromPct(p){return snap(min+(max-min)*(p/100));}
+    function setVal(v){
+      v=snap(v);
+      var p=pctFromVal(v);
+      fill.style.width=p+'%';
+      handle.style.left=p+'%';
+      handle.setAttribute('aria-valuenow',v);
+      inp.value=v;
+      if(valEl) valEl.textContent=v;
+    }
+    function pctFromPointer(e){
+      if(!rect) rect=track.getBoundingClientRect();
+      var isAngled=wrap.classList.contains('sf-slider-angled');
+      var cx=e.clientX;
+      if(isAngled){
+        // de-rotate 8 degrees around track center
+        var cx0=rect.left+rect.width/2,cy0=rect.top+rect.height/2;
+        var dx=cx-(cx0),dy=e.clientY-cy0;
+        var angle=8*Math.PI/180;
+        cx=cx0+dx*Math.cos(angle)+dy*Math.sin(angle);
+      }
+      return Math.max(0,Math.min(100,(cx-rect.left)/rect.width*100));
+    }
+
+    handle.addEventListener('pointerdown',function(e){
+      dragging=true;rect=track.getBoundingClientRect();
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    window.addEventListener('pointermove',function(e){
+      if(!dragging)return;
+      setVal(valFromPct(pctFromPointer(e)));
+    });
+    window.addEventListener('pointerup',function(){dragging=false;rect=null;});
+    track.addEventListener('pointerdown',function(e){
+      if(e.target===handle||e.target.closest('.sf-slider-handle'))return;
+      rect=track.getBoundingClientRect();
+      setVal(valFromPct(pctFromPointer(e)));
+      dragging=true;handle.setPointerCapture(e.pointerId);
+    });
+    // keyboard
+    handle.addEventListener('keydown',function(e){
+      var v=parseFloat(inp.value);
+      if(e.key==='ArrowRight'||e.key==='ArrowUp'){setVal(v+step);e.preventDefault();}
+      else if(e.key==='ArrowLeft'||e.key==='ArrowDown'){setVal(v-step);e.preventDefault();}
+    });
+  });
+
+  /* ── Arc slider ── */
+  document.querySelectorAll('.sf-slider-arc').forEach(function(wrap){
+    var svg=wrap.querySelector('.sf-arc-svg');
+    var fillPath=wrap.querySelector('.sf-arc-fill');
+    var handleG=wrap.querySelector('.sf-arc-handle');
+    var inp=wrap.querySelector('input[type=hidden]');
+    var valEl=wrap.querySelector('.sf-slider-val');
+    var min=parseFloat(inp.dataset.min||0);
+    var max=parseFloat(inp.dataset.max||100);
+    var step=parseFloat(inp.dataset.step||1);
+    var isStep=inp.dataset.mode==='step';
+    var R=90,CX=110,CY=110;
+    var arcLen=Math.PI*R;
+    var svgRect=null;
+    var dragging=false;
+
+    function snap(v){
+      if(isStep) v=Math.round((v-min)/step)*step+min;
+      return Math.max(min,Math.min(max,v));
+    }
+    function setArc(v){
+      v=snap(v);
+      var pct=(v-min)/(max-min);
+      var fill=pct*arcLen;
+      fillPath.setAttribute('stroke-dasharray',fill+' '+arcLen);
+      // rotate handle: at pct=0 → 180deg, at pct=1 → 0deg
+      var deg=180-pct*180;
+      handleG.setAttribute('transform','rotate('+deg+' '+CX+' '+CY+')');
+      inp.value=v;
+      if(valEl) valEl.textContent=v;
+    }
+    function valFromPointer(e){
+      if(!svgRect) svgRect=svg.getBoundingClientRect();
+      // convert client coords to SVG viewBox coords (viewBox="0 0 220 120")
+      var scaleX=220/svgRect.width;
+      var scaleY=120/svgRect.height;
+      var svgX=(e.clientX-svgRect.left)*scaleX;
+      var svgY=(e.clientY-svgRect.top)*scaleY;
+      var dx=svgX-CX, dy=svgY-CY;
+      // angle from center: atan2(dy,dx), convert to 0-1 range
+      // at left (180°) → 0, at right (0°) → 1
+      var angle=Math.atan2(dy,dx)*180/Math.PI; // -180 to 180
+      if(angle>0) angle=180; // below center → clamp to edges
+      // angle at left = -180 (or 180), at right = 0
+      // normalise: pct = (180 + angle) / 180  where angle ∈ [-180, 0]
+      angle=Math.max(-180,Math.min(0,angle));
+      var pct=(180+angle)/180;
+      return min+(max-min)*pct;
+    }
+    svg.addEventListener('pointerdown',function(e){
+      svgRect=svg.getBoundingClientRect();
+      dragging=true;svg.setPointerCapture(e.pointerId);
+      setArc(valFromPointer(e));e.preventDefault();
+    });
+    svg.addEventListener('pointermove',function(e){
+      if(!dragging)return;
+      setArc(valFromPointer(e));
+    });
+    svg.addEventListener('pointerup',function(){dragging=false;svgRect=null;});
+    svg.addEventListener('pointercancel',function(){dragging=false;svgRect=null;});
+  });
+
+  /* ── Conditional field visibility ── */
+  function evalConditions(){
+    document.querySelectorAll('[data-sf-cond]').forEach(function(el){
+      var conds=JSON.parse(el.dataset.sfCond||'[]');
+      var visible=true;
+      conds.forEach(function(c){
+        var ctrl=document.querySelector('[name="'+c.fieldId+'"]');
+        if(!ctrl)return;
+        var val=ctrl.value||'';
+        var match=false;
+        if(c.operator==='eq')match=val===c.value;
+        else if(c.operator==='neq')match=val!==c.value;
+        else if(c.operator==='contains')match=val.toLowerCase().includes((c.value||'').toLowerCase());
+        else if(c.operator==='gt')match=parseFloat(val)>parseFloat(c.value);
+        else if(c.operator==='lt')match=parseFloat(val)<parseFloat(c.value);
+        else if(c.operator==='empty')match=val.trim()==='';
+        else if(c.operator==='notempty')match=val.trim()!=='';
+        if(c.action==='show'&&!match)visible=false;
+        if(c.action==='hide'&&match)visible=false;
+      });
+      el.style.display=visible?'':'none';
+    });
+  }
+  document.querySelectorAll('input,select,textarea').forEach(function(el){
+    el.addEventListener('input',evalConditions);el.addEventListener('change',evalConditions);
+  });
+  evalConditions();
+})();`;
+}
+
 function renderPublicPage(cfg) {
   const d = cfg.design;
   const s = cfg.site;
@@ -484,32 +881,7 @@ function renderPublicPage(cfg) {
   const formSection = cfg.sections.find(s => s.id === 'form');
   const footerSection = cfg.sections.find(s => s.id === 'footer');
 
-  const formFields = cfg.fields.map(f => {
-    if (f.type === 'select') {
-      return `<div class="sf-field">
-        <label for="sf_${f.id}">${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-        <select id="sf_${f.id}" name="${f.id}" ${f.required ? 'required' : ''}>
-          <option value="">— Select —</option>
-          ${(f.options || []).map(o => `<option value="${o}">${o}</option>`).join('')}
-        </select>
-      </div>`;
-    }
-    if (f.type === 'checkbox') {
-      return `<div class="sf-field sf-field--check">
-        <label><input type="checkbox" name="${f.id}" value="yes" ${f.required ? 'required' : ''}> ${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-      </div>`;
-    }
-    if (f.type === 'textarea') {
-      return `<div class="sf-field">
-        <label for="sf_${f.id}">${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-        <textarea id="sf_${f.id}" name="${f.id}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''} rows="3"></textarea>
-      </div>`;
-    }
-    return `<div class="sf-field">
-      <label for="sf_${f.id}">${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-      <input type="${f.type || 'text'}" id="sf_${f.id}" name="${f.id}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''}>
-    </div>`;
-  }).join('');
+  const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
 
   const bgStyle = d.backgroundImage
     ? `background: linear-gradient(rgba(0,0,0,${d.backgroundOverlay}),rgba(0,0,0,${d.backgroundOverlay})), url('${d.backgroundImage}') center/cover no-repeat fixed; color: #fff;`
@@ -566,6 +938,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   #sf-cookie-accept { background: var(--accent); color: #fff; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 0.88rem; white-space: nowrap; }
   .sf-captcha { margin: 16px 0 4px; display: flex; justify-content: center; }
   @media(max-width:500px){ .sf-card { padding: 32px 20px; } }
+  ${sliderPickerCSS(d.accentColor)}
 </style>
 ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 </head>
@@ -636,6 +1009,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
     msg.style.display='block';
   });
 })();
+${sliderPickerJS()}
 </script>
 </body>
 </html>`;
@@ -718,29 +1092,7 @@ function renderEmbedPage(cfg) {
   const formSection = cfg.sections.find(sec => sec.id === 'form');
   const footerSection = cfg.sections.find(sec => sec.id === 'footer');
 
-  // Reuse same field rendering logic
-  const formFields = cfg.fields.map(f => {
-    if (f.type === 'select') {
-      return `<div class="sf-field">
-        <label for="sf_${f.id}">${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-        <select id="sf_${f.id}" name="${f.id}" ${f.required ? 'required' : ''}>
-          <option value="">— Select —</option>
-          ${(f.options || []).map(o => `<option value="${o}">${o}</option>`).join('')}
-        </select></div>`;
-    }
-    if (f.type === 'checkbox') {
-      return `<div class="sf-field sf-field--check">
-        <label><input type="checkbox" name="${f.id}" value="yes" ${f.required ? 'required' : ''}> ${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label></div>`;
-    }
-    if (f.type === 'textarea') {
-      return `<div class="sf-field">
-        <label for="sf_${f.id}">${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-        <textarea id="sf_${f.id}" name="${f.id}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''} rows="3"></textarea></div>`;
-    }
-    return `<div class="sf-field">
-      <label for="sf_${f.id}">${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-      <input type="${f.type || 'text'}" id="sf_${f.id}" name="${f.id}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''}></div>`;
-  }).join('');
+  const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -786,6 +1138,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   .sf-gdpr a { color: var(--accent); }
   .sf-footer { text-align: center; margin-top: 20px; font-size: 0.78rem; color: #bbb; }
   .sf-captcha { margin: 12px 0 4px; display: flex; justify-content: center; }
+  ${sliderPickerCSS(d.accentColor)}
 </style>
 </head>
 <body>
@@ -848,6 +1201,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
     reportHeight();
   });
 })();
+${sliderPickerJS()}
 </script>
 </body>
 </html>`;
