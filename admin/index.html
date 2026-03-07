@@ -690,6 +690,14 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <div style="flex:1"><label class="cl">Step</label><input type="number" id="modal-slider-step" value="1" min="0.01"></div>
         <div style="flex:1"><label class="cl">Default</label><input type="number" id="modal-slider-default" value="50"></div>
       </div>
+      <div class="cr" style="gap:6px;margin-top:8px">
+        <div style="flex:1"><label class="cl">End label (left)</label><input type="text" id="modal-slider-min-label" placeholder="Low"></div>
+        <div style="flex:1"><label class="cl">End label (right)</label><input type="text" id="modal-slider-max-label" placeholder="High"></div>
+      </div>
+      <div class="cr" style="gap:6px;margin-top:8px">
+        <div style="flex:1"><label class="cl">Knob size (px)</label><input type="number" id="modal-slider-knob-size" value="32" min="16" max="64"></div>
+        <div style="flex:1"><label class="cl">Track thickness (px)</label><input type="number" id="modal-slider-track-size" value="6" min="2" max="24"></div>
+      </div>
       <div class="cg" style="margin-top:8px"><label class="cl">Track style</label>
         <select id="modal-slider-track">
           <option value="linear">Linear (horizontal)</option>
@@ -704,9 +712,12 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         </select>
       </div>
       <div class="cg"><label class="cl">Knob icon (emoji or char)</label><input type="text" id="modal-slider-icon" placeholder="● ★ 🎯" maxlength="4"></div>
-      <div class="cg" style="display:flex;align-items:center;gap:10px">
-        <label class="tgl"><input type="checkbox" id="modal-slider-showval" checked><span class="tgl-s"></span></label>
-        <label class="tgl-lbl">Show current value</label>
+      <div class="cr" style="gap:10px;align-items:center;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:8px;flex:1">
+          <label class="tgl"><input type="checkbox" id="modal-slider-showval" checked><span class="tgl-s"></span></label>
+          <label class="tgl-lbl">Show value</label>
+        </div>
+        <div style="flex:1"><label class="cl">Value font size (px)</label><input type="number" id="modal-slider-val-size" value="14" min="8" max="32"></div>
       </div>
     </div>
     <!-- Required toggle -->
@@ -1131,12 +1142,15 @@ function openFieldModal(fieldId){
     if(f.type==='slider'){
       sv('modal-slider-min',f.min??0);sv('modal-slider-max',f.max??100);sv('modal-slider-step',f.step??1);sv('modal-slider-default',f.defaultValue??50);
       sv('modal-slider-track',f.trackStyle||'linear');sv('modal-slider-mode',f.slideMode||'smooth');sv('modal-slider-icon',f.knobIcon||'●');
+      sv('modal-slider-knob-size',f.knobSize||32);sv('modal-slider-track-size',f.trackSize||6);
+      sv('modal-slider-min-label',f.minLabel||'');sv('modal-slider-max-label',f.maxLabel||'');
+      sv('modal-slider-val-size',f.valueSize||14);
       document.getElementById('modal-slider-showval').checked=f.showValue!==false;
     }
     renderConditions(f.conditions||[]);
   }else{
-    ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon'].forEach(id=>sv(id,''));
-    sv('modal-type','text');sv('modal-date-mode','free');sv('modal-slider-min','0');sv('modal-slider-max','100');sv('modal-slider-step','1');sv('modal-slider-default','50');sv('modal-slider-track','linear');sv('modal-slider-mode','smooth');sv('modal-slider-icon','●');
+    ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon','modal-slider-min-label','modal-slider-max-label'].forEach(id=>sv(id,''));
+    sv('modal-type','text');sv('modal-date-mode','free');sv('modal-slider-min','0');sv('modal-slider-max','100');sv('modal-slider-step','1');sv('modal-slider-default','50');sv('modal-slider-track','linear');sv('modal-slider-mode','smooth');sv('modal-slider-icon','●');sv('modal-slider-knob-size','32');sv('modal-slider-track-size','6');sv('modal-slider-val-size','14');
     document.getElementById('modal-required').checked=false;
     document.getElementById('modal-id').disabled=false;document.getElementById('modal-type').disabled=false;
     document.getElementById('modal-slider-showval').checked=true;
@@ -1194,6 +1208,11 @@ function saveField(){
     field.slideMode=document.getElementById('modal-slider-mode').value;
     field.knobIcon=document.getElementById('modal-slider-icon').value||'●';
     field.showValue=document.getElementById('modal-slider-showval').checked;
+    field.knobSize=parseInt(document.getElementById('modal-slider-knob-size').value)||32;
+    field.trackSize=parseInt(document.getElementById('modal-slider-track-size').value)||6;
+    field.minLabel=document.getElementById('modal-slider-min-label').value.trim();
+    field.maxLabel=document.getElementById('modal-slider-max-label').value.trim();
+    field.valueSize=parseInt(document.getElementById('modal-slider-val-size').value)||14;
   }
   field.conditions=collectConditions();
 
