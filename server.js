@@ -597,35 +597,38 @@ function renderFormField(f, cfg) {
     const dataAttrs = `data-min="${min}" data-max="${max}" data-step="${step}" data-mode="${mode}" data-track="${track}"`;
 
     if (track === 'arc') {
-      // SVG semicircle: center (110,110), radius 90, arc from 180° to 0°
+      // Upper semicircle: center (110,110), R=90. Left=(20,110) pct=0, Right=(200,110) pct=1.
+      // Clockwise rotation from left: 0° = min, 180° = max.
       const R = 90, CX = 110, CY = 110;
-      const arcLen = Math.PI * R; // half-circle circumference ≈ 283
+      const arcLen = Math.PI * R; // ≈ 283
       const fillLen = (pct / 100) * arcLen;
+      const initRot = pct * 1.8; // deg = pct(0-100) * 1.8  →  0°…180°
       return `<div class="sf-field sf-field--slider"${condAttr}>
         <label>${f.label}${req}</label>
         <div class="sf-slider-wrap sf-slider-arc" style="--sf-accent:${accent};--sf-knob:${knobPx}px;--sf-val-size:${valSize}px">
-          ${(minLbl || maxLbl) ? `<div class="sf-slider-lbls sf-slider-lbls--arc"><span>${minLbl}</span><span>${maxLbl}</span></div>` : ''}
-          <svg class="sf-arc-svg" viewBox="0 0 220 120" xmlns="http://www.w3.org/2000/svg" style="touch-action:none">
+          <svg class="sf-arc-svg" viewBox="0 0 220 125" xmlns="http://www.w3.org/2000/svg" style="touch-action:none;overflow:visible">
             <path class="sf-arc-bg" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="#e0e0e0" stroke-width="${trackPx}" stroke-linecap="round"/>
             <path class="sf-arc-fill" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="${accent}" stroke-width="${trackPx}" stroke-linecap="round"
               stroke-dasharray="${fillLen} ${arcLen}" stroke-dashoffset="0"/>
-            <g class="sf-arc-handle" transform="rotate(${180 - pct * 1.8} ${CX} ${CY})" style="cursor:grab;touch-action:none">
+            <g class="sf-arc-handle" transform="rotate(${initRot} ${CX} ${CY})" style="cursor:grab;touch-action:none">
               <circle cx="${CX - R}" cy="${CY}" r="${knobPx / 2}" fill="${accent}"/>
               <text x="${CX - R}" y="${CY + 1}" text-anchor="middle" dominant-baseline="middle"
-                font-size="${knobPx * 0.45}" fill="#fff" style="pointer-events:none;user-select:none">${icon}</text>
+                font-size="${knobPx * 0.48}" fill="#fff" style="pointer-events:none;user-select:none">${icon}</text>
             </g>
+            ${(minLbl || maxLbl) ? `
+            <text x="20" y="122" text-anchor="middle" font-size="10" fill="#aaa">${minLbl}</text>
+            <text x="200" y="122" text-anchor="middle" font-size="10" fill="#aaa">${maxLbl}</text>` : ''}
           </svg>
           ${showVal ? `<div class="sf-slider-val" style="font-size:var(--sf-val-size)">${def}</div>` : ''}
           <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${def}" ${dataAttrs} ${f.required ? 'required' : ''}>
         </div></div>`;
     }
 
-    // linear or angled
+    // linear or angled — labels go BELOW the track to avoid overlap
     const angledClass = track === 'angled' ? ' sf-slider-angled' : '';
     return `<div class="sf-field sf-field--slider"${condAttr}>
       <label>${f.label}${req}</label>
       <div class="sf-slider-wrap${angledClass}" style="--sf-accent:${accent};--sf-knob:${knobPx}px;--sf-track:${trackPx}px;--sf-val-size:${valSize}px">
-        ${(minLbl || maxLbl) ? `<div class="sf-slider-lbls"><span>${minLbl}</span><span>${maxLbl}</span></div>` : ''}
         <div class="sf-slider-track" style="touch-action:none">
           <div class="sf-slider-fill" style="width:${pct}%"></div>
           <div class="sf-slider-handle" tabindex="0" role="slider"
@@ -634,6 +637,7 @@ function renderFormField(f, cfg) {
             <span class="sf-slider-icon">${icon}</span>
           </div>
         </div>
+        ${(minLbl || maxLbl) ? `<div class="sf-slider-lbls"><span>${minLbl}</span><span>${maxLbl}</span></div>` : ''}
         ${showVal ? `<div class="sf-slider-val" style="font-size:var(--sf-val-size)">${def}</div>` : ''}
         <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${def}" ${dataAttrs} ${f.required ? 'required' : ''}>
       </div></div>`;
