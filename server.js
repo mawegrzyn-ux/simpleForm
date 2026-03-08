@@ -151,6 +151,7 @@ function defaultFormConfig(slug, name) {
   return {
     slug, name,
     site: { title: name, favicon: '', adminPassword: '', cookieBannerText: '', privacyPolicyUrl: '/privacy',
+            gdprText: 'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.',
             unsubscribeEnabled: true, captchaEnabled: false, hcaptchaSiteKey: '', hcaptchaSecretKey: '' },
     design: { googleFont: 'Playfair Display', bodyFont: 'Lato', primaryColor: '#1a1a2e',
               accentColor: '#e94560', backgroundColor: '#f8f5f0', textColor: '#1a1a2e',
