@@ -98,12 +98,16 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .dh:hover{color:var(--ink3);}
 /* Build tab */
 #tab-build{flex-direction:row;overflow:hidden;}
-#bl-panel{width:320px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:hidden;flex-shrink:0;}
-#bl-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:flex;flex-direction:column;}
-#bl-panel-head{padding:10px 14px 9px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px;}
-#bl-panel-head h3{font-weight:600;font-size:0.88rem;flex:1;}
-#bl-scroll::-webkit-scrollbar{width:3px;}
-#bl-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#bl-panel{width:320px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+#bl-panel-head{padding:8px 10px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.bl-tabs{display:flex;gap:2px;background:var(--bg2);border-radius:6px;padding:2px;flex:1;}
+.bl-tab{background:none;border:none;cursor:pointer;font-size:0.82rem;font-weight:500;color:var(--ink3);padding:4px 0;border-radius:4px;font-family:var(--font);flex:1;transition:all 120ms;text-align:center;}
+.bl-tab.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-sm);}
+.bl-tab:hover:not(.active){color:var(--ink);}
+#bl-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:flex;flex-direction:column;}
+#fields-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:none;flex-direction:column;gap:5px;}
+#bl-scroll::-webkit-scrollbar,#fields-scroll::-webkit-scrollbar{width:3px;}
+#bl-scroll::-webkit-scrollbar-thumb,#fields-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 #bl-preview{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;}
 .prev-toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:5px;flex-shrink:0;}
 .psz{background:none;border:1.5px solid var(--border);border-radius:6px;color:var(--ink3);padding:5px 11px;cursor:pointer;font-size:0.78rem;font-family:var(--font);font-weight:500;display:flex;align-items:center;gap:4px;transition:all 120ms;}
@@ -307,10 +311,16 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 <div id="tab-build" class="page active">
   <div id="bl-panel">
     <div id="bl-panel-head">
-      <h3>Blocks</h3>
-      <button class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem" onclick="addContainer()"><span class="material-icons-round mi">add</span> Add container</button>
+      <div class="bl-tabs">
+        <button id="tab-layout-btn" class="bl-tab active" onclick="switchPanelTab('layout')">Layout</button>
+        <button id="tab-fields-btn" class="bl-tab" onclick="switchPanelTab('fields')">Fields</button>
+      </div>
+      <button id="bl-add-btn" class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem;flex-shrink:0" onclick="panelAddAction()"><span class="material-icons-round mi">add</span> <span id="bl-add-label">Add container</span></button>
     </div>
     <div id="bl-scroll"><!-- populated by renderBuildPanel() --></div>
+    <div id="fields-scroll">
+      <div class="field-list" id="field-list-panel"></div>
+    </div>
   </div>
   <div id="bl-preview">
     <div class="prev-toolbar">
@@ -1142,6 +1152,30 @@ function addReward(blockId){
 }
 function removeReward(blockId,idx){const b=cfg.sections.find(s=>s.id===blockId);if(b&&b.rewards){b.rewards.splice(idx,1);updateBkBody(blockId);schedulePreview();}}
 
+// ── Panel tabs ──
+let _panelTab='layout';
+function switchPanelTab(tab){
+  _panelTab=tab;
+  const layoutScroll=document.getElementById('bl-scroll');
+  const fieldsScroll=document.getElementById('fields-scroll');
+  const addLabel=document.getElementById('bl-add-label');
+  const tabLayoutBtn=document.getElementById('tab-layout-btn');
+  const tabFieldsBtn=document.getElementById('tab-fields-btn');
+  if(tab==='layout'){
+    layoutScroll.style.display='flex';
+    fieldsScroll.style.display='none';
+    addLabel.textContent='Add container';
+    tabLayoutBtn.classList.add('active');tabFieldsBtn.classList.remove('active');
+  }else{
+    layoutScroll.style.display='none';
+    fieldsScroll.style.display='flex';
+    addLabel.textContent='Add field';
+    tabLayoutBtn.classList.remove('active');tabFieldsBtn.classList.add('active');
+    renderFieldList();
+  }
+}
+function panelAddAction(){if(_panelTab==='layout')addContainer();else openFieldModal();}
+
 function addContainer(){
   const id='container-'+Date.now();
   const section={id,type:'container',visible:true,columns:1,items:[],style:{}};
@@ -1496,28 +1530,30 @@ function wysiLivePreview(){}
 
 // ── Fields ──
 function renderFieldList(){
-  const list=document.getElementById('field-list');if(!list)return;list.innerHTML='';
-  (cfg.fields||[]).forEach(f=>{
-    const condCount=(f.conditions||[]).length;
-    const item=document.createElement('div');item.className='fi';item.draggable=!f.system;item.dataset.id=f.id;
-    item.innerHTML=`
-      <span class="material-icons-round dh" style="${f.system?'visibility:hidden':''}">drag_indicator</span>
-      <div class="fi-info">
-        <div class="fi-label">${f.label}</div>
-        <div class="fi-meta">${f.type} · ${f.required?'Required':'Optional'}${f.system?' · System':''}${condCount?' · '+condCount+' condition'+(condCount>1?'s':''):''}</div>
-      </div>
-      <div class="fi-acts">
-        <button class="ibtn" onclick="openFieldModal('${f.id}')" title="Edit"><span class="material-icons-round mi">edit</span></button>
-        ${!f.system?`<button class="ibtn danger" onclick="deleteField('${f.id}')" title="Delete"><span class="material-icons-round mi">delete</span></button>`:''}
-      </div>`;
-    if(!f.system){
-      item.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',f.id);item.classList.add('dragging');});
-      item.addEventListener('dragend',()=>item.classList.remove('dragging'));
-      item.addEventListener('dragover',e=>{e.preventDefault();item.classList.add('drag-over');});
-      item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
-      item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');dropField(e.dataTransfer.getData('text/plain'),f.id);});
-    }
-    list.appendChild(item);
+  ['field-list','field-list-panel'].forEach(listId=>{
+    const list=document.getElementById(listId);if(!list)return;list.innerHTML='';
+    (cfg.fields||[]).forEach(f=>{
+      const condCount=(f.conditions||[]).length;
+      const item=document.createElement('div');item.className='fi';item.draggable=!f.system;item.dataset.id=f.id;
+      item.innerHTML=`
+        <span class="material-icons-round dh" style="${f.system?'visibility:hidden':''}">drag_indicator</span>
+        <div class="fi-info">
+          <div class="fi-label">${f.label}</div>
+          <div class="fi-meta">${f.type} · ${f.required?'Required':'Optional'}${f.system?' · System':''}${condCount?' · '+condCount+' condition'+(condCount>1?'s':''):''}</div>
+        </div>
+        <div class="fi-acts">
+          <button class="ibtn" onclick="openFieldModal('${f.id}')" title="Edit"><span class="material-icons-round mi">edit</span></button>
+          ${!f.system?`<button class="ibtn danger" onclick="deleteField('${f.id}')" title="Delete"><span class="material-icons-round mi">delete</span></button>`:''}
+        </div>`;
+      if(!f.system){
+        item.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',f.id);item.classList.add('dragging');});
+        item.addEventListener('dragend',()=>item.classList.remove('dragging'));
+        item.addEventListener('dragover',e=>{e.preventDefault();item.classList.add('drag-over');});
+        item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+        item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');dropField(e.dataTransfer.getData('text/plain'),f.id);});
+      }
+      list.appendChild(item);
+    });
   });
 }
 function dropField(dragId,targetId){
