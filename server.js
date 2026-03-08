@@ -29,10 +29,11 @@ const ENV_HCAPTCHA_SECRET = process.env.SF_HCAPTCHA_SECRET || null;
 const DATA_DIR         = path.join(__dirname, 'data');
 const CONFIG_FILE      = path.join(DATA_DIR, 'config.json');       // legacy — kept for migration
 const SUBSCRIBERS_FILE = path.join(DATA_DIR, 'subscribers.json'); // legacy — kept for migration
-const FORMS_DIR        = path.join(DATA_DIR, 'forms');
-const FORMS_INDEX_FILE = path.join(DATA_DIR, 'forms-index.json');
-const UPLOADS_DIR      = path.join(__dirname, 'public', 'uploads');
-const FONTS_DIR        = path.join(UPLOADS_DIR, 'fonts');
+const FORMS_DIR           = path.join(DATA_DIR, 'forms');
+const FORMS_INDEX_FILE    = path.join(DATA_DIR, 'forms-index.json');
+const DESIGN_TMPL_FILE    = path.join(DATA_DIR, 'design-templates.json');
+const UPLOADS_DIR         = path.join(__dirname, 'public', 'uploads');
+const FONTS_DIR           = path.join(UPLOADS_DIR, 'fonts');
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(FONTS_DIR))   fs.mkdirSync(FONTS_DIR,   { recursive: true });
@@ -135,6 +136,15 @@ function readFormSubscribers(slug) {
 }
 function writeFormSubscribers(slug, subs) {
   fs.writeFileSync(path.join(DATA_DIR, `subscribers-${slug}.json`), JSON.stringify(subs, null, 2));
+}
+
+// ── Design templates ──────────────────────────────────────────────────────────
+function readDesignTemplates() {
+  if (!fs.existsSync(DESIGN_TMPL_FILE)) return [];
+  return JSON.parse(fs.readFileSync(DESIGN_TMPL_FILE, 'utf8'));
+}
+function writeDesignTemplates(templates) {
+  fs.writeFileSync(DESIGN_TMPL_FILE, JSON.stringify(templates, null, 2));
 }
 
 function defaultFormConfig(slug, name) {
@@ -527,6 +537,35 @@ app.get('/api/admin/forms/:slug/export', adminAuth, (req, res) => {
 // PER-FORM PUBLIC ROUTES  (wildcard — must come LAST)
 // ════════════════════════════════════════
 
+// ── Design templates ──────────────────────────────────────────────────────────
+app.get('/api/admin/design-templates', adminAuth, (req, res) => {
+  try { res.json(readDesignTemplates()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/design-templates', adminAuth, (req, res) => {
+  try {
+    const { name, design } = req.body;
+    if (!name || !design) return res.status(400).json({ error: 'name and design required' });
+    const templates = readDesignTemplates();
+    const tmpl = { id: uuidv4(), name, design, createdAt: new Date().toISOString() };
+    templates.push(tmpl);
+    writeDesignTemplates(templates);
+    res.json(tmpl);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/design-templates/:id', adminAuth, (req, res) => {
+  try {
+    let templates = readDesignTemplates();
+    const before = templates.length;
+    templates = templates.filter(t => t.id !== req.params.id);
+    if (templates.length === before) return res.status(404).json({ error: 'Not found' });
+    writeDesignTemplates(templates);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Public form page
 app.get('/:slug', (req, res) => {
   const { slug } = req.params;
@@ -608,6 +647,17 @@ function googleFontTag(cfg) {
   if (!fonts.length) return '';
   const query = fonts.map(f => f.replace(/ /g, '+')).join('&family=');
   return `<link href="https://fonts.googleapis.com/css2?family=${query}:wght@300;400;600;700&display=swap" rel="stylesheet">`;
+}
+
+function customFontFaceCSS(cfg) {
+  const fonts = cfg.design.customFonts || [];
+  if (!fonts.length) return '';
+  const faces = fonts.map(f => {
+    const ext = f.url.split('.').pop().toLowerCase();
+    const fmt = ext === 'woff2' ? 'woff2' : ext === 'woff' ? 'woff' : ext === 'otf' ? 'opentype' : 'truetype';
+    return `@font-face { font-family: '${f.name}'; src: url('${f.url}') format('${fmt}'); font-weight: 100 900; font-display: swap; }`;
+  }).join('\n  ');
+  return `<style>\n  ${faces}\n</style>`;
 }
 
 // ── Shared field renderer ─────────────────────────────────────────────────────
@@ -1239,6 +1289,7 @@ function renderPublicPage(cfg) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${s.title}</title>
 ${googleFontTag(cfg)}
+${customFontFaceCSS(cfg)}
 ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1352,6 +1403,7 @@ function renderUnsubscribePage(cfg, message, success, isDelete = false) {
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} · ${cfg.site.title}</title>
 ${googleFontTag(cfg)}
+${customFontFaceCSS(cfg)}
 <style>
   body { font-family: '${d.bodyFont}',sans-serif; background:${d.backgroundColor}; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 20px; }
   .card { background:#fff; border-radius:12px; padding:40px; max-width:440px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.1); text-align:center; }
@@ -1375,6 +1427,7 @@ function renderPrivacyPage(cfg) {
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Privacy Policy · ${s.title}</title>
 ${googleFontTag(cfg)}
+${customFontFaceCSS(cfg)}
 <style>
   body { font-family:'${d.bodyFont}',sans-serif; background:${d.backgroundColor}; color:${d.textColor}; padding:60px 20px; }
   .wrap { max-width:720px; margin:0 auto; background:#fff; padding:48px; border-radius:12px; box-shadow:0 4px 30px rgba(0,0,0,.08); }
@@ -1429,6 +1482,7 @@ function renderEmbedPage(cfg) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${s.title}</title>
 ${googleFontTag(cfg)}
+${customFontFaceCSS(cfg)}
 ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
