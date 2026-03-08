@@ -394,11 +394,22 @@ app.get('/admin', adminAuth, (req, res) => {
 // List all forms (with subscriber counts)
 app.get('/api/admin/forms', adminAuth, (req, res) => {
   try {
+    const origin = `${req.protocol}://${req.get('host')}`;
     const idx = readFormsIndex();
-    const result = idx.map(f => ({
-      ...f,
-      subscriberCount: readFormSubscribers(f.slug).filter(s => s.status === 'active').length
-    }));
+    const result = idx.map(f => {
+      const entry = {
+        ...f,
+        subscriberCount: readFormSubscribers(f.slug).filter(s => s.status === 'active').length,
+        embedPageSize: null,
+        embedJsSize: null
+      };
+      try {
+        const cfg = readFormConfig(f.slug);
+        entry.embedPageSize = Buffer.byteLength(renderEmbedPage(cfg), 'utf8');
+        entry.embedJsSize   = Buffer.byteLength(renderEmbedScript(origin, cfg), 'utf8');
+      } catch(_) { /* skip if config unreadable */ }
+      return entry;
+    });
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
