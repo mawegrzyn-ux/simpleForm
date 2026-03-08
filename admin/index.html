@@ -623,7 +623,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="modal-close" onclick="closeBlockPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
     </div>
     <div class="block-picker">
-      <button class="block-type-btn" onclick="addBlock('content')"><span class="material-icons-round mi">widgets</span><span class="block-type-label">Content</span></button>
+      <button class="block-type-btn" onclick="addBlock('container')"><span class="material-icons-round mi">view_agenda</span><span class="block-type-label">Container</span></button>
       <button class="block-type-btn" onclick="addBlock('divider')"><span class="material-icons-round mi">horizontal_rule</span><span class="block-type-label">Divider</span></button>
       <button class="block-type-btn" onclick="addBlock('video')"><span class="material-icons-round mi">play_circle</span><span class="block-type-label">Video</span></button>
       <button class="block-type-btn" onclick="addBlock('spinwheel')"><span class="material-icons-round mi">casino</span><span class="block-type-label">Spin Wheel</span></button>
@@ -645,6 +645,76 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="block-type-btn" onclick="addEl('spacer')"><span class="material-icons-round mi">space_bar</span><span class="block-type-label">Spacer</span></button>
       <button class="block-type-btn" onclick="addEl('divider')"><span class="material-icons-round mi">horizontal_rule</span><span class="block-type-label">Divider</span></button>
       <button class="block-type-btn" onclick="addEl('wysiwyg')"><span class="material-icons-round mi">edit_note</span><span class="block-type-label">Rich Text</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Container item picker modal -->
+<div id="cnt-modal" class="modal-overlay">
+  <div class="modal-box" style="width:400px;max-height:80vh">
+    <div class="modal-head">
+      <h2>Add item to container</h2>
+      <button class="modal-close" onclick="closeCntPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Content blocks</div>
+    <div class="block-picker">
+      <button class="block-type-btn" onclick="addContainerItem('heading')"><span class="material-icons-round mi">title</span><span class="block-type-label">Heading</span></button>
+      <button class="block-type-btn" onclick="addContainerItem('paragraph')"><span class="material-icons-round mi">notes</span><span class="block-type-label">Paragraph</span></button>
+      <button class="block-type-btn" onclick="addContainerItem('image')"><span class="material-icons-round mi">image</span><span class="block-type-label">Image</span></button>
+      <button class="block-type-btn" onclick="addContainerItem('spacer')"><span class="material-icons-round mi">space_bar</span><span class="block-type-label">Spacer</span></button>
+      <button class="block-type-btn" onclick="addContainerItem('divider')"><span class="material-icons-round mi">horizontal_rule</span><span class="block-type-label">Divider</span></button>
+      <button class="block-type-btn" onclick="addContainerItem('wysiwyg')"><span class="material-icons-round mi">edit_note</span><span class="block-type-label">Rich Text</span></button>
+    </div>
+    <div style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;margin:14px 0 8px">Form elements</div>
+    <div id="cnt-field-list" style="display:flex;flex-direction:column;gap:4px"></div>
+    <button class="block-type-btn" style="width:100%;margin-top:6px;display:flex;gap:8px;justify-content:center" onclick="addContainerItem('submit')">
+      <span class="material-icons-round mi">send</span><span class="block-type-label">Submit Button + GDPR</span>
+    </button>
+  </div>
+</div>
+
+<!-- WYSIWYG visual editor modal -->
+<div id="wysiwyg-modal" class="modal-overlay">
+  <div class="modal-box" style="width:580px">
+    <div class="modal-head">
+      <h2 id="wysiwyg-modal-title">Edit rich text</h2>
+      <button class="modal-close" onclick="closeWysiwygModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:3px;padding:6px 0;border-bottom:1px solid var(--border2);margin-bottom:10px">
+      <button class="ibtn" onclick="wysiFmt('bold')" title="Bold"><b style="font-size:13px;font-family:serif">B</b></button>
+      <button class="ibtn" onclick="wysiFmt('italic')" title="Italic"><i style="font-size:13px;font-family:serif">I</i></button>
+      <button class="ibtn" onclick="wysiFmt('underline')" title="Underline"><u style="font-size:13px">U</u></button>
+      <div style="width:1px;background:var(--border2);margin:0 3px;align-self:stretch"></div>
+      <button class="ibtn" onclick="wysiFmt('insertUnorderedList')" title="Bullet list"><span class="material-icons-round mi">format_list_bulleted</span></button>
+      <button class="ibtn" onclick="wysiFmt('insertOrderedList')" title="Numbered list"><span class="material-icons-round mi">format_list_numbered</span></button>
+      <div style="width:1px;background:var(--border2);margin:0 3px;align-self:stretch"></div>
+      <button class="ibtn" onclick="wysiFmt('formatBlock','h2')" title="Heading 2"><span class="material-icons-round mi">title</span></button>
+      <button class="ibtn" onclick="wysiFmt('formatBlock','p')" title="Paragraph"><span class="material-icons-round mi">notes</span></button>
+      <div style="width:1px;background:var(--border2);margin:0 3px;align-self:stretch"></div>
+      <button class="ibtn" onclick="wysiLink()" title="Link"><span class="material-icons-round mi">link</span></button>
+      <button class="ibtn" onclick="wysiFmt('removeFormat')" title="Clear formatting"><span class="material-icons-round mi">format_clear</span></button>
+    </div>
+    <div id="wysiwyg-area" contenteditable="true"
+      style="min-height:140px;max-height:320px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r);padding:12px 14px;font-size:0.9rem;line-height:1.75;outline:none;background:var(--panel)"
+      oninput="wysiLivePreview()"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeWysiwygModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWysiwyg()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Text/heading edit modal -->
+<div id="text-edit-modal" class="modal-overlay">
+  <div class="modal-box" style="width:480px">
+    <div class="modal-head">
+      <h2 id="text-edit-title">Edit text</h2>
+      <button class="modal-close" onclick="closeTextEditModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <textarea id="text-edit-area" rows="4" style="font-size:0.9rem;line-height:1.6"></textarea>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeTextEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTextEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -769,7 +839,7 @@ async function handleImageUpload(input,type){
 }
 function clearLogo(){cfg.design.logoUrl='';const e=document.getElementById('preview-logo');if(e)e.style.display='none';schedulePreview();}
 function clearBg(){cfg.design.backgroundImage='';const e=document.getElementById('preview-bg');if(e)e.style.display='none';schedulePreview();}
-function clearHeroImage(){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl='';const e=document.getElementById('preview-hero-img');if(e)e.style.display='none';schedulePreview();}
+function clearHeroImage(){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl='';const e=document.getElementById('preview-hero-img');if(e){e.style.display='none';e.src='';}schedulePreview();}
 
 async function handleFontUpload(input){
   const file=input.files[0];if(!file)return;
@@ -830,8 +900,8 @@ function buildPalettes(){
 }
 
 // ── Build panel ──
-const BK_ICONS={hero:'auto_awesome',form:'edit_square',footer:'notes',divider:'horizontal_rule',video:'play_circle',spinwheel:'casino',content:'widgets'};
-const BK_LABELS={hero:'Hero',form:'Form',footer:'Footer',divider:'Divider',video:'Video',spinwheel:'Spin Wheel',content:'Content'};
+const BK_ICONS={hero:'auto_awesome',form:'edit_square',footer:'notes',divider:'horizontal_rule',video:'play_circle',spinwheel:'casino',content:'widgets',container:'view_agenda'};
+const BK_LABELS={hero:'Hero',form:'Form',footer:'Footer',divider:'Divider',video:'Video',spinwheel:'Spin Wheel',content:'Content',container:'Container'};
 
 function isBkFixed(s){return s.id==='hero'||s.id==='footer';}
 function isBkDeletable(s){return s.id!=='hero'&&s.id!=='footer'&&s.id!=='form';}
@@ -879,6 +949,7 @@ function getBkBody(s){
   if(s.type==='video')return videoBkBody(s);
   if(s.type==='spinwheel')return spinwheelBkBody(s);
   if(s.type==='content')return contentBkBody(s);
+  if(s.type==='container')return containerBkBody(s);
   return '';
 }
 
@@ -1032,15 +1103,16 @@ function setupBkDrag(card,blockId){
 function updateBlockProp(id,key,val){const b=cfg.sections.find(s=>s.id===id);if(b){b[key]=val;schedulePreview();}}
 function toggleBlockVis(e,id){e.stopPropagation();const b=cfg.sections.find(s=>s.id===id);if(!b)return;b.visible=!b.visible;schedulePreview();}
 function deleteBlock(e,id){e.stopPropagation();if(!confirm('Remove this block?'))return;cfg.sections=cfg.sections.filter(s=>s.id!==id);renderBuildPanel();renderFieldList();schedulePreview();}
+function updateBkBody(blockId){const b=cfg.sections.find(s=>s.id===blockId);if(!b)return;const card=document.getElementById('bk-'+blockId);if(!card)return;const body=card.querySelector('.bk-body');if(body)body.innerHTML=getBkBody(b);}
 function updateReward(blockId,idx,key,val){const b=cfg.sections.find(s=>s.id===blockId);if(b&&b.rewards&&b.rewards[idx]){b.rewards[idx][key]=val;schedulePreview();}}
 function addReward(blockId){
   const b=cfg.sections.find(s=>s.id===blockId);if(!b)return;if(!b.rewards)b.rewards=[];
   if(b.rewards.length>=8){toast('Maximum 8 rewards','error');return;}
   const dc=['#e94560','#e67e22','#27ae60','#2980b9','#8e44ad','#f39c12','#16a085','#c0392b'];
   b.rewards.push({label:'Prize '+(b.rewards.length+1),color:dc[b.rewards.length%8],probability:1});
-  renderBuildPanel();renderFieldList();schedulePreview();
+  updateBkBody(blockId);schedulePreview();
 }
-function removeReward(blockId,idx){const b=cfg.sections.find(s=>s.id===blockId);if(b&&b.rewards){b.rewards.splice(idx,1);renderBuildPanel();renderFieldList();schedulePreview();}}
+function removeReward(blockId,idx){const b=cfg.sections.find(s=>s.id===blockId);if(b&&b.rewards){b.rewards.splice(idx,1);updateBkBody(blockId);schedulePreview();}}
 
 function openBlockPicker(){document.getElementById('block-modal').classList.add('open');}
 function closeBlockPicker(){document.getElementById('block-modal').classList.remove('open');}
@@ -1052,6 +1124,7 @@ function addBlock(type){
     video:{id,type:'video',visible:true,url:'',aspectRatio:'16:9',caption:'',columns:1,colors:{}},
     spinwheel:{id,type:'spinwheel',visible:true,rewards:[{label:'Prize 1',color:'#e94560',probability:1}],spinButtonText:'Spin!',columns:1,colors:{}},
     content:{id,type:'content',visible:true,columns:1,elements:[],colors:{}},
+    container:{id,type:'container',visible:true,columns:1,items:[],style:{}},
   };
   const footerIdx=cfg.sections.findIndex(s=>s.id==='footer');
   if(footerIdx>=0)cfg.sections.splice(footerIdx,0,defaults[type]);
@@ -1115,6 +1188,149 @@ function deleteEl(blockId,elId){
   b.elements=(b.elements||[]).filter(x=>x.id!==elId);
   renderBuildPanel();renderFieldList();schedulePreview();
 }
+
+// ── Container block (new architecture) ──
+const CNT_ICONS={heading:'title',paragraph:'notes',image:'image',spacer:'space_bar',divider:'horizontal_rule',wysiwyg:'edit_note',field:'input',submit:'send'};
+const CNT_LABELS={heading:'Heading',paragraph:'Paragraph',image:'Image',spacer:'Spacer',divider:'Divider',wysiwyg:'Rich Text',field:'Field',submit:'Submit + GDPR'};
+
+function containerBkBody(b){
+  const items=b.items||[];
+  const style=b.style||{};
+  const itemCards=items.map((item,i)=>{
+    const icon=CNT_ICONS[item.type]||'widgets';
+    const lbl=CNT_LABELS[item.type]||item.type;
+    let preview='';
+    if(item.text)preview=' — '+item.text.substring(0,24)+(item.text.length>24?'…':'');
+    else if(item.type==='field'){const f=(cfg.fields||[]).find(f=>f.id===item.fieldId);preview=f?' — '+f.label:' — (unknown)';}
+    else if(item.type==='wysiwyg'&&item.html){const t=item.html.replace(/<[^>]*>/g,'').trim();preview=t?' — '+t.substring(0,22)+(t.length>22?'…':''):'';}
+    return `<div class="el-item" draggable="true" data-cnt-id="${item.id||i}" ondragstart="cntDragStart(event,'${b.id}','${item.id||i}')" ondragend="cntDragEnd()">
+      <span class="material-icons-round dh" style="font-size:16px!important">drag_indicator</span>
+      <span class="material-icons-round" style="font-size:14px!important;color:var(--ink3)">${icon}</span>
+      <span style="flex:1;font-size:0.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}${preview}</span>
+      ${item.type!=='submit'?`<button class="ibtn" onclick="editCntItem('${b.id}',${i})" title="Edit"><span class="material-icons-round mi">edit</span></button>`:''}
+      <button class="ibtn danger" onclick="deleteCntItem('${b.id}',${i})"><span class="material-icons-round mi">delete</span></button>
+    </div>`;
+  }).join('');
+  return `
+    <div class="el-list" id="cnt-${b.id}" ondragover="cntDragOver(event)" ondrop="cntDrop(event,'${b.id}')">${itemCards}</div>
+    <button class="add-field-btn" onclick="openCntPicker('${b.id}')"><span class="material-icons-round mi">add</span> Add item</button>
+    <div class="modal-section"><div class="modal-section-title">Container style</div>
+      <div class="cg"><label class="cl">Background</label>
+        <div class="cr"><input type="color" value="${style.bg||'#ffffff'}" oninput="updateCntStyle('${b.id}','bg',this.value)"><input type="text" value="${style.bg||''}" placeholder="transparent" style="flex:1" oninput="if(!this.value||/^#[0-9a-fA-F]{3,6}$/.test(this.value))updateCntStyle('${b.id}','bg',this.value)"></div>
+      </div>
+      <div class="cg"><label class="cl">Border</label>
+        <input type="text" value="${style.border||''}" placeholder="e.g. 1px solid #e0e0e0" oninput="updateCntStyle('${b.id}','border',this.value)">
+      </div>
+      <div class="cr" style="gap:10px;align-items:center;margin-top:6px">
+        <label class="tgl"><input type="checkbox" ${style.shadow?'checked':''} onchange="updateCntStyle('${b.id}','shadow',this.checked)"><span class="tgl-s"></span></label>
+        <label class="tgl-lbl">Drop shadow</label>
+      </div>
+    </div>`;
+}
+
+function updateCntStyle(blockId,key,val){const b=cfg.sections.find(s=>s.id===blockId);if(!b)return;if(!b.style)b.style={};b.style[key]=val;schedulePreview();}
+function updateCntBody(blockId){const b=cfg.sections.find(s=>s.id===blockId);if(!b)return;const card=document.getElementById('bk-'+blockId);if(!card)return;const body=card.querySelector('.bk-body');if(body)body.innerHTML=getBkBody(b);}
+
+// Container item drag-to-reorder
+let _cntItemDragBlockId=null,_cntItemDragId=null;
+function cntDragStart(e,blockId,itemId){e.stopPropagation();_cntItemDragBlockId=blockId;_cntItemDragId=String(itemId);e.dataTransfer.effectAllowed='move';}
+function cntDragEnd(){_cntItemDragBlockId=null;_cntItemDragId=null;}
+function cntDragOver(e){e.preventDefault();}
+function cntDrop(e,blockId){
+  e.preventDefault();
+  if(!_cntItemDragId||_cntItemDragBlockId!==blockId)return;
+  const target=e.target.closest('[data-cnt-id]');if(!target)return;
+  const targetId=String(target.dataset.cntId);if(targetId===_cntItemDragId)return;
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b||!b.items)return;
+  // items may use id or fall back to string index
+  const key=(x,i)=>String(x.id!=null?x.id:i);
+  const di=b.items.findIndex((x,i)=>key(x,i)===_cntItemDragId);
+  const ti=b.items.findIndex((x,i)=>key(x,i)===targetId);
+  if(di===-1||ti===-1)return;
+  const[item]=b.items.splice(di,1);b.items.splice(ti,0,item);
+  updateCntBody(blockId);schedulePreview();
+}
+
+let _cntBlockId=null;
+function openCntPicker(blockId){
+  _cntBlockId=blockId;
+  const list=document.getElementById('cnt-field-list');
+  if(list){
+    list.innerHTML=(cfg.fields||[]).map(f=>`<button class="block-type-btn" style="display:flex;gap:8px;justify-content:flex-start;text-align:left" onclick="addContainerItem('field','${f.id}')">
+      <span class="material-icons-round mi" style="font-size:16px!important;flex-shrink:0">input</span>
+      <span class="block-type-label">${f.label} <span style="color:var(--ink3);font-size:0.7rem;font-weight:400">${f.type}</span></span>
+    </button>`).join('')||'<p style="font-size:0.8rem;color:var(--ink3);padding:4px">No fields yet — add fields from the Form block.</p>';
+  }
+  document.getElementById('cnt-modal').classList.add('open');
+}
+function closeCntPicker(){document.getElementById('cnt-modal').classList.remove('open');}
+
+function addContainerItem(type,fieldId){
+  const blockId=_cntBlockId;
+  closeCntPicker();
+  if(!blockId)return;
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b)return;
+  if(!b.items)b.items=[];
+  const id=type+'-'+Date.now();
+  const defs={
+    heading:{id,type:'heading',text:'New heading',level:2},
+    paragraph:{id,type:'paragraph',text:'Your paragraph text.'},
+    image:{id,type:'image',url:'',alt:''},
+    spacer:{id,type:'spacer',height:40},
+    divider:{id,type:'divider',style:'line',color:'#e0e0e0',thickness:1},
+    wysiwyg:{id,type:'wysiwyg',html:'<p>Edit your content here</p>'},
+    submit:{id,type:'submit'},
+    field:{id,type:'field',fieldId:fieldId||''},
+  };
+  b.items.push(defs[type]||{id,type});
+  updateCntBody(blockId);schedulePreview();
+}
+
+function deleteCntItem(blockId,idx){
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b||!b.items)return;
+  b.items.splice(idx,1);updateCntBody(blockId);schedulePreview();
+}
+
+let _editCntBlock=null,_editCntIdx=null;
+function editCntItem(blockId,idx){
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b||!b.items)return;
+  const item=b.items[idx];if(!item)return;
+  _editCntBlock=blockId;_editCntIdx=idx;
+  if(item.type==='heading'){openTextEditModal('Edit heading',item.text||'');}
+  else if(item.type==='paragraph'){openTextEditModal('Edit paragraph',item.text||'');}
+  else if(item.type==='wysiwyg'){openWysiwygModal(item.html||'');}
+  else if(item.type==='image'){const v=prompt('Image URL:',item.url||'');if(v!==null){item.url=v;updateCntBody(blockId);schedulePreview();}; _editCntBlock=null;_editCntIdx=null;}
+  else if(item.type==='spacer'){const v=prompt('Height (px):',item.height||40);if(v!==null){item.height=parseInt(v)||40;updateCntBody(blockId);schedulePreview();};_editCntBlock=null;_editCntIdx=null;}
+}
+
+// Text edit modal (heading/paragraph)
+function openTextEditModal(title,text){
+  document.getElementById('text-edit-title').textContent=title;
+  document.getElementById('text-edit-area').value=text;
+  document.getElementById('text-edit-modal').classList.add('open');
+}
+function closeTextEditModal(){document.getElementById('text-edit-modal').classList.remove('open');_editCntBlock=null;_editCntIdx=null;}
+function saveTextEdit(){
+  const b=cfg.sections.find(s=>s.id===_editCntBlock);
+  if(b&&b.items&&_editCntIdx!==null){b.items[_editCntIdx].text=document.getElementById('text-edit-area').value;updateCntBody(_editCntBlock);schedulePreview();}
+  closeTextEditModal();
+}
+
+// WYSIWYG visual editor modal
+function openWysiwygModal(html){
+  document.getElementById('wysiwyg-area').innerHTML=html||'';
+  document.getElementById('wysiwyg-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('wysiwyg-area').focus(),100);
+}
+function closeWysiwygModal(){document.getElementById('wysiwyg-modal').classList.remove('open');_editCntBlock=null;_editCntIdx=null;}
+function saveWysiwyg(){
+  const b=cfg.sections.find(s=>s.id===_editCntBlock);
+  if(b&&b.items&&_editCntIdx!==null){b.items[_editCntIdx].html=document.getElementById('wysiwyg-area').innerHTML;updateCntBody(_editCntBlock);schedulePreview();}
+  closeWysiwygModal();
+}
+function wysiFmt(cmd,val){document.getElementById('wysiwyg-area').focus();document.execCommand(cmd,false,val||null);}
+function wysiLink(){const url=prompt('Enter URL:');if(url)wysiFmt('createLink',url);}
+function wysiLivePreview(){}
 
 // ── Fields ──
 function renderFieldList(){
@@ -1355,6 +1571,9 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){
 document.getElementById('field-modal').addEventListener('click',e=>{if(e.target===document.getElementById('field-modal'))closeFieldModal();});
 document.getElementById('block-modal').addEventListener('click',e=>{if(e.target===document.getElementById('block-modal'))closeBlockPicker();});
 document.getElementById('el-modal').addEventListener('click',e=>{if(e.target===document.getElementById('el-modal'))closeElPicker();});
+document.getElementById('cnt-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cnt-modal'))closeCntPicker();});
+document.getElementById('wysiwyg-modal').addEventListener('click',e=>{if(e.target===document.getElementById('wysiwyg-modal'))closeWysiwygModal();});
+document.getElementById('text-edit-modal').addEventListener('click',e=>{if(e.target===document.getElementById('text-edit-modal'))closeTextEditModal();});
 checkSession();
 </script>
 </body>

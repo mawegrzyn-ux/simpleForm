@@ -920,16 +920,14 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
     ${h.imageUrl && h.imagePosition === 'below' ? `<img src="${h.imageUrl}" class="sf-hero-img below" alt="">` : ''}`;
   }
 
-  // Form
+  // Form (inner content only — <form> wrapper is at the card level)
   if (section.id === 'form' || section.type === 'form') {
     return `
-  <form id="sf-form" novalidate>
     ${formFields}
     <div class="sf-gdpr">By subscribing you agree to our <a href="${s.privacyPolicyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.</div>
     ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
     <button type="submit" class="sf-btn">${d.buttonText}</button>
-    <div id="sf-msg" class="sf-msg"></div>
-  </form>`;
+    <div id="sf-msg" class="sf-msg"></div>`;
   }
 
   // Footer
@@ -996,6 +994,43 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
       requestAnimationFrame(anim);
     });
   })();<\/script>`;
+  }
+
+  // Container block — flexible mix of fields, submit button, and content blocks
+  if (section.type === 'container') {
+    const items = section.items || [];
+    const style = section.style || {};
+    const cols = section.columns || 1;
+    const hasStyle = !!(style.bg || style.border || style.shadow);
+    const baseProps = [
+      style.bg ? `background:${style.bg}` : '',
+      style.border ? `border:${style.border}` : '',
+      style.shadow ? 'box-shadow:0 4px 20px rgba(0,0,0,.1)' : '',
+      hasStyle ? `border-radius:${d.cardRadius||'8px'};padding:16px 20px` : '',
+      'margin:12px 0',
+      cols === 2 ? 'display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start' : '',
+    ].filter(Boolean).join(';');
+    const renderCntItem = (item) => {
+      if (!item) return '';
+      if (item.type === 'field') {
+        const f = (cfg.fields||[]).find(fd => fd.id === item.fieldId);
+        return f ? renderFormField(f, cfg) : '';
+      }
+      if (item.type === 'submit') {
+        return `<div class="sf-gdpr">By subscribing you agree to our <a href="${s.privacyPolicyUrl||'#'}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.</div>
+        ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
+        <button type="submit" class="sf-btn">${d.buttonText||'Subscribe'}</button>
+        <div id="sf-msg" class="sf-msg"></div>`;
+      }
+      return renderBlockElement(item, cfg);
+    };
+    if (cols === 2) {
+      const mid = Math.ceil(items.length / 2);
+      const c1 = (section.col1||items.slice(0,mid)).map(renderCntItem).join('');
+      const c2 = (section.col2||items.slice(mid)).map(renderCntItem).join('');
+      return `<div style="${baseProps}"><div>${c1}</div><div>${c2}</div></div>`;
+    }
+    return `<div style="${baseProps}">${items.map(renderCntItem).join('')}</div>`;
   }
 
   // Content block (heading/paragraph/image/spacer/divider/wysiwyg elements)
@@ -1093,8 +1128,10 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
 </head>
 <body>
 <div class="sf-card">
-  ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
-  ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
+  <form id="sf-form" novalidate>
+    ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
+    ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
+  </form>
 </div>
 
 <!-- Cookie Banner -->
@@ -1119,28 +1156,26 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   if(!form) return;
   form.addEventListener('submit', async function(e){
     e.preventDefault();
-    const btn = form.querySelector('.sf-btn');
+    const btn = form.querySelector('button[type=submit]');
     const msg = document.getElementById('sf-msg');
-    btn.disabled = true;
-    btn.textContent = 'Submitting…';
-    msg.style.display = 'none';
+    if(btn){btn.disabled = true;btn.textContent = 'Submitting…';}
+    if(msg)msg.style.display = 'none';
 
     const data = new URLSearchParams(new FormData(form));
     try {
       const r = await fetch('/subscribe', { method:'POST', body: data });
       const j = await r.json();
       if(j.success){
-        msg.className='sf-msg success'; msg.textContent='${(formSection && formSection.submitSuccessMessage) || 'Thank you!'}';
+        if(msg){msg.className='sf-msg success'; msg.textContent='${(formSection && formSection.submitSuccessMessage) || 'Thank you! You\'re subscribed.'}';msg.style.display='block';}
         form.reset();
       } else {
-        msg.className='sf-msg error'; msg.textContent=j.error||'${(formSection && formSection.submitErrorMessage) || 'Error. Try again.'}';
-        btn.disabled=false; btn.textContent='${d.buttonText}';
+        if(msg){msg.className='sf-msg error'; msg.textContent=j.error||'${(formSection && formSection.submitErrorMessage) || 'Something went wrong. Please try again.'}';msg.style.display='block';}
+        if(btn){btn.disabled=false; btn.textContent='${d.buttonText}';};
       }
     } catch(err){
-      msg.className='sf-msg error'; msg.textContent='Network error. Please try again.';
-      btn.disabled=false; btn.textContent='${d.buttonText}';
+      if(msg){msg.className='sf-msg error'; msg.textContent='Network error. Please try again.';msg.style.display='block';}
+      if(btn){btn.disabled=false; btn.textContent='${d.buttonText}';}
     }
-    msg.style.display='block';
   });
 })();
 ${sliderPickerJS()}
@@ -1274,8 +1309,10 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
 </style>
 </head>
 <body>
+  <form id="sf-form" novalidate>
   ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
   ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
+  </form>
 
 <script>
 (function(){
@@ -1292,29 +1329,26 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
 
   form.addEventListener('submit', async function(e){
     e.preventDefault();
-    const btn = form.querySelector('.sf-btn');
+    const btn = form.querySelector('button[type=submit]');
     const msg = document.getElementById('sf-msg');
-    btn.disabled = true;
-    btn.textContent = 'Submitting\u2026';
-    msg.style.display = 'none';
+    if(btn){btn.disabled = true;btn.textContent = 'Submitting\u2026';}
+    if(msg)msg.style.display = 'none';
     const data = new URLSearchParams(new FormData(form));
     try {
       const r = await fetch('/subscribe', { method:'POST', body: data });
       const j = await r.json();
       if(j.success){
-        msg.className='sf-msg success'; msg.textContent='${(formSection && formSection.submitSuccessMessage) || 'Thank you!'}';
+        if(msg){msg.className='sf-msg success'; msg.textContent='${(formSection && formSection.submitSuccessMessage) || 'Thank you! You\'re subscribed.'}';msg.style.display='block';}
         form.reset();
-        // notify parent of success (optional hook)
         window.parent.postMessage({ type: 'sf-success' }, '*');
       } else {
-        msg.className='sf-msg error'; msg.textContent=j.error||'${(formSection && formSection.submitErrorMessage) || 'Error. Try again.'}';
-        btn.disabled=false; btn.textContent='${d.buttonText}';
+        if(msg){msg.className='sf-msg error'; msg.textContent=j.error||'${(formSection && formSection.submitErrorMessage) || 'Something went wrong. Please try again.'}';msg.style.display='block';}
+        if(btn){btn.disabled=false; btn.textContent='${d.buttonText}';}
       }
     } catch(err){
-      msg.className='sf-msg error'; msg.textContent='Network error. Please try again.';
-      btn.disabled=false; btn.textContent='${d.buttonText}';
+      if(msg){msg.className='sf-msg error'; msg.textContent='Network error. Please try again.';msg.style.display='block';}
+      if(btn){btn.disabled=false; btn.textContent='${d.buttonText}';}
     }
-    msg.style.display='block';
     reportHeight();
   });
 })();
