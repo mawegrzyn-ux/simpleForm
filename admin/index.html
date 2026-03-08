@@ -1130,14 +1130,15 @@ function buildPalettes(){
 const BK_ICONS={hero:'auto_awesome',form:'edit_square',footer:'notes',divider:'horizontal_rule',video:'play_circle',spinwheel:'casino',content:'widgets',container:'view_agenda'};
 const BK_LABELS={hero:'Hero',form:'Form',footer:'Footer',divider:'Divider',video:'Video',spinwheel:'Spin Wheel',content:'Content',container:'Container'};
 
-function isBkFixed(s){return s.id==='hero'||s.id==='footer';}
+function isBkFixed(s){return s.id==='hero'||s.id==='footer'||s.id==='form'||s.type==='form';}
 function isBkDeletable(s){return s.id!=='hero'&&s.id!=='footer'&&s.id!=='form';}
 
 function renderBuildPanel(){
   const scroll=document.getElementById('bl-scroll');scroll.innerHTML='';
   const hero=cfg.sections.find(s=>s.id==='hero');
   if(hero)scroll.appendChild(makeBkCard(hero));
-  cfg.sections.filter(s=>s.id!=='hero'&&s.id!=='footer'&&s.id!=='form'&&s.type!=='form').forEach(s=>{
+  // Render all middle sections in array order (form block included, fixed + locked)
+  cfg.sections.filter(s=>s.id!=='hero'&&s.id!=='footer').forEach(s=>{
     const card=makeBkCard(s);
     if(!isBkFixed(s))setupBkDrag(card,s.id);
     scroll.appendChild(card);
