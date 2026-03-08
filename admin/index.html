@@ -226,6 +226,11 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .palette-swatch.active::after{content:'✓';color:#fff;font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4);}
 .custom-font-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:5px;}
 .custom-font-name{flex:1;font-size:0.83rem;font-weight:500;}
+/* Design templates */
+.dtmpl-list{display:flex;flex-direction:column;gap:5px;}
+.dtmpl-item{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:7px 10px;}
+.dtmpl-name{flex:1;font-size:0.84rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dtmpl-acts{display:flex;gap:4px;flex-shrink:0;}
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
@@ -474,6 +479,15 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
       </div>
       <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">style</span> Design Templates</div>
+      <p class="card-desc">Save the current design as a reusable template and apply it to any form.</p>
+      <div id="dtmpl-list" class="dtmpl-list" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="dtmpl-name-input" placeholder="Template name…" style="flex:1">
+        <button class="btn btn-primary btn-sm" onclick="saveDesignTemplate()"><span class="material-icons-round mi">save</span> Save current</button>
+      </div>
     </div>
   </div>
   </div><!-- /design-panel -->
@@ -884,6 +898,7 @@ async function loadFormsIndex(){
   if(r.status===401){window.location='/auth/login';return;}
   formsIndex=await r.json();
   renderFormsList();
+  loadDesignTemplates();
   switchTab('forms');
 }
 
@@ -1064,7 +1079,17 @@ function renderCustomFontList(){
 }
 
 // ── Fonts ──
+function injectCustomFontFaces(){
+  let el=document.getElementById('admin-custom-font-faces');
+  if(!el){el=document.createElement('style');el.id='admin-custom-font-faces';document.head.appendChild(el);}
+  el.textContent=(cfg&&cfg.design.customFonts||[]).map(f=>{
+    const ext=f.url.split('.').pop().toLowerCase();
+    const fmt=ext==='woff2'?'woff2':ext==='woff'?'woff':ext==='otf'?'opentype':'truetype';
+    return `@font-face{font-family:'${f.name}';src:url('${f.url}') format('${fmt}');font-weight:100 900;font-display:swap;}`;
+  }).join('\n');
+}
 function buildFontPickers(){
+  injectCustomFontFaces();
   const customFonts=(cfg&&cfg.design.customFonts||[]).map(f=>f.name);
   buildPicker('heading-font-picker',[...HEADING_FONTS,...customFonts],cfg.design.googleFont,f=>{cfg.design.googleFont=f;schedulePreview();});
   buildPicker('body-font-picker',[...BODY_FONTS,...customFonts],cfg.design.bodyFont,f=>{cfg.design.bodyFont=f;schedulePreview();});
@@ -1870,6 +1895,7 @@ function switchTab(tab,btn){
   const p=document.getElementById('tab-'+tab);if(p)p.classList.add('active');
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
+  if(tab==='design')renderDesignTemplates();
 }
 
 // ── Subscribers ──
@@ -1948,6 +1974,56 @@ function toast(msg,type=''){
   e.innerHTML=`<span class="material-icons-round mi">${icon}</span>${msg}`;
   e.className='show '+(type||'');
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>{e.className='';},3000);
+}
+
+// ── Design templates ──
+let designTemplates=[];
+async function loadDesignTemplates(){
+  try{const r=await fetch('/api/admin/design-templates');if(r.ok)designTemplates=await r.json();}catch(e){}
+  renderDesignTemplates();
+}
+function renderDesignTemplates(){
+  const el=document.getElementById('dtmpl-list');if(!el)return;
+  if(!designTemplates.length){el.innerHTML='<p style="font-size:0.78rem;color:var(--ink3);padding:4px 0">No saved templates yet.</p>';return;}
+  el.innerHTML='';
+  designTemplates.forEach(t=>{
+    const row=document.createElement('div');row.className='dtmpl-item';
+    row.innerHTML=`<span class="dtmpl-name">${escHtml(t.name)}</span>
+      <div class="dtmpl-acts">
+        <button class="btn btn-outline btn-sm" onclick="applyDesignTemplate('${t.id}')"><span class="material-icons-round mi">check_circle</span> Apply</button>
+        <button class="ibtn danger" onclick="deleteDesignTemplate('${t.id}')"><span class="material-icons-round mi">delete</span></button>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+async function saveDesignTemplate(){
+  const name=document.getElementById('dtmpl-name-input').value.trim();
+  if(!name){toast('Enter a template name','error');return;}
+  if(!cfg){toast('No form loaded','error');return;}
+  const r=await fetch('/api/admin/design-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,design:cfg.design})});
+  if(r.ok){
+    const t=await r.json();
+    designTemplates.push(t);
+    document.getElementById('dtmpl-name-input').value='';
+    renderDesignTemplates();
+    toast('Template saved','success');
+  }else toast('Save failed','error');
+}
+async function applyDesignTemplate(id){
+  const t=designTemplates.find(t=>t.id===id);if(!t)return;
+  if(!confirm(`Apply template "${t.name}" to the current form? This will overwrite all design settings.`))return;
+  // Merge design — keep customFonts from current form so uploaded files aren't lost
+  const prevCustomFonts=cfg.design.customFonts||[];
+  cfg.design={...t.design,customFonts:prevCustomFonts};
+  populateControls();buildFontPickers();buildPalettes();schedulePreview();
+  toast('Template applied','success');
+}
+async function deleteDesignTemplate(id){
+  const t=designTemplates.find(t=>t.id===id);
+  if(!confirm(`Delete template "${t?t.name:id}"?`))return;
+  const r=await fetch(`/api/admin/design-templates/${id}`,{method:'DELETE'});
+  if(r.ok){designTemplates=designTemplates.filter(t=>t.id!==id);renderDesignTemplates();toast('Template deleted','success');}
+  else toast('Delete failed','error');
 }
 
 // ── Forms management ──
