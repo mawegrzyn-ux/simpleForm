@@ -26,12 +26,19 @@ const SESSION_SECRET      = process.env.SESSION_SECRET      || uuidv4(); // must
 const ENV_HCAPTCHA_SECRET = process.env.SF_HCAPTCHA_SECRET || null;
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
-const DATA_DIR        = path.join(__dirname, 'data');
-const CONFIG_FILE     = path.join(DATA_DIR, 'config.json');
-const SUBSCRIBERS_FILE = path.join(DATA_DIR, 'subscribers.json');
-const UPLOADS_DIR     = path.join(__dirname, 'public', 'uploads');
+const DATA_DIR         = path.join(__dirname, 'data');
+const CONFIG_FILE      = path.join(DATA_DIR, 'config.json');       // legacy — kept for migration
+const SUBSCRIBERS_FILE = path.join(DATA_DIR, 'subscribers.json'); // legacy — kept for migration
+const FORMS_DIR        = path.join(DATA_DIR, 'forms');
+const FORMS_INDEX_FILE = path.join(DATA_DIR, 'forms-index.json');
+const UPLOADS_DIR      = path.join(__dirname, 'public', 'uploads');
+const FONTS_DIR        = path.join(UPLOADS_DIR, 'fonts');
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(FONTS_DIR))   fs.mkdirSync(FONTS_DIR,   { recursive: true });
+
+// Slugs that cannot be used as form slugs (they're real routes)
+const RESERVED_SLUGS = new Set(['admin','auth','api','privacy','unsubscribe','delete-data','embed','public','uploads','assets']);
 
 // ── OIDC client (initialised async at startup) ────────────────────────────────
 let oidcClient = null;
