@@ -290,6 +290,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .form-card-name{font-weight:600;font-size:0.95rem;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .form-card-meta{display:flex;align-items:center;gap:8px;font-size:0.79rem;color:var(--ink3);}
 .slug-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-family:monospace;font-size:0.73rem;color:var(--ink2);}
+.size-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-size:0.73rem;color:var(--ink3);display:inline-flex;align-items:center;gap:2px;}
 .form-card-acts{display:flex;gap:6px;flex-shrink:0;}
 </style>
 </head>
@@ -902,6 +903,8 @@ async function loadFormsIndex(){
   switchTab('forms');
 }
 
+function fmtBytes(b){if(b==null)return'—';if(b<1024)return b+'B';if(b<1024*1024)return(b/1024).toFixed(1)+'KB';return(b/(1024*1024)).toFixed(2)+'MB';}
+
 function renderFormsList(){
   const el=document.getElementById('forms-list');if(!el)return;
   if(!formsIndex.length){el.innerHTML='<p style="color:var(--ink3);font-size:0.875rem;text-align:center;padding:32px">No forms yet. Create your first form.</p>';return;}
@@ -911,7 +914,9 @@ function renderFormsList(){
         <div class="form-card-name">${escHtml(f.name)}</div>
         <div class="form-card-meta">
           <span class="slug-pill">/${f.slug}</span>
-          <span id="sub-count-${f.slug}">${f.subscriberCount!=null?f.subscriberCount+' subscriber'+(f.subscriberCount!==1?'s':''):'…'}</span>
+          <span>${f.subscriberCount!=null?f.subscriberCount+' subscriber'+(f.subscriberCount!==1?'s':''):'—'}</span>
+          <span class="size-pill" title="Embed iframe HTML size"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">web</span> ${fmtBytes(f.embedPageSize)}</span>
+          <span class="size-pill" title="Embed JS script size"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">code</span> ${fmtBytes(f.embedJsSize)}</span>
         </div>
       </div>
       <div class="form-card-acts">
