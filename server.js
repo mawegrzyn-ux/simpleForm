@@ -864,8 +864,20 @@ function sliderPickerJS() {
 }
 
 // ── Block element renderer (for content blocks) ─────────────────────────────
-function renderBlockElement(el) {
+function renderBlockElement(el, cfg) {
   if (!el) return '';
+  if (el.type === 'field') {
+    const f = cfg && (cfg.fields||[]).find(fd => fd.id === el.fieldId);
+    return f ? renderFormField(f, cfg) : '';
+  }
+  if (el.type === 'submit') {
+    const d2 = (cfg&&cfg.design)||{};
+    const s2 = (cfg&&cfg.site)||{};
+    return `<div class="sf-gdpr">By subscribing you agree to our <a href="${s2.privacyPolicyUrl||'#'}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.</div>
+    ${s2.captchaEnabled && s2.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s2.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
+    <button type="submit" class="sf-btn">${d2.buttonText||'Subscribe'}</button>
+    <div id="sf-msg" class="sf-msg"></div>`;
+  }
   switch (el.type) {
     case 'heading': {
       const tag = ['h1','h2','h3','h4'][Math.min((el.level || 2) - 1, 3)];
@@ -999,12 +1011,12 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
       c.bg ? `border-radius:8px` : '',
     ].filter(Boolean).join(';');
     const wAttr = blockStyle ? ` style="${blockStyle}"` : '';
-    const elHtml = elements.map(el => renderBlockElement(el)).join('');
+    const elHtml = elements.map(el => renderBlockElement(el, cfg)).join('');
     if (cols === 2) {
       // Split elements roughly in half for 2-col layout
       const half = Math.ceil(elements.length / 2);
-      const col1 = elements.slice(0, half).map(el => renderBlockElement(el)).join('');
-      const col2 = elements.slice(half).map(el => renderBlockElement(el)).join('');
+      const col1 = elements.slice(0, half).map(el => renderBlockElement(el, cfg)).join('');
+      const col2 = elements.slice(half).map(el => renderBlockElement(el, cfg)).join('');
       return `<div class="sf-content-block"${wAttr} style="${blockStyle};display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;margin:16px 0"><div>${col1}</div><div>${col2}</div></div>`;
     }
     return `<div class="sf-content-block"${wAttr} style="${blockStyle};margin:16px 0">${elHtml}</div>`;
