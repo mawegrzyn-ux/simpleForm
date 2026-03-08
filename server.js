@@ -114,20 +114,75 @@ const uploadFont = multer({
 const submitLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10,  message: { error: 'Too many requests' } });
 const adminLimiter  = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 
-// ── Config helpers ────────────────────────────────────────────────────────────
-function readConfig() {
-  const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+// ── Multi-form helpers ────────────────────────────────────────────────────────
+function readFormsIndex() {
+  return JSON.parse(fs.readFileSync(FORMS_INDEX_FILE, 'utf8'));
+}
+function writeFormsIndex(idx) {
+  fs.writeFileSync(FORMS_INDEX_FILE, JSON.stringify(idx, null, 2));
+}
+function readFormConfig(slug) {
+  const cfg = JSON.parse(fs.readFileSync(path.join(FORMS_DIR, slug + '.json'), 'utf8'));
   if (ENV_HCAPTCHA_SECRET) cfg.site.hcaptchaSecretKey = ENV_HCAPTCHA_SECRET;
   return cfg;
 }
-function writeConfig(cfg) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+function writeFormConfig(slug, cfg) {
+  fs.writeFileSync(path.join(FORMS_DIR, slug + '.json'), JSON.stringify(cfg, null, 2));
 }
-function readSubscribers() {
-  return JSON.parse(fs.readFileSync(SUBSCRIBERS_FILE, 'utf8'));
+function readFormSubscribers(slug) {
+  const f = path.join(DATA_DIR, `subscribers-${slug}.json`);
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : [];
 }
-function writeSubscribers(subs) {
-  fs.writeFileSync(SUBSCRIBERS_FILE, JSON.stringify(subs, null, 2));
+function writeFormSubscribers(slug, subs) {
+  fs.writeFileSync(path.join(DATA_DIR, `subscribers-${slug}.json`), JSON.stringify(subs, null, 2));
+}
+
+function defaultFormConfig(slug, name) {
+  return {
+    slug, name,
+    site: { title: name, favicon: '', adminPassword: '', cookieBannerText: '', privacyPolicyUrl: '/privacy',
+            unsubscribeEnabled: true, captchaEnabled: false, hcaptchaSiteKey: '', hcaptchaSecretKey: '' },
+    design: { googleFont: 'Playfair Display', bodyFont: 'Lato', primaryColor: '#1a1a2e',
+              accentColor: '#e94560', backgroundColor: '#f8f5f0', textColor: '#1a1a2e',
+              buttonText: 'Subscribe Now', buttonRadius: '4px', containerWidth: '560px',
+              backgroundImage: '', backgroundOverlay: 0.4, logoUrl: '', logoWidth: '180px',
+              cardPadding: '48px 40px', cardRadius: '12px', fieldRadius: '6px',
+              fieldBg: '#fafafa', fieldBorderColor: '#e0e0e0', fieldBorderStyle: 'solid',
+              fieldBorderWidth: 2, customFonts: [] },
+    sections: [
+      { id: 'hero',   type: 'hero',   visible: true, heading: 'Sign Up', subheading: '', imageUrl: '', imagePosition: 'above', colors: {} },
+      { id: 'form',   type: 'form',   visible: true, submitSuccessMessage: "Thanks! You're on the list.", submitErrorMessage: 'Something went wrong.', colors: {} },
+      { id: 'footer', type: 'footer', visible: true, text: '', colors: {} }
+    ],
+    fields: [{ id: 'email', label: 'Email Address', type: 'email', required: true, placeholder: 'your@email.com', system: true, conditions: [] }]
+  };
+}
+
+// ── One-time migration from single-form to multi-form layout ──────────────────
+function migrateIfNeeded() {
+  if (fs.existsSync(FORMS_DIR)) return; // already migrated
+  fs.mkdirSync(FORMS_DIR, { recursive: true });
+  let name = 'My Form';
+  if (fs.existsSync(CONFIG_FILE)) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      cfg.slug = 'default';
+      cfg.name = (cfg.site && cfg.site.title) || name;
+      name = cfg.name;
+      writeFormConfig('default', cfg);
+      console.log('✔ Migrated config.json → data/forms/default.json');
+    } catch (e) { console.error('Migration error (config):', e.message); }
+  } else {
+    writeFormConfig('default', defaultFormConfig('default', name));
+  }
+  if (fs.existsSync(SUBSCRIBERS_FILE)) {
+    try {
+      fs.copyFileSync(SUBSCRIBERS_FILE, path.join(DATA_DIR, 'subscribers-default.json'));
+      console.log('✔ Migrated subscribers.json → data/subscribers-default.json');
+    } catch (e) { console.error('Migration error (subscribers):', e.message); }
+  }
+  writeFormsIndex([{ slug: 'default', name, createdAt: new Date().toISOString() }]);
+  console.log('✔ Multi-form migration complete.');
 }
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
@@ -156,144 +211,75 @@ function adminAuth(req, res, next) {
 }
 
 // ════════════════════════════════════════
-// PUBLIC ROUTES
+// PUBLIC ROUTES  (named routes BEFORE /:slug wildcard)
 // ════════════════════════════════════════
 
-// Serve the live signup page (rendered server-side from config)
+// Root → redirect to first form
 app.get('/', (req, res) => {
-  const cfg = readConfig();
-  res.send(renderPublicPage(cfg));
+  try {
+    const idx = readFormsIndex();
+    if (idx.length) return res.redirect(`/${idx[0].slug}`);
+  } catch (e) {}
+  res.status(404).send('<p>No forms found. <a href="/admin">Go to admin</a></p>');
 });
 
-// Privacy policy page
+// Privacy policy — uses first form for branding
 app.get('/privacy', (req, res) => {
-  const cfg = readConfig();
-  res.send(renderPrivacyPage(cfg));
+  try {
+    const idx = readFormsIndex();
+    const cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_', 'SignFlow');
+    res.send(renderPrivacyPage(cfg));
+  } catch (e) { res.status(500).send('Error'); }
 });
 
-// Unsubscribe page
+// Helper: find which form a subscriber token belongs to
+function findSubscriberByToken(email, token) {
+  try {
+    const idx = readFormsIndex();
+    for (const { slug } of idx) {
+      const subs = readFormSubscribers(slug);
+      const i = subs.findIndex(s => s.email === decodeURIComponent(email) && s.unsubscribeToken === token);
+      if (i !== -1) return { slug, subs, i };
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Unsubscribe
 app.get('/unsubscribe', (req, res) => {
   const { token, email } = req.query;
-  const cfg = readConfig();
-  let message = '';
-  let success = false;
-
+  let cfg;
+  try { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+  catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
+  let message = '', success = false;
   if (token && email) {
-    const subs = readSubscribers();
-    const idx = subs.findIndex(s => s.email === decodeURIComponent(email) && s.unsubscribeToken === token);
-    if (idx !== -1) {
-      subs[idx].status = 'unsubscribed';
-      subs[idx].unsubscribedAt = new Date().toISOString();
-      writeSubscribers(subs);
-      message = 'You have been successfully unsubscribed.';
-      success = true;
-    } else {
-      message = 'Invalid or expired unsubscribe link.';
-    }
+    const found = findSubscriberByToken(email, token);
+    if (found) {
+      found.subs[found.i].status = 'unsubscribed';
+      found.subs[found.i].unsubscribedAt = new Date().toISOString();
+      writeFormSubscribers(found.slug, found.subs);
+      message = 'You have been successfully unsubscribed.'; success = true;
+    } else { message = 'Invalid or expired unsubscribe link.'; }
   }
-
   res.send(renderUnsubscribePage(cfg, message, success));
 });
 
 // GDPR: Delete my data
 app.get('/delete-data', (req, res) => {
   const { token, email } = req.query;
-  const cfg = readConfig();
-  let message = '';
-  let success = false;
-
+  let cfg;
+  try { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+  catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
+  let message = '', success = false;
   if (token && email) {
-    const subs = readSubscribers();
-    const idx = subs.findIndex(s => s.email === decodeURIComponent(email) && s.unsubscribeToken === token);
-    if (idx !== -1) {
-      subs.splice(idx, 1);
-      writeSubscribers(subs);
-      message = 'Your data has been permanently deleted from our records.';
-      success = true;
-    } else {
-      message = 'Invalid or expired link.';
-    }
+    const found = findSubscriberByToken(email, token);
+    if (found) {
+      found.subs.splice(found.i, 1);
+      writeFormSubscribers(found.slug, found.subs);
+      message = 'Your data has been permanently deleted from our records.'; success = true;
+    } else { message = 'Invalid or expired link.'; }
   }
-
   res.send(renderUnsubscribePage(cfg, message, success, true));
-});
-
-// Form submission
-app.post('/subscribe', submitLimiter, async (req, res) => {
-  const cfg = readConfig();
-  const subs = readSubscribers();
-  const body = req.body;
-
-  // ── hCaptcha verification ──
-  if (cfg.site.captchaEnabled && cfg.site.hcaptchaSecretKey) {
-    const captchaToken = body['h-captcha-response'] || '';
-    if (!captchaToken) {
-      return res.status(400).json({ error: 'Please complete the CAPTCHA.' });
-    }
-    try {
-      const verifyParams = new URLSearchParams({
-        secret: cfg.site.hcaptchaSecretKey,
-        response: captchaToken,
-        remoteip: req.ip
-      });
-      const verifyRes = await fetch('https://api.hcaptcha.com/siteverify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: verifyParams.toString()
-      });
-      const verifyJson = await verifyRes.json();
-      if (!verifyJson.success) {
-        return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.' });
-      }
-    } catch (e) {
-      console.error('hCaptcha verify error:', e);
-      return res.status(500).json({ error: 'CAPTCHA service error. Please try again.' });
-    }
-  }
-
-  const email = (body.email || '').trim().toLowerCase();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Valid email required.' });
-  }
-
-  // Check duplicate
-  const existing = subs.find(s => s.email === email);
-  if (existing && existing.status === 'active') {
-    return res.status(409).json({ error: 'This email is already subscribed.' });
-  }
-
-  // Build subscriber record from config fields
-  const record = {
-    id: uuidv4(),
-    email,
-    status: 'active',
-    subscribedAt: new Date().toISOString(),
-    unsubscribedAt: null,
-    unsubscribeToken: uuidv4(),
-    consentGiven: true,
-    consentTimestamp: new Date().toISOString(),
-    ipAddress: req.ip,
-    customFields: {}
-  };
-
-  cfg.fields.filter(f => !f.system).forEach(field => {
-    const val = (body[field.id] || '').trim();
-    if (field.required && !val) {
-      // will be caught client-side but double check
-    }
-    record.customFields[field.id] = val;
-  });
-
-  if (existing) {
-    // re-subscribe
-    const idx = subs.findIndex(s => s.email === email);
-    subs[idx] = { ...subs[idx], ...record };
-  } else {
-    subs.push(record);
-  }
-
-  writeSubscribers(subs);
-  res.json({ success: true });
 });
 
 // ════════════════════════════════════════
@@ -386,104 +372,225 @@ app.get('/auth/me', (req, res) => {
   }
 });
 
-// Admin panel — protected by session
+// ════════════════════════════════════════
+// ADMIN ROUTES
+// ════════════════════════════════════════
+
+// Admin panel SPA
 app.get('/admin', adminAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'index.html'));
 });
 
-// Get config
-app.get('/api/admin/config', adminAuth, (req, res) => {
-  res.json(readConfig());
+// List all forms (with subscriber counts)
+app.get('/api/admin/forms', adminAuth, (req, res) => {
+  try {
+    const idx = readFormsIndex();
+    const result = idx.map(f => ({
+      ...f,
+      subscriberCount: readFormSubscribers(f.slug).filter(s => s.status === 'active').length
+    }));
+    res.json(result);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Save config
-app.post('/api/admin/config', adminAuth, (req, res) => {
-  const current = readConfig();
-  const updated = req.body;
-  // Merge carefully
-  writeConfig(updated);
-  res.json({ success: true });
+// Create new form
+app.post('/api/admin/forms', adminAuth, (req, res) => {
+  try {
+    const { slug, name } = req.body;
+    if (!slug || !name) return res.status(400).json({ error: 'slug and name required' });
+    if (RESERVED_SLUGS.has(slug)) return res.status(400).json({ error: 'Slug is reserved' });
+    if (!/^[a-z0-9-]+$/.test(slug)) return res.status(400).json({ error: 'Slug must be lowercase letters, numbers and hyphens only' });
+    const idx = readFormsIndex();
+    if (idx.find(f => f.slug === slug)) return res.status(409).json({ error: 'Slug already in use' });
+    writeFormConfig(slug, defaultFormConfig(slug, name));
+    idx.push({ slug, name, createdAt: new Date().toISOString() });
+    writeFormsIndex(idx);
+    res.json({ success: true, slug });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Upload image
-app.post('/api/admin/upload', adminAuth, upload.single('image'), (req, res) => {
+// Delete a form
+app.delete('/api/admin/forms/:slug', adminAuth, (req, res) => {
+  try {
+    const { slug } = req.params;
+    const idx = readFormsIndex();
+    if (idx.length <= 1) return res.status(400).json({ error: 'Cannot delete the last form' });
+    const formFile = path.join(FORMS_DIR, slug + '.json');
+    if (fs.existsSync(formFile)) fs.unlinkSync(formFile);
+    const subFile = path.join(DATA_DIR, `subscribers-${slug}.json`);
+    if (fs.existsSync(subFile)) fs.unlinkSync(subFile);
+    writeFormsIndex(idx.filter(f => f.slug !== slug));
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Rename a form
+app.patch('/api/admin/forms/:slug/meta', adminAuth, (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const idx = readFormsIndex();
+    const entry = idx.find(f => f.slug === slug);
+    if (!entry) return res.status(404).json({ error: 'Form not found' });
+    entry.name = name;
+    writeFormsIndex(idx);
+    const cfg = readFormConfig(slug);
+    cfg.name = name; cfg.site.title = name;
+    writeFormConfig(slug, cfg);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get a form's config
+app.get('/api/admin/forms/:slug', adminAuth, (req, res) => {
+  try { res.json(readFormConfig(req.params.slug)); }
+  catch(e) { res.status(404).json({ error: 'Form not found' }); }
+});
+
+// Save a form's config
+app.post('/api/admin/forms/:slug', adminAuth, (req, res) => {
+  try {
+    writeFormConfig(req.params.slug, req.body);
+    // Keep forms-index name in sync if title changed
+    const idx = readFormsIndex();
+    const entry = idx.find(f => f.slug === req.params.slug);
+    if (entry && req.body.name) { entry.name = req.body.name; writeFormsIndex(idx); }
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Upload image for a form
+app.post('/api/admin/forms/:slug/upload', adminAuth, upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
-// Get subscribers (paginated)
-app.get('/api/admin/subscribers', adminAuth, (req, res) => {
-  const subs = readSubscribers();
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 50;
-  const search = (req.query.search || '').toLowerCase();
-  const status = req.query.status || 'all';
+// Upload font for a form
+app.post('/api/admin/forms/:slug/upload-font', adminAuth, uploadFont.single('font'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  res.json({ url: `/uploads/fonts/${req.file.filename}` });
+});
 
-  let filtered = subs;
-  if (search) filtered = filtered.filter(s => s.email.includes(search) || JSON.stringify(s.customFields).toLowerCase().includes(search));
-  if (status !== 'all') filtered = filtered.filter(s => s.status === status);
-
-  const total = filtered.length;
-  const paginated = filtered.slice((page - 1) * limit, page * limit);
-  res.json({ subscribers: paginated, total, page, pages: Math.ceil(total / limit) });
+// Get subscribers for a form (paginated)
+app.get('/api/admin/forms/:slug/subscribers', adminAuth, (req, res) => {
+  try {
+    const subs = readFormSubscribers(req.params.slug);
+    const page   = parseInt(req.query.page)  || 1;
+    const limit  = parseInt(req.query.limit) || 50;
+    const search = (req.query.search || '').toLowerCase();
+    const status = req.query.status || 'all';
+    let filtered = subs;
+    if (search)        filtered = filtered.filter(s => s.email.includes(search) || JSON.stringify(s.customFields).toLowerCase().includes(search));
+    if (status !== 'all') filtered = filtered.filter(s => s.status === status);
+    const total = filtered.length;
+    res.json({ subscribers: filtered.slice((page-1)*limit, page*limit), total, page, pages: Math.ceil(total/limit) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Delete subscriber (GDPR)
-app.delete('/api/admin/subscribers/:id', adminAuth, (req, res) => {
-  const subs = readSubscribers();
-  const idx = subs.findIndex(s => s.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  subs.splice(idx, 1);
-  writeSubscribers(subs);
-  res.json({ success: true });
+app.delete('/api/admin/forms/:slug/subscribers/:id', adminAuth, (req, res) => {
+  try {
+    const subs = readFormSubscribers(req.params.slug);
+    const idx = subs.findIndex(s => s.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    subs.splice(idx, 1);
+    writeFormSubscribers(req.params.slug, subs);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Export subscribers
-app.get('/api/admin/export', adminAuth, (req, res) => {
-  const cfg = readConfig();
-  const subs = readSubscribers();
-  const fmt = req.query.format || 'csv';
+// Export subscribers as CSV/JSON
+app.get('/api/admin/forms/:slug/export', adminAuth, (req, res) => {
+  try {
+    const cfg  = readFormConfig(req.params.slug);
+    const subs = readFormSubscribers(req.params.slug);
+    const fmt  = req.query.format || 'csv';
+    if (fmt === 'json') {
+      res.setHeader('Content-Disposition', `attachment; filename="subscribers-${req.params.slug}.json"`);
+      res.setHeader('Content-Type', 'application/json');
+      return res.send(JSON.stringify(subs, null, 2));
+    }
+    const customFieldIds = cfg.fields.filter(f => !f.system).map(f => f.id);
+    const headers = ['id','email','status','subscribedAt','unsubscribedAt','consentGiven','consentTimestamp','ipAddress',...customFieldIds];
+    const rows = subs.map(s => headers.map(h => {
+      if (customFieldIds.includes(h)) return `"${(s.customFields[h]||'').replace(/"/g,'""')}"`;
+      return `"${(s[h]||'').toString().replace(/"/g,'""')}"`;
+    }).join(','));
+    res.setHeader('Content-Disposition', `attachment; filename="subscribers-${req.params.slug}.csv"`);
+    res.setHeader('Content-Type', 'text/csv');
+    res.send([headers.join(','), ...rows].join('\n'));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
-  if (fmt === 'json') {
-    res.setHeader('Content-Disposition', 'attachment; filename="subscribers.json"');
-    res.setHeader('Content-Type', 'application/json');
-    return res.send(JSON.stringify(subs, null, 2));
+// ════════════════════════════════════════
+// PER-FORM PUBLIC ROUTES  (wildcard — must come LAST)
+// ════════════════════════════════════════
+
+// Public form page
+app.get('/:slug', (req, res) => {
+  const { slug } = req.params;
+  if (RESERVED_SLUGS.has(slug)) return res.status(404).send('Not found');
+  try { res.send(renderPublicPage(readFormConfig(slug))); }
+  catch(e) { res.status(404).send('<p>Form not found. <a href="/">Home</a></p>'); }
+});
+
+// Embed iframe page
+app.get('/:slug/embed', (req, res) => {
+  try {
+    const cfg = readFormConfig(req.params.slug);
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.setHeader('Content-Security-Policy', "frame-ancestors *");
+    res.send(renderEmbedPage(cfg));
+  } catch(e) { res.status(404).send('Form not found'); }
+});
+
+// Embed JS snippet
+app.get('/:slug/embed.js', (req, res) => {
+  try {
+    const cfg = readFormConfig(req.params.slug);
+    const origin = `${req.protocol}://${req.get('host')}`;
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.send(renderEmbedScript(origin, cfg));
+  } catch(e) { res.status(404).send('// Form not found'); }
+});
+
+// Form submission
+app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
+  const { slug } = req.params;
+  let cfg, subs;
+  try { cfg = readFormConfig(slug); subs = readFormSubscribers(slug); }
+  catch(e) { return res.status(404).json({ error: 'Form not found' }); }
+  const body = req.body;
+
+  if (cfg.site.captchaEnabled && cfg.site.hcaptchaSecretKey) {
+    const captchaToken = body['h-captcha-response'] || '';
+    if (!captchaToken) return res.status(400).json({ error: 'Please complete the CAPTCHA.' });
+    try {
+      const vp = new URLSearchParams({ secret: cfg.site.hcaptchaSecretKey, response: captchaToken, remoteip: req.ip });
+      const vr = await fetch('https://api.hcaptcha.com/siteverify', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: vp.toString() });
+      const vj = await vr.json();
+      if (!vj.success) return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.' });
+    } catch(e) { return res.status(500).json({ error: 'CAPTCHA service error. Please try again.' }); }
   }
 
-  // CSV
-  const customFieldIds = cfg.fields.filter(f => !f.system).map(f => f.id);
-  const headers = ['id', 'email', 'status', 'subscribedAt', 'unsubscribedAt', 'consentGiven', 'consentTimestamp', 'ipAddress', ...customFieldIds];
-  const rows = subs.map(s => {
-    return headers.map(h => {
-      if (customFieldIds.includes(h)) return `"${(s.customFields[h] || '').replace(/"/g, '""')}"`;
-      return `"${(s[h] || '').toString().replace(/"/g, '""')}"`;
-    }).join(',');
-  });
-  const csv = [headers.join(','), ...rows].join('\n');
-  res.setHeader('Content-Disposition', 'attachment; filename="subscribers.csv"');
-  res.setHeader('Content-Type', 'text/csv');
-  res.send(csv);
-});
+  const email = (body.email || '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Valid email required.' });
 
-// ════════════════════════════════════════
-// EMBED ROUTES
-// ════════════════════════════════════════
+  const existing = subs.find(s => s.email === email);
+  if (existing && existing.status === 'active') return res.status(409).json({ error: 'This email is already subscribed.' });
 
-// Frameable embed page — no card shadow, transparent bg, auto-reports height
-app.get('/embed', (req, res) => {
-  const cfg = readConfig();
-  res.setHeader('X-Frame-Options', 'ALLOWALL');
-  res.setHeader('Content-Security-Policy', "frame-ancestors *");
-  res.send(renderEmbedPage(cfg));
-});
+  const record = { id: uuidv4(), email, status: 'active', subscribedAt: new Date().toISOString(),
+    unsubscribedAt: null, unsubscribeToken: uuidv4(), consentGiven: true,
+    consentTimestamp: new Date().toISOString(), ipAddress: req.ip, customFields: {} };
+  cfg.fields.filter(f => !f.system).forEach(f => { record.customFields[f.id] = (body[f.id] || '').trim(); });
 
-// JS snippet — drop one <script> tag on any site
-app.get('/embed.js', (req, res) => {
-  const cfg = readConfig();
-  const origin = `${req.protocol}://${req.get('host')}`;
-  res.setHeader('Content-Type', 'application/javascript');
-  res.setHeader('Cache-Control', 'public, max-age=60');
-  res.send(renderEmbedScript(origin, cfg));
+  if (existing) { subs[subs.findIndex(s => s.email === email)] = { ...existing, ...record }; }
+  else { subs.push(record); }
+
+  writeFormSubscribers(slug, subs);
+  res.json({ success: true });
 });
 
 // ════════════════════════════════════════
@@ -1494,6 +1601,7 @@ function renderAccessDeniedPage(email) {
 
 // ── Start ──
 (async () => {
+  migrateIfNeeded();
   await initAuth0();
   app.listen(PORT, () => {
     console.log(`\n✅ SignFlow running at http://localhost:${PORT}`);
