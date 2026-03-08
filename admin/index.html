@@ -1153,9 +1153,12 @@ function getBkBody(s){
 
 function heroBkBody(s){
   const c=s.colors||{};
+  const headingVal=(s.heading||'').replace(/"/g,'&quot;');
+  const subheadingVal=(s.subheading||'').replace(/</g,'&lt;');
+  const imgPos=s.imagePosition||'above';
   return `
-    <div class="cg"><label class="cl">Heading</label><input type="text" id="c-heading" oninput="updateSection('hero','heading',this.value)"></div>
-    <div class="cg"><label class="cl">Subheading</label><textarea id="c-subheading" rows="2" oninput="updateSection('hero','subheading',this.value)"></textarea></div>
+    <div class="cg"><label class="cl">Heading</label><input type="text" id="c-heading" value="${headingVal}" oninput="updateSection('hero','heading',this.value)"></div>
+    <div class="cg"><label class="cl">Subheading</label><textarea id="c-subheading" rows="2" oninput="updateSection('hero','subheading',this.value)">${subheadingVal}</textarea></div>
     <div class="cg">
       <label class="cl">Hero image</label>
       <button class="up-btn" onclick="triggerUpload('hero-img')"><span class="material-icons-round mi">upload</span> Upload image</button>
@@ -1164,7 +1167,8 @@ function heroBkBody(s){
     </div>
     <div class="cg"><label class="cl">Image position</label>
       <select id="c-imgpos" onchange="updateSection('hero','imagePosition',this.value)">
-        <option value="above">Above heading</option><option value="below">Below heading</option>
+        <option value="above"${imgPos==='above'?' selected':''}>Above heading</option>
+        <option value="below"${imgPos==='below'?' selected':''}>Below heading</option>
       </select>
     </div>
     <button class="up-btn del" onclick="clearHeroImage()" style="margin-top:4px"><span class="material-icons-round mi">delete</span> Remove image</button>
