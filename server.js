@@ -1137,7 +1137,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   .sf-field { margin-bottom: 16px; }
   .sf-field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
   .req { color: var(--accent); }
-  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-body); font-size: 1rem; color: var(--text); transition: border-color 0.2s; background: #fafafa; }
+  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-body); font-size: 1rem; color: var(--text); transition: border-color 0.2s; background: ${d.fieldBg||'#fafafa'}; }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }
@@ -1325,7 +1325,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   .sf-field { margin-bottom: 14px; }
   .sf-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
   .req { color: var(--accent); }
-  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-body); font-size: 0.97rem; color: var(--text); transition: border-color 0.2s; background: #fafafa; }
+  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-body); font-size: 0.97rem; color: var(--text); transition: border-color 0.2s; background: ${d.fieldBg||'#fafafa'}; }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }

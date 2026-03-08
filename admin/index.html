@@ -400,20 +400,26 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <div class="cr"><input type="range" id="c-field-radius-range" min="0" max="24" step="1" oninput="cfg.design.fieldRadius=this.value+'px';document.getElementById('c-field-radius-px').value=this.value;schedulePreview()"><input type="text" id="c-field-radius-px" style="width:52px;flex-shrink:0" oninput="cfg.design.fieldRadius=this.value;schedulePreview()"></div>
       </div>
     </div>
-  </div>
-  </div><!-- /design-panel -->
-  <div id="design-preview">
-    <div class="prev-toolbar"><span class="prev-lbl" style="margin-left:0">Live preview</span></div>
-    <div id="design-prev-frame-wrap">
-      <iframe id="design-preview-frame" src="/" style="width:100%;height:680px;border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff"></iframe>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">input</span> Field Style</div>
+      <div class="cg"><label class="cl">Background</label>
+        <div class="cr"><input type="color" id="c-field-bg" value="#fafafa" oninput="cfg.design.fieldBg=this.value;syncHex('field-bg',this.value);schedulePreview()"><input type="text" id="c-field-bg-hex" style="flex:1" placeholder="#fafafa" oninput="syncFieldStyleHex('fieldBg','field-bg',this.value)"></div>
+      </div>
+      <div class="cg"><label class="cl">Border colour</label>
+        <div class="cr"><input type="color" id="c-field-border" value="#e0e0e0" oninput="cfg.design.fieldBorderColor=this.value;syncHex('field-border',this.value);schedulePreview()"><input type="text" id="c-field-border-hex" style="flex:1" placeholder="#e0e0e0" oninput="syncFieldStyleHex('fieldBorderColor','field-border',this.value)"></div>
+      </div>
+      <div class="cg"><label class="cl">Border style</label>
+        <select id="c-field-border-style" onchange="cfg.design.fieldBorderStyle=this.value;schedulePreview()">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Border width</label>
+        <div class="cr"><input type="range" id="c-field-border-w-range" min="0" max="4" step="1" value="2" oninput="cfg.design.fieldBorderWidth=parseInt(this.value);document.getElementById('c-field-border-w-px').value=this.value;schedulePreview()"><input type="text" id="c-field-border-w-px" style="width:52px;flex-shrink:0" value="2" oninput="cfg.design.fieldBorderWidth=parseInt(this.value)||0;schedulePreview()"></div>
+      </div>
     </div>
-  </div>
-</div>
-
-<!-- SETTINGS TAB -->
-<div id="tab-settings" class="page">
-  <div class="page-body narrow">
-    <div class="page-head"><h2>Settings</h2><p>Logo, branding, form details, and technical settings.</p></div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">image</span> Logo</div>
       <div class="cg">
@@ -437,6 +443,20 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
       <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
     </div>
+  </div>
+  </div><!-- /design-panel -->
+  <div id="design-preview">
+    <div class="prev-toolbar"><span class="prev-lbl" style="margin-left:0">Live preview</span></div>
+    <div id="design-prev-frame-wrap">
+      <iframe id="design-preview-frame" src="/" style="width:100%;height:680px;border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div id="tab-settings" class="page">
+  <div class="page-body narrow">
+    <div class="page-head"><h2>Settings</h2><p>Form details, integrations, and technical settings.</p></div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">cookie</span> Cookie & Legal</div>
       <div class="cg"><label class="cl">Cookie banner text</label><textarea id="c-cookie" rows="2" oninput="cfg.site.cookieBannerText=this.value;schedulePreview()"></textarea></div>
@@ -833,6 +853,17 @@ function populateControls(){
   const fr=parseInt(cfg.design.fieldRadius)||6;
   const frr=document.getElementById('c-field-radius-range');if(frr)frr.value=fr;
   const frp=document.getElementById('c-field-radius-px');if(frp)frp.value=cfg.design.fieldRadius||'6px';
+  // Field style controls
+  const fbg=cfg.design.fieldBg||'#fafafa';
+  const fbc=document.getElementById('c-field-bg');if(fbc)fbc.value=fbg;
+  const fbch=document.getElementById('c-field-bg-hex');if(fbch)fbch.value=fbg;
+  const fbo=cfg.design.fieldBorderColor||'#e0e0e0';
+  const fboc=document.getElementById('c-field-border');if(fboc)fboc.value=fbo;
+  const fboh=document.getElementById('c-field-border-hex');if(fboh)fboh.value=fbo;
+  const fbs=document.getElementById('c-field-border-style');if(fbs)fbs.value=cfg.design.fieldBorderStyle||'solid';
+  const fbw=cfg.design.fieldBorderWidth??2;
+  const fbwr=document.getElementById('c-field-border-w-range');if(fbwr)fbwr.value=fbw;
+  const fbwp=document.getElementById('c-field-border-w-px');if(fbwp)fbwp.value=fbw;
   const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
   sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
   toggleCaptchaFields();
@@ -843,6 +874,7 @@ function sv(id,val){const e=document.getElementById(id);if(e)e.value=val||'';}
 function sc(n,val){const e=document.getElementById('c-'+n);if(e)e.value=val;const h=document.getElementById('c-'+n+'-hex');if(h)h.value=val;}
 function syncColor(n,val){if(/^#[0-9a-fA-F]{6}$/.test(val)){const e=document.getElementById('c-'+n);if(e)e.value=val;const m={primary:'primaryColor',accent:'accentColor',bg:'backgroundColor',text:'textColor'};cfg.design[m[n]]=val;schedulePreview();}}
 function syncHex(n,val){const e=document.getElementById('c-'+n+'-hex');if(e)e.value=val;}
+function syncFieldStyleHex(key,inputId,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||!val){const e=document.getElementById('c-'+inputId);if(e)e.value=val||'#ffffff';cfg.design[key]=val;schedulePreview();}}
 function updateSection(id,key,val){const s=cfg.sections.find(s=>s.id===id);if(s)s[key]=val;schedulePreview();}
 function updateCardPadding(){const v=document.getElementById('c-card-pad-v').value||'48px';const h=document.getElementById('c-card-pad-h').value||'40px';cfg.design.cardPadding=v+' '+h;schedulePreview();}
 function updateSectionColor(id,key,val){const s=cfg.sections.find(s=>s.id===id);if(s){if(!s.colors)s.colors={};s.colors[key]=val;schedulePreview();}}
