@@ -215,7 +215,11 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .embed-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
 .embed-opts .cg{margin:0;}
 /* Design tab */
-#tab-design .page-body{max-width:680px;}
+#tab-design{flex-direction:row;overflow:hidden;}
+#design-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
+#design-panel .page-body{max-width:none;padding:24px 20px;}
+#design-preview{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;}
+#design-prev-frame-wrap{padding:24px;display:flex;justify-content:center;align-items:flex-start;width:100%;}
 .palette-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 .palette-swatch{width:32px;height:32px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform 120ms,border-color 120ms;position:relative;display:flex;align-items:center;justify-content:center;}
 .palette-swatch:hover{transform:scale(1.1);border-color:var(--ink3);}
@@ -337,8 +341,9 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 
 <!-- DESIGN TAB -->
 <div id="tab-design" class="page">
+  <div id="design-panel">
   <div class="page-body">
-    <div class="page-head"><h2>Design</h2><p>Typography, colours, and layout settings for your signup form.</p></div>
+    <div class="page-head"><h2>Design</h2><p>Typography, colours, and layout settings.</p></div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">text_fields</span> Typography</div>
       <div class="cg"><label class="cl">Heading font</label><div class="font-picker" id="heading-font-picker"></div></div>
@@ -394,6 +399,13 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="cg"><label class="cl">Field corner radius</label>
         <div class="cr"><input type="range" id="c-field-radius-range" min="0" max="24" step="1" oninput="cfg.design.fieldRadius=this.value+'px';document.getElementById('c-field-radius-px').value=this.value;schedulePreview()"><input type="text" id="c-field-radius-px" style="width:52px;flex-shrink:0" oninput="cfg.design.fieldRadius=this.value;schedulePreview()"></div>
       </div>
+    </div>
+  </div>
+  </div><!-- /design-panel -->
+  <div id="design-preview">
+    <div class="prev-toolbar"><span class="prev-lbl" style="margin-left:0">Live preview</span></div>
+    <div id="design-prev-frame-wrap">
+      <iframe id="design-preview-frame" src="/" style="width:100%;height:680px;border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff"></iframe>
     </div>
   </div>
 </div>
@@ -760,8 +772,10 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 
 <script>
 let cfg=null,previewTimer=null,editingFieldId=null,subPage=1,subSearch='',searchTimer=null,currentTab='build';
-const HEADING_FONTS=['Playfair Display','Merriweather','Lora','Cormorant Garamond','Libre Baskerville','Raleway','Montserrat','Oswald','Bebas Neue','DM Serif Display','Noto Serif','Noto Display'];
-const BODY_FONTS=['Lato','Open Sans','Nunito','Source Sans 3','Roboto','PT Sans','Mulish','Karla','Fira Sans','IBM Plex Sans','Noto Sans','Jost'];
+const HEADING_FONTS=['Playfair Display','Merriweather','Lora','Cormorant Garamond','Libre Baskerville','Raleway','Montserrat','Oswald','Bebas Neue','DM Serif Display','Noto Serif','Noto Display','Roc Grotesk'];
+const BODY_FONTS=['Lato','Open Sans','Nunito','Source Sans 3','Roboto','PT Sans','Mulish','Karla','Fira Sans','IBM Plex Sans','Noto Sans','Jost','Roc Grotesk'];
+// Fonts not on Google Fonts — skip from GF URL, require custom font upload
+const NON_GF_FONTS=new Set(['Roc Grotesk']);
 const PALETTES=[
   {name:'Classic',colors:{primary:'#1a1a2e',accent:'#e94560',bg:'#f8f5f0',text:'#1a1a2e'}},
   {name:'Ocean',colors:{primary:'#0d3b66',accent:'#ee964b',bg:'#f5f0e8',text:'#0d3b66'}},
@@ -850,6 +864,7 @@ function schedulePreview(){setSaveInd('');clearTimeout(previewTimer);previewTime
 async function refreshPreview(){
   await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
   const f=document.getElementById('preview-frame');if(f)f.src=f.src;
+  const f2=document.getElementById('design-preview-frame');if(f2)f2.src=f2.src;
 }
 function setPreviewSize(s,btn){
   document.querySelectorAll('.psz').forEach(b=>b.classList.remove('active'));btn.classList.add('active');

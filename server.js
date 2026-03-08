@@ -471,8 +471,15 @@ app.get('/embed.js', (req, res) => {
 // PAGE RENDERERS
 // ════════════════════════════════════════
 
+// Fonts that are NOT on Google Fonts (premium/custom — require .woff2 upload)
+const NON_GF_FONTS = new Set(['Roc Grotesk']);
+
 function googleFontTag(cfg) {
-  const fonts = [cfg.design.googleFont, cfg.design.bodyFont].filter(Boolean);
+  const customFontNames = new Set((cfg.design.customFonts || []).map(f => f.name));
+  const fonts = [cfg.design.googleFont, cfg.design.bodyFont]
+    .filter(Boolean)
+    .filter(f => !NON_GF_FONTS.has(f) && !customFontNames.has(f)); // skip non-GF and already-uploaded custom fonts
+  if (!fonts.length) return '';
   const query = fonts.map(f => f.replace(/ /g, '+')).join('&family=');
   return `<link href="https://fonts.googleapis.com/css2?family=${query}:wght@300;400;600;700&display=swap" rel="stylesheet">`;
 }
