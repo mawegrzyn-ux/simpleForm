@@ -98,10 +98,10 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .dh:hover{color:var(--ink3);}
 /* Build tab */
 #tab-build{flex-direction:row;overflow:hidden;}
-#bl-panel{width:300px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+#bl-panel{width:320px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:hidden;flex-shrink:0;}
+#bl-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:flex;flex-direction:column;}
 #bl-panel-head{padding:10px 14px 9px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px;}
 #bl-panel-head h3{font-weight:600;font-size:0.88rem;flex:1;}
-#bl-scroll{flex:1;overflow-y:auto;padding:8px 10px 16px;display:flex;flex-direction:column;}
 #bl-scroll::-webkit-scrollbar{width:3px;}
 #bl-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 #bl-preview{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;}
@@ -250,6 +250,17 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .dragging{opacity:.35;}
 .drag-over{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:var(--r);}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+/* Alignment + tag selector button groups */
+.align-group{display:flex;gap:2px;}
+.align-btn{background:var(--bg);border:1.5px solid var(--border);cursor:pointer;padding:5px 9px;color:var(--ink3);font-family:var(--font);font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:3px;transition:all 120ms;line-height:1;}
+.align-btn:first-child{border-radius:var(--r) 0 0 var(--r);}
+.align-btn:last-child{border-radius:0 var(--r) var(--r) 0;}
+.align-btn:not(:first-child){margin-left:-1px;}
+.align-btn:hover{background:var(--bg2);color:var(--ink);z-index:1;}
+.align-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);z-index:2;}
+.align-btn .mi{font-size:15px!important;}
+.bk-body input,.bk-body select,.bk-body textarea{min-width:0;}
+.bk-body .cr{min-width:0;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
@@ -297,7 +308,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   <div id="bl-panel">
     <div id="bl-panel-head">
       <h3>Blocks</h3>
-      <button class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem" onclick="openBlockPicker()"><span class="material-icons-round mi">add</span> Add block</button>
+      <button class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem" onclick="addContainer()"><span class="material-icons-round mi">add</span> Add container</button>
     </div>
     <div id="bl-scroll"><!-- populated by renderBuildPanel() --></div>
   </div>
@@ -664,6 +675,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="block-type-btn" onclick="addContainerItem('spacer')"><span class="material-icons-round mi">space_bar</span><span class="block-type-label">Spacer</span></button>
       <button class="block-type-btn" onclick="addContainerItem('divider')"><span class="material-icons-round mi">horizontal_rule</span><span class="block-type-label">Divider</span></button>
       <button class="block-type-btn" onclick="addContainerItem('wysiwyg')"><span class="material-icons-round mi">edit_note</span><span class="block-type-label">Rich Text</span></button>
+      <button class="block-type-btn" onclick="addContainerItem('video')"><span class="material-icons-round mi">play_circle</span><span class="block-type-label">Video</span></button>
     </div>
     <div style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;margin:14px 0 8px">Form elements</div>
     <div id="cnt-field-list" style="display:flex;flex-direction:column;gap:4px"></div>
@@ -704,7 +716,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   </div>
 </div>
 
-<!-- Text/heading edit modal -->
+<!-- Text/heading edit modal (used by legacy content blocks) -->
 <div id="text-edit-modal" class="modal-overlay">
   <div class="modal-box" style="width:480px">
     <div class="modal-head">
@@ -715,6 +727,21 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeTextEditModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveTextEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Container item edit modal (heading / paragraph / image / divider / spacer / video) -->
+<div id="item-edit-modal" class="modal-overlay">
+  <div class="modal-box" style="width:500px">
+    <div class="modal-head">
+      <h2 id="item-edit-title">Edit item</h2>
+      <button class="modal-close" onclick="closeItemEdit()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div id="item-edit-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeItemEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveItemEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -922,6 +949,7 @@ function renderBuildPanel(){
 function makeBkCard(s){
   const fixed=isBkFixed(s),deletable=isBkDeletable(s);
   const cols=s.columns||1;
+  const showCols=s.type==='container';
   const card=document.createElement('div');
   card.className='bk open';card.id='bk-'+s.id;card.dataset.id=s.id;
   card.innerHTML=`
@@ -929,10 +957,10 @@ function makeBkCard(s){
       <span class="material-icons-round ${fixed?'bk-lock':'bk-dh'}">${fixed?'lock':'drag_indicator'}</span>
       <span class="material-icons-round bk-icon">${BK_ICONS[s.type]||'widgets'}</span>
       <span class="bk-title">${BK_LABELS[s.type]||s.type}</span>
-      <div class="bk-cols" onclick="event.stopPropagation()">
+      ${showCols?`<div class="bk-cols" onclick="event.stopPropagation()">
         <button class="bk-col-btn${cols===1?' active':''}" onclick="event.stopPropagation();setBkCols('${s.id}',1)">1</button>
         <button class="bk-col-btn${cols===2?' active':''}" onclick="event.stopPropagation();setBkCols('${s.id}',2)">2</button>
-      </div>
+      </div>`:''}
       <span class="material-icons-round bk-vis ${s.visible?'on':''}" onclick="event.stopPropagation();toggleBkVis('${s.id}')">${s.visible?'visibility':'visibility_off'}</span>
       ${deletable?`<span class="material-icons-round bk-del" onclick="event.stopPropagation();deleteBk('${s.id}')">delete</span>`:''}
       <span class="material-icons-round bk-chevron">expand_more</span>
@@ -1114,6 +1142,16 @@ function addReward(blockId){
 }
 function removeReward(blockId,idx){const b=cfg.sections.find(s=>s.id===blockId);if(b&&b.rewards){b.rewards.splice(idx,1);updateBkBody(blockId);schedulePreview();}}
 
+function addContainer(){
+  const id='container-'+Date.now();
+  const section={id,type:'container',visible:true,columns:1,items:[],style:{}};
+  const footerIdx=cfg.sections.findIndex(s=>s.id==='footer');
+  if(footerIdx>=0)cfg.sections.splice(footerIdx,0,section);
+  else cfg.sections.push(section);
+  renderBuildPanel();renderFieldList();schedulePreview();
+  setTimeout(()=>{const card=document.getElementById('bk-'+id);if(card){card.scrollIntoView({behavior:'smooth',block:'nearest'});}},80);
+  toast('Container added','success');
+}
 function openBlockPicker(){document.getElementById('block-modal').classList.add('open');}
 function closeBlockPicker(){document.getElementById('block-modal').classList.remove('open');}
 function addBlock(type){
@@ -1190,8 +1228,8 @@ function deleteEl(blockId,elId){
 }
 
 // ── Container block (new architecture) ──
-const CNT_ICONS={heading:'title',paragraph:'notes',image:'image',spacer:'space_bar',divider:'horizontal_rule',wysiwyg:'edit_note',field:'input',submit:'send'};
-const CNT_LABELS={heading:'Heading',paragraph:'Paragraph',image:'Image',spacer:'Spacer',divider:'Divider',wysiwyg:'Rich Text',field:'Field',submit:'Submit + GDPR'};
+const CNT_ICONS={heading:'title',paragraph:'notes',image:'image',spacer:'space_bar',divider:'horizontal_rule',wysiwyg:'edit_note',field:'input',submit:'send',video:'play_circle'};
+const CNT_LABELS={heading:'Heading',paragraph:'Paragraph',image:'Image',spacer:'Spacer',divider:'Divider',wysiwyg:'Rich Text',field:'Field',submit:'Submit + GDPR',video:'Video'};
 
 function containerBkBody(b){
   const items=b.items||[];
@@ -1216,10 +1254,14 @@ function containerBkBody(b){
     <button class="add-field-btn" onclick="openCntPicker('${b.id}')"><span class="material-icons-round mi">add</span> Add item</button>
     <div class="modal-section"><div class="modal-section-title">Container style</div>
       <div class="cg"><label class="cl">Background</label>
-        <div class="cr"><input type="color" value="${style.bg||'#ffffff'}" oninput="updateCntStyle('${b.id}','bg',this.value)"><input type="text" value="${style.bg||''}" placeholder="transparent" style="flex:1" oninput="if(!this.value||/^#[0-9a-fA-F]{3,6}$/.test(this.value))updateCntStyle('${b.id}','bg',this.value)"></div>
+        <div class="cr"><input type="color" value="${style.bg||'#ffffff'}" oninput="updateCntStyle('${b.id}','bg',this.value);this.nextElementSibling.value=this.value"><input type="text" value="${style.bg||''}" placeholder="transparent" style="flex:1" oninput="if(/^#[0-9a-fA-F]{3,6}$/.test(this.value)||!this.value){updateCntStyle('${b.id}','bg',this.value);this.previousElementSibling.value=this.value||'#ffffff'}"></div>
       </div>
-      <div class="cg"><label class="cl">Border</label>
-        <input type="text" value="${style.border||''}" placeholder="e.g. 1px solid #e0e0e0" oninput="updateCntStyle('${b.id}','border',this.value)">
+      <div class="cg"><label class="cl">Border colour</label>
+        <div class="cr"><input type="color" value="${style.borderColor||'#e0e0e0'}" oninput="updateCntStyle('${b.id}','borderColor',this.value);this.nextElementSibling.value=this.value"><input type="text" value="${style.borderColor||''}" placeholder="none" style="flex:1" oninput="if(/^#[0-9a-fA-F]{3,6}$/.test(this.value)||!this.value){updateCntStyle('${b.id}','borderColor',this.value||'');this.previousElementSibling.value=this.value||'#e0e0e0'}">
+        <input type="number" value="${style.borderWidth||1}" min="0" max="16" style="width:50px" title="Thickness (px)" oninput="updateCntStyle('${b.id}','borderWidth',+this.value)"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span></div>
+      </div>
+      <div class="cg"><label class="cl">Corner radius</label>
+        <div class="cr"><input type="number" value="${parseInt(style.radius)||0}" min="0" max="40" style="width:64px" oninput="updateCntStyle('${b.id}','radius',this.value+'px')"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span></div>
       </div>
       <div class="cr" style="gap:10px;align-items:center;margin-top:6px">
         <label class="tgl"><input type="checkbox" ${style.shadow?'checked':''} onchange="updateCntStyle('${b.id}','shadow',this.checked)"><span class="tgl-s"></span></label>
@@ -1273,14 +1315,15 @@ function addContainerItem(type,fieldId){
   if(!b.items)b.items=[];
   const id=type+'-'+Date.now();
   const defs={
-    heading:{id,type:'heading',text:'New heading',level:2},
-    paragraph:{id,type:'paragraph',text:'Your paragraph text.'},
-    image:{id,type:'image',url:'',alt:''},
+    heading:{id,type:'heading',text:'New heading',level:2,align:'left'},
+    paragraph:{id,type:'paragraph',text:'Your paragraph text.',align:'left'},
+    image:{id,type:'image',url:'',alt:'',align:'center',width:'100%'},
     spacer:{id,type:'spacer',height:40},
     divider:{id,type:'divider',style:'line',color:'#e0e0e0',thickness:1},
     wysiwyg:{id,type:'wysiwyg',html:'<p>Edit your content here</p>'},
     submit:{id,type:'submit'},
     field:{id,type:'field',fieldId:fieldId||''},
+    video:{id,type:'video',url:'',aspectRatio:'16:9',caption:''},
   };
   b.items.push(defs[type]||{id,type});
   updateCntBody(blockId);schedulePreview();
@@ -1296,11 +1339,130 @@ function editCntItem(blockId,idx){
   const b=cfg.sections.find(s=>s.id===blockId);if(!b||!b.items)return;
   const item=b.items[idx];if(!item)return;
   _editCntBlock=blockId;_editCntIdx=idx;
-  if(item.type==='heading'){openTextEditModal('Edit heading',item.text||'');}
-  else if(item.type==='paragraph'){openTextEditModal('Edit paragraph',item.text||'');}
-  else if(item.type==='wysiwyg'){openWysiwygModal(item.html||'');}
-  else if(item.type==='image'){const v=prompt('Image URL:',item.url||'');if(v!==null){item.url=v;updateCntBody(blockId);schedulePreview();}; _editCntBlock=null;_editCntIdx=null;}
-  else if(item.type==='spacer'){const v=prompt('Height (px):',item.height||40);if(v!==null){item.height=parseInt(v)||40;updateCntBody(blockId);schedulePreview();};_editCntBlock=null;_editCntIdx=null;}
+  if(item.type==='wysiwyg'){openWysiwygModal(item.html||'');}
+  else{openItemEdit(blockId,idx);}
+}
+
+// ── Unified item edit modal ──
+function _alignBtns(current,def){
+  return ['left','center','right'].map(a=>`<button class="align-btn${(current||def)===a?' active':''}" data-align="${a}" onclick="this.closest('.align-group').querySelectorAll('.align-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><span class="material-icons-round mi">${a==='left'?'format_align_left':a==='center'?'format_align_center':'format_align_right'}</span></button>`).join('');
+}
+function openItemEdit(blockId,idx){
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b||!b.items)return;
+  const item=b.items[idx];if(!item)return;
+  _editCntBlock=blockId;_editCntIdx=idx;
+  const title=document.getElementById('item-edit-title');
+  const body=document.getElementById('item-edit-body');
+  if(item.type==='heading'){
+    title.textContent='Edit heading';
+    body.innerHTML=`
+      <div class="cg"><label class="cl">Heading level</label>
+        <div class="align-group">${[1,2,3,4].map(n=>`<button class="align-btn${(item.level||2)===n?' active':''}" data-val="${n}" onclick="this.closest('.align-group').querySelectorAll('.align-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')" style="width:40px">H${n}</button>`).join('')}</div>
+      </div>
+      <div class="cg"><label class="cl">Alignment</label><div class="align-group" id="ie-align">${_alignBtns(item.align,'left')}</div></div>
+      <div class="cg"><label class="cl">Text</label><textarea id="ie-text" rows="3" style="font-size:0.9rem;line-height:1.6">${(item.text||'').replace(/</g,'&lt;')}</textarea></div>`;
+  } else if(item.type==='paragraph'){
+    title.textContent='Edit paragraph';
+    body.innerHTML=`
+      <div class="cg"><label class="cl">Alignment</label><div class="align-group" id="ie-align">${_alignBtns(item.align,'left')}</div></div>
+      <div class="cg"><label class="cl">Text</label><textarea id="ie-text" rows="5" style="font-size:0.9rem;line-height:1.6">${(item.text||'').replace(/</g,'&lt;')}</textarea></div>`;
+  } else if(item.type==='image'){
+    title.textContent='Edit image';
+    body.innerHTML=`
+      <div class="cg"><label class="cl">Image</label>
+        <button class="up-btn" onclick="document.getElementById('ie-img-file').click()"><span class="material-icons-round mi">upload</span> Upload image</button>
+        <input type="file" id="ie-img-file" accept="image/*" style="display:none" onchange="handleItemImageUpload(this)">
+        ${item.url?`<img src="${item.url}" id="ie-img-preview" style="max-width:100%;border-radius:6px;margin-top:8px;max-height:100px;object-fit:contain;display:block">`:'<span id="ie-img-preview"></span>'}
+      </div>
+      <div class="cg"><label class="cl">Image URL</label><input type="url" id="ie-img-url" value="${item.url||''}" placeholder="https://..."></div>
+      <div class="cg"><label class="cl">Width</label>
+        <div class="cr"><input type="text" id="ie-img-width" value="${item.width||'100%'}" placeholder="100%"><span style="color:var(--ink3);font-size:0.8rem;flex-shrink:0">e.g. 100%, 200px</span></div>
+      </div>
+      <div class="cg"><label class="cl">Alignment</label><div class="align-group" id="ie-align">${_alignBtns(item.align,'center')}</div></div>`;
+  } else if(item.type==='divider'){
+    title.textContent='Edit divider';
+    body.innerHTML=`
+      <div class="cg"><label class="cl">Style</label>
+        <select id="ie-div-style">
+          <option value="line"${(item.style||'line')==='line'?' selected':''}>Line</option>
+          <option value="dots"${item.style==='dots'?' selected':''}>Dots</option>
+          <option value="wave"${item.style==='wave'?' selected':''}>Wave</option>
+          <option value="space"${item.style==='space'?' selected':''}>Space only</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Colour</label>
+        <div class="cr"><input type="color" id="ie-div-color" value="${item.color||'#e0e0e0'}" oninput="document.getElementById('ie-div-color-txt').value=this.value">
+        <input type="text" id="ie-div-color-txt" value="${item.color||'#e0e0e0'}" oninput="if(/^#[0-9a-fA-F]{3,6}$/.test(this.value))document.getElementById('ie-div-color').value=this.value"></div>
+      </div>
+      <div class="cg"><label class="cl">Thickness (px)</label><input type="number" id="ie-div-thick" value="${item.thickness||1}" min="1" max="8"></div>`;
+  } else if(item.type==='spacer'){
+    title.textContent='Edit spacer';
+    body.innerHTML=`<div class="cg"><label class="cl">Height (px)</label><input type="number" id="ie-spacer-h" value="${item.height||40}" min="4" max="300"></div>`;
+  } else if(item.type==='video'){
+    title.textContent='Edit video';
+    body.innerHTML=`
+      <div class="cg"><label class="cl">Video URL</label><input type="url" id="ie-video-url" value="${item.url||''}" placeholder="YouTube, Vimeo, or direct .mp4"></div>
+      <div class="cg"><label class="cl">Aspect ratio</label>
+        <select id="ie-video-ratio">
+          <option value="16:9"${(item.aspectRatio||'16:9')==='16:9'?' selected':''}>16:9 (Widescreen)</option>
+          <option value="4:3"${item.aspectRatio==='4:3'?' selected':''}>4:3</option>
+          <option value="1:1"${item.aspectRatio==='1:1'?' selected':''}>1:1 (Square)</option>
+          <option value="9:16"${item.aspectRatio==='9:16'?' selected':''}>9:16 (Vertical)</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Caption (optional)</label><input type="text" id="ie-video-caption" value="${item.caption||''}"></div>`;
+  }
+  document.getElementById('item-edit-modal').classList.add('open');
+}
+function closeItemEdit(){document.getElementById('item-edit-modal').classList.remove('open');_editCntBlock=null;_editCntIdx=null;}
+function saveItemEdit(){
+  const b=cfg.sections.find(s=>s.id===_editCntBlock);if(!b||!b.items)return;
+  const item=b.items[_editCntIdx];if(!item)return;
+  const body=document.getElementById('item-edit-body');
+  const getVal=id=>(body.querySelector('#'+id)||{}).value||'';
+  const getAlign=()=>{const a=body.querySelector('.align-group #ie-align .align-btn.active')||body.querySelector('#ie-align .align-btn.active');return a?a.dataset.align:'';};
+  if(item.type==='heading'){
+    item.text=getVal('ie-text');
+    const hl=body.querySelector('.align-group .align-btn.active[data-val]');
+    item.level=hl?parseInt(hl.dataset.val):2;
+    const al=body.querySelector('#ie-align .align-btn.active');
+    if(al)item.align=al.dataset.align;
+  } else if(item.type==='paragraph'){
+    item.text=getVal('ie-text');
+    const al=body.querySelector('#ie-align .align-btn.active');
+    if(al)item.align=al.dataset.align;
+  } else if(item.type==='image'){
+    item.url=getVal('ie-img-url');
+    item.width=getVal('ie-img-width')||'100%';
+    const al=body.querySelector('#ie-align .align-btn.active');
+    if(al)item.align=al.dataset.align;
+  } else if(item.type==='divider'){
+    item.style=getVal('ie-div-style')||'line';
+    item.color=getVal('ie-div-color-txt')||'#e0e0e0';
+    item.thickness=parseInt(getVal('ie-div-thick'))||1;
+  } else if(item.type==='spacer'){
+    item.height=parseInt(getVal('ie-spacer-h'))||40;
+  } else if(item.type==='video'){
+    item.url=getVal('ie-video-url');
+    item.aspectRatio=getVal('ie-video-ratio')||'16:9';
+    item.caption=getVal('ie-video-caption');
+  }
+  updateCntBody(_editCntBlock);schedulePreview();
+  closeItemEdit();
+}
+async function handleItemImageUpload(inp){
+  if(!inp.files||!inp.files[0])return;
+  const fd=new FormData();fd.append('image',inp.files[0]);
+  try{
+    const r=await fetch('/api/admin/upload-image',{method:'POST',body:fd});
+    const j=await r.json();
+    if(j.url){
+      const urlInp=document.getElementById('ie-img-url');if(urlInp)urlInp.value=j.url;
+      const prev=document.getElementById('ie-img-preview');
+      if(prev){prev.src=j.url;prev.style.display='block';}
+    } else {toast(j.error||'Upload failed','error');}
+  } catch(e){toast('Upload failed','error');}
+  inp.value='';
 }
 
 // Text edit modal (heading/paragraph)
@@ -1574,6 +1736,7 @@ document.getElementById('el-modal').addEventListener('click',e=>{if(e.target===d
 document.getElementById('cnt-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cnt-modal'))closeCntPicker();});
 document.getElementById('wysiwyg-modal').addEventListener('click',e=>{if(e.target===document.getElementById('wysiwyg-modal'))closeWysiwygModal();});
 document.getElementById('text-edit-modal').addEventListener('click',e=>{if(e.target===document.getElementById('text-edit-modal'))closeTextEditModal();});
+document.getElementById('item-edit-modal').addEventListener('click',e=>{if(e.target===document.getElementById('item-edit-modal'))closeItemEdit();});
 checkSession();
 </script>
 </body>

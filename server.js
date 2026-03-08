@@ -882,12 +882,20 @@ function renderBlockElement(el, cfg) {
   switch (el.type) {
     case 'heading': {
       const tag = ['h1','h2','h3','h4'][Math.min((el.level || 2) - 1, 3)];
-      return `<${tag} class="sf-el-heading" style="margin:12px 0 6px;line-height:1.3">${el.text || ''}</${tag}>`;
+      const align = el.align ? `text-align:${el.align};` : '';
+      return `<${tag} class="sf-el-heading" style="${align}margin:12px 0 6px;line-height:1.3">${el.text || ''}</${tag}>`;
     }
-    case 'paragraph':
-      return `<p class="sf-el-para" style="margin:8px 0;line-height:1.7">${el.text || ''}</p>`;
-    case 'image':
-      return el.url ? `<img src="${el.url}" alt="${el.alt || ''}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block">` : '';
+    case 'paragraph': {
+      const align = el.align ? `text-align:${el.align};` : '';
+      return `<p class="sf-el-para" style="${align}margin:8px 0;line-height:1.7">${el.text || ''}</p>`;
+    }
+    case 'image': {
+      if (!el.url) return '';
+      const w = el.width || '100%';
+      const a = el.align || 'center';
+      const m = a === 'right' ? '8px 0 8px auto' : a === 'left' ? '8px auto 8px 0' : '8px auto';
+      return `<img src="${el.url}" alt="${el.alt || ''}" style="max-width:100%;width:${w};border-radius:6px;margin:${m};display:block">`;
+    }
     case 'spacer':
       return `<div style="height:${el.height || 40}px"></div>`;
     case 'divider': {
@@ -900,6 +908,20 @@ function renderBlockElement(el, cfg) {
     }
     case 'wysiwyg':
       return `<div style="margin:8px 0;line-height:1.7">${el.html || ''}</div>`;
+    case 'video': {
+      if (!el.url) return '';
+      const [rw, rh] = (el.aspectRatio || '16:9').split(':').map(Number);
+      const pb = ((rh / rw) * 100).toFixed(2) + '%';
+      let emb = '';
+      const yt = el.url.match(/(?:v=|youtu\.be\/|embed\/)([^&?#]+)/);
+      const vi = el.url.match(/vimeo\.com\/(\d+)/);
+      if (yt) emb = `https://www.youtube.com/embed/${yt[1]}`;
+      else if (vi) emb = `https://player.vimeo.com/video/${vi[1]}`;
+      const inner = emb
+        ? `<iframe src="${emb}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen></iframe>`
+        : `<video src="${el.url}" controls style="position:absolute;inset:0;width:100%;height:100%"></video>`;
+      return `<div style="margin:8px 0"><div style="position:relative;padding-bottom:${pb};height:0;overflow:hidden;border-radius:8px">${inner}</div>${el.caption ? `<p style="text-align:center;font-size:0.82rem;color:#999;margin-top:6px">${el.caption}</p>` : ''}</div>`;
+    }
     default:
       return '';
   }
@@ -1002,12 +1024,17 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
     const items = section.items || [];
     const style = section.style || {};
     const cols = section.columns || 1;
-    const hasStyle = !!(style.bg || style.border || style.shadow);
+    // Support both new (borderColor/borderWidth) and old (border string) formats
+    const borderStr = style.borderColor
+      ? `border:${style.borderWidth || 1}px solid ${style.borderColor}`
+      : style.border ? `border:${style.border}` : '';
+    const radiusStr = style.radius || (d.cardRadius || '8px');
+    const hasStyle = !!(style.bg || borderStr || style.shadow);
     const baseProps = [
       style.bg ? `background:${style.bg}` : '',
-      style.border ? `border:${style.border}` : '',
+      borderStr,
       style.shadow ? 'box-shadow:0 4px 20px rgba(0,0,0,.1)' : '',
-      hasStyle ? `border-radius:${d.cardRadius||'8px'};padding:16px 20px` : '',
+      hasStyle ? `border-radius:${radiusStr};padding:16px 20px` : '',
       'margin:12px 0',
       cols === 2 ? 'display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start' : '',
     ].filter(Boolean).join(';');
