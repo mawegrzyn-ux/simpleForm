@@ -863,12 +863,160 @@ function sliderPickerJS() {
 })();`;
 }
 
+// ── Block element renderer (for content blocks) ─────────────────────────────
+function renderBlockElement(el) {
+  if (!el) return '';
+  switch (el.type) {
+    case 'heading': {
+      const tag = ['h1','h2','h3','h4'][Math.min((el.level || 2) - 1, 3)];
+      return `<${tag} class="sf-el-heading" style="margin:12px 0 6px;line-height:1.3">${el.text || ''}</${tag}>`;
+    }
+    case 'paragraph':
+      return `<p class="sf-el-para" style="margin:8px 0;line-height:1.7">${el.text || ''}</p>`;
+    case 'image':
+      return el.url ? `<img src="${el.url}" alt="${el.alt || ''}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block">` : '';
+    case 'spacer':
+      return `<div style="height:${el.height || 40}px"></div>`;
+    case 'divider': {
+      const color = el.color || '#e0e0e0';
+      const thick = el.thickness || 1;
+      if (el.style === 'space') return `<div style="height:16px"></div>`;
+      if (el.style === 'dots') return `<div style="text-align:center;color:${color};letter-spacing:8px;padding:8px 0">···</div>`;
+      if (el.style === 'wave') return `<div style="overflow:hidden;margin:8px 0"><svg viewBox="0 0 200 12" style="width:100%;height:12px" preserveAspectRatio="none"><path d="M0 6 Q 25 0 50 6 Q 75 12 100 6 Q 125 0 150 6 Q 175 12 200 6" stroke="${color}" stroke-width="${thick}" fill="none"/></svg></div>`;
+      return `<hr style="border:none;border-top:${thick}px solid ${color};margin:8px 0">`;
+    }
+    case 'wysiwyg':
+      return `<div style="margin:8px 0;line-height:1.7">${el.html || ''}</div>`;
+    default:
+      return '';
+  }
+}
+
+// ── Section block renderer (renders any section type) ────────────────────────
+function renderSectionBlock(section, cfg, formSection, formFields) {
+  if (section.visible === false) return '';
+  const d = cfg.design;
+  const s = cfg.site;
+
+  // Hero
+  if (section.id === 'hero' || section.type === 'hero') {
+    const h = section;
+    return `
+    ${h.imageUrl && h.imagePosition === 'above' ? `<img src="${h.imageUrl}" class="sf-hero-img" alt="">` : ''}
+    <h1>${h.heading || ''}</h1>
+    ${h.subheading ? `<p class="sf-sub">${h.subheading}</p>` : ''}
+    ${h.imageUrl && h.imagePosition === 'below' ? `<img src="${h.imageUrl}" class="sf-hero-img below" alt="">` : ''}`;
+  }
+
+  // Form
+  if (section.id === 'form' || section.type === 'form') {
+    return `
+  <form id="sf-form" novalidate>
+    ${formFields}
+    <div class="sf-gdpr">By subscribing you agree to our <a href="${s.privacyPolicyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.</div>
+    ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
+    <button type="submit" class="sf-btn">${d.buttonText}</button>
+    <div id="sf-msg" class="sf-msg"></div>
+  </form>`;
+  }
+
+  // Footer
+  if (section.id === 'footer' || section.type === 'footer') {
+    return `<p class="sf-footer">${section.text || ''}</p>`;
+  }
+
+  // Divider
+  if (section.type === 'divider') {
+    const color = section.color || '#e0e0e0';
+    const thick = section.thickness || 1;
+    const sp = section.spacing || 20;
+    if (section.style === 'space') return `<div style="height:${sp}px"></div>`;
+    if (section.style === 'dots') return `<div style="text-align:center;color:${color};letter-spacing:8px;padding:${sp}px 0;font-size:1.2rem">···</div>`;
+    if (section.style === 'wave') return `<div style="margin:${sp}px 0;overflow:hidden"><svg viewBox="0 0 200 12" style="width:100%;height:12px" preserveAspectRatio="none"><path d="M0 6 Q 25 0 50 6 Q 75 12 100 6 Q 125 0 150 6 Q 175 12 200 6" stroke="${color}" stroke-width="${thick}" fill="none"/></svg></div>`;
+    return `<hr style="border:none;border-top:${thick}px solid ${color};margin:${sp}px 0">`;
+  }
+
+  // Video
+  if (section.type === 'video') {
+    const url = section.url || '';
+    if (!url) return '';
+    const [rw, rh] = (section.aspectRatio || '16:9').split(':').map(Number);
+    const pb = ((rh / rw) * 100).toFixed(2) + '%';
+    let embedUrl = '';
+    const ytMatch = url.match(/(?:v=|youtu\.be\/|embed\/)([^&?#]+)/);
+    const viMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (ytMatch) embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}`;
+    else if (viMatch) embedUrl = `https://player.vimeo.com/video/${viMatch[1]}`;
+    const inner = embedUrl
+      ? `<iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allowfullscreen></iframe>`
+      : `<video src="${url}" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>`;
+    return `<div style="margin:20px 0">
+    <div style="position:relative;padding-bottom:${pb};height:0;overflow:hidden;border-radius:8px">${inner}</div>
+    ${section.caption ? `<p style="text-align:center;font-size:0.82rem;color:#999;margin-top:8px">${section.caption}</p>` : ''}
+  </div>`;
+  }
+
+  // Spin Wheel
+  if (section.type === 'spinwheel') {
+    const rewards = section.rewards || [];
+    if (!rewards.length) return '';
+    const swId = `sf_sw_${section.id.replace(/[^a-z0-9]/gi,'_')}`;
+    const colors = JSON.stringify(rewards.map(r => r.color || '#e94560'));
+    const labels = JSON.stringify(rewards.map(r => r.label || ''));
+    const probs  = JSON.stringify(rewards.map(r => +(r.probability || 1)));
+    return `<div style="text-align:center;margin:20px 0">
+    <canvas id="${swId}" width="280" height="280" style="max-width:100%;display:block;margin:0 auto;border-radius:50%;cursor:pointer"></canvas>
+    <button class="sf-btn" style="margin-top:16px;max-width:280px" id="${swId}_btn">${section.spinButtonText || 'Spin!'}</button>
+    <p id="${swId}_res" style="margin-top:12px;font-weight:700;font-size:1.1rem;min-height:1.6em"></p>
+  </div>
+  <script>(function(){
+    var C=document.getElementById('${swId}'),ctx=C.getContext('2d');
+    var colors=${colors},labels=${labels},probs=${probs},n=colors.length,TAU=Math.PI*2,arc=TAU/n,rot=0,spinning=false;
+    function draw(r){ctx.clearRect(0,0,280,280);for(var i=0;i<n;i++){ctx.beginPath();ctx.moveTo(140,140);ctx.arc(140,140,130,r+arc*i,r+arc*(i+1));ctx.fillStyle=colors[i];ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();ctx.save();ctx.translate(140,140);ctx.rotate(r+arc*i+arc/2);ctx.textAlign='right';ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=3;ctx.fillText(labels[i],118,5);ctx.restore();}ctx.beginPath();ctx.arc(140,140,14,0,TAU);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#ddd';ctx.lineWidth=2;ctx.stroke();}
+    draw(rot);
+    document.getElementById('${swId}_btn').addEventListener('click',function(){
+      if(spinning)return;spinning=true;
+      var total=probs.reduce(function(a,b){return a+b;},0),r=Math.random()*total,sum=0,pick=0;
+      for(var i=0;i<n;i++){sum+=probs[i];if(r<=sum){pick=i;break;}}
+      var extra=TAU*5+(TAU/n)*(n-pick-0.5),start=null,dur=3500,from=rot;
+      document.getElementById('${swId}_res').textContent='';
+      function anim(ts){if(!start)start=ts;var p=Math.min((ts-start)/dur,1),e=1-Math.pow(1-p,4),cur=from+extra*e;draw(cur);if(p<1){requestAnimationFrame(anim);}else{rot=cur%(TAU);spinning=false;document.getElementById('${swId}_res').textContent='\uD83C\uDF89 '+labels[pick];}}
+      requestAnimationFrame(anim);
+    });
+  })();<\/script>`;
+  }
+
+  // Content block (heading/paragraph/image/spacer/divider/wysiwyg elements)
+  if (section.type === 'content') {
+    const elements = section.elements || [];
+    if (!elements.length) return '';
+    const c = section.colors || {};
+    const cols = section.columns || 1;
+    const blockStyle = [
+      c.bg ? `background:${c.bg}` : '',
+      c.text ? `color:${c.text}` : '',
+      c.bg ? `padding:16px` : '',
+      c.bg ? `border-radius:8px` : '',
+    ].filter(Boolean).join(';');
+    const wAttr = blockStyle ? ` style="${blockStyle}"` : '';
+    const elHtml = elements.map(el => renderBlockElement(el)).join('');
+    if (cols === 2) {
+      // Split elements roughly in half for 2-col layout
+      const half = Math.ceil(elements.length / 2);
+      const col1 = elements.slice(0, half).map(el => renderBlockElement(el)).join('');
+      const col2 = elements.slice(half).map(el => renderBlockElement(el)).join('');
+      return `<div class="sf-content-block"${wAttr} style="${blockStyle};display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;margin:16px 0"><div>${col1}</div><div>${col2}</div></div>`;
+    }
+    return `<div class="sf-content-block"${wAttr} style="${blockStyle};margin:16px 0">${elHtml}</div>`;
+  }
+
+  return '';
+}
+
 function renderPublicPage(cfg) {
   const d = cfg.design;
   const s = cfg.site;
-  const heroSection = cfg.sections.find(s => s.id === 'hero');
-  const formSection = cfg.sections.find(s => s.id === 'form');
-  const footerSection = cfg.sections.find(s => s.id === 'footer');
+  const formSection = cfg.sections.find(sec => sec.id === 'form');
 
   const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
 
@@ -934,22 +1082,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
 <body>
 <div class="sf-card">
   ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
-  ${heroSection && heroSection.visible ? `
-    ${heroSection.imageUrl && heroSection.imagePosition === 'above' ? `<img src="${heroSection.imageUrl}" class="sf-hero-img" alt="">` : ''}
-    <h1>${heroSection.heading}</h1>
-    ${heroSection.subheading ? `<p class="sf-sub">${heroSection.subheading}</p>` : ''}
-    ${heroSection.imageUrl && heroSection.imagePosition === 'below' ? `<img src="${heroSection.imageUrl}" class="sf-hero-img below" alt="">` : ''}
-  ` : ''}
-  ${formSection && formSection.visible ? `
-  <form id="sf-form" novalidate>
-    ${formFields}
-    <div class="sf-gdpr">By subscribing you agree to our <a href="${s.privacyPolicyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.</div>
-    ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
-    <button type="submit" class="sf-btn">${d.buttonText}</button>
-    <div id="sf-msg" class="sf-msg"></div>
-  </form>
-  ` : ''}
-  ${footerSection && footerSection.visible ? `<p class="sf-footer">${footerSection.text}</p>` : ''}
+  ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
 </div>
 
 <!-- Cookie Banner -->
@@ -1077,9 +1210,7 @@ ${googleFontTag(cfg)}
 function renderEmbedPage(cfg) {
   const d = cfg.design;
   const s = cfg.site;
-  const heroSection = cfg.sections.find(sec => sec.id === 'hero');
   const formSection = cfg.sections.find(sec => sec.id === 'form');
-  const footerSection = cfg.sections.find(sec => sec.id === 'footer');
 
   const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
 
@@ -1132,22 +1263,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
 </head>
 <body>
   ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
-  ${heroSection && heroSection.visible ? `
-    ${heroSection.imageUrl && heroSection.imagePosition === 'above' ? `<img src="${heroSection.imageUrl}" class="sf-hero-img" alt="">` : ''}
-    <h1>${heroSection.heading}</h1>
-    ${heroSection.subheading ? `<p class="sf-sub">${heroSection.subheading}</p>` : ''}
-    ${heroSection.imageUrl && heroSection.imagePosition === 'below' ? `<img src="${heroSection.imageUrl}" class="sf-hero-img below" alt="">` : ''}
-  ` : ''}
-  ${formSection && formSection.visible ? `
-  <form id="sf-form" novalidate>
-    ${formFields}
-    <div class="sf-gdpr">By subscribing you agree to our <a href="${s.privacyPolicyUrl}" target="_blank">Privacy Policy</a>.</div>
-    ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
-    <button type="submit" class="sf-btn">${d.buttonText}</button>
-    <div id="sf-msg" class="sf-msg"></div>
-  </form>
-  ` : ''}
-  ${footerSection && footerSection.visible ? `<p class="sf-footer">${footerSection.text}</p>` : ''}
+  ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
 
 <script>
 (function(){

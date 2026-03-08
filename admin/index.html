@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>SignFlow Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Fraunces:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -13,7 +13,7 @@
   --bg:#F7F4F0;--bg2:#EDE9E3;--panel:#FFFFFF;--accent:#C94B39;--accent-h:#A83B2B;
   --accent-bg:#FDF1EF;--success:#2E7D52;--sbg:#EAF5EE;--danger:#C0392B;
   --dbg:#FDF1EF;--warn:#996A1A;--wbg:#FEF9EC;
-  --sidebar-w:288px;--topbar-h:54px;--font:'DM Sans',sans-serif;--display:'Fraunces',serif;
+  --topbar-h:54px;--font:'DM Sans',sans-serif;--display:'Fraunces',serif;
   --r:8px;--rlg:12px;
   --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
   --shadow:0 4px 16px rgba(0,0,0,.07),0 1px 4px rgba(0,0,0,.04);
@@ -53,53 +53,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:13.
 .page{display:none;flex:1;overflow:auto;flex-direction:column;}
 .page.active{display:flex;}
 .page-body{width:100%;max-width:920px;margin:0 auto;padding:32px 28px;}
-.page-body.narrow{max-width:580px;}
+.page-body.narrow{max-width:600px;}
 .page-head{margin-bottom:28px;}
 .page-head h2{font-family:var(--display);font-weight:300;font-size:1.7rem;color:var(--ink);letter-spacing:-0.4px;margin-bottom:3px;}
 .page-head p{color:var(--ink3);font-size:0.88rem;}
-#tab-editor{flex-direction:row;overflow:hidden;}
-#sidebar{width:var(--sidebar-w);background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
-.s-header{padding:14px 16px 12px;border-bottom:1px solid var(--border2);}
-.s-tabs{display:flex;gap:2px;background:var(--bg);padding:3px;border-radius:var(--r);}
-.stab{flex:1;padding:6px 4px;text-align:center;font-size:0.78rem;font-weight:500;color:var(--ink3);cursor:pointer;border-radius:6px;transition:all 120ms var(--ease);border:none;background:none;font-family:var(--font);}
-.stab:hover{color:var(--ink);}
-.stab.active{color:var(--ink);background:var(--panel);box-shadow:var(--shadow-sm);}
-.s-panel{display:none;flex:1;overflow-y:auto;padding:14px 14px 28px;flex-direction:column;gap:8px;}
-.s-panel.active{display:flex;}
-.s-panel::-webkit-scrollbar{width:3px;}
-.s-panel::-webkit-scrollbar-track{background:transparent;}
-.s-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-.sc{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;transition:box-shadow 120ms var(--ease);}
-.sc:hover{box-shadow:var(--shadow-sm);}
-.sc-head{display:flex;align-items:center;gap:7px;padding:10px 13px;cursor:pointer;user-select:none;transition:background 100ms;}
-.sc-head:hover{background:var(--bg2);}
-.dh{color:var(--border);cursor:grab;font-size:18px!important;transition:color 120ms;flex-shrink:0;}
-.dh:hover{color:var(--ink3);}
-.dh:active{cursor:grabbing;}
-.sc-title{font-weight:500;font-size:0.875rem;flex:1;}
-.sc-badge{font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:10px;background:var(--bg2);color:var(--ink3);letter-spacing:0.05em;text-transform:uppercase;}
-.sc-vis{font-size:16px!important;color:var(--ink3);cursor:pointer;padding:2px;border-radius:4px;transition:all 120ms;}
-.sc-vis:hover{color:var(--ink);background:var(--bg);}
-.sc-vis.on{color:var(--accent);}
-.sc-del{font-size:16px!important;color:var(--ink3);cursor:pointer;padding:2px;border-radius:4px;transition:all 120ms;}
-.sc-del:hover{color:var(--danger);background:var(--dbg);}
-.chevron{font-size:16px!important;color:var(--ink3);transition:transform .2s ease;}
-.sc.open .chevron{transform:rotate(180deg);}
-.sc-body{display:none;border-top:1px solid var(--border2);padding:14px 13px;}
-.sc.open .sc-body{display:block;}
-.cg{margin-bottom:11px;}
-.cg:last-child{margin-bottom:0;}
-.cl{font-size:0.7rem;font-weight:600;color:var(--ink3);margin-bottom:5px;display:block;letter-spacing:0.07em;text-transform:uppercase;}
-.cr{display:flex;gap:8px;align-items:center;}
-input[type=text],input[type=url],input[type=number],input[type=password],input[type=email],select,textarea{
-  width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);
-  font-size:0.875rem;font-family:var(--font);color:var(--ink);background:var(--panel);
-  transition:border-color 120ms,box-shadow 120ms;-webkit-appearance:none;}
+/* inputs */
+input[type=text],input[type=url],input[type=number],input[type=password],input[type=email],select,textarea{width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.875rem;font-family:var(--font);color:var(--ink);background:var(--panel);transition:border-color 120ms,box-shadow 120ms;-webkit-appearance:none;}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,75,57,.1);}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;}
 textarea{resize:vertical;min-height:60px;}
 input[type=color]{width:34px;height:34px;padding:3px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;background:var(--panel);flex-shrink:0;}
 input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
+.cg{margin-bottom:11px;}
+.cg:last-child{margin-bottom:0;}
+.cl{font-size:0.7rem;font-weight:600;color:var(--ink3);margin-bottom:5px;display:block;letter-spacing:0.07em;text-transform:uppercase;}
+.cr{display:flex;gap:8px;align-items:center;}
 .color-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .color-lbl{font-size:0.72rem;color:var(--ink3);margin-bottom:4px;font-weight:500;}
 .font-picker{display:flex;flex-wrap:wrap;gap:5px;}
@@ -112,22 +80,32 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .up-btn.del{color:var(--danger);}
 .up-btn.del:hover{border-color:var(--danger);background:var(--dbg);}
 .img-prev{width:100%;border-radius:var(--r);margin-top:8px;max-height:88px;object-fit:cover;display:none;border:1px solid var(--border);}
-.field-list{display:flex;flex-direction:column;gap:6px;}
-.fi{background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);padding:8px 11px;display:flex;align-items:center;gap:7px;transition:border-color 120ms,box-shadow 120ms;}
+.field-list{display:flex;flex-direction:column;gap:5px;}
+.fi{background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);padding:7px 10px;display:flex;align-items:center;gap:7px;transition:border-color 120ms,box-shadow 120ms;}
 .fi:hover{border-color:var(--ink3);box-shadow:var(--shadow-sm);}
 .fi-info{flex:1;min-width:0;}
-.fi-label{font-weight:500;font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.fi-meta{font-size:0.73rem;color:var(--ink3);margin-top:1px;}
+.fi-label{font-weight:500;font-size:0.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fi-meta{font-size:0.72rem;color:var(--ink3);margin-top:1px;}
 .fi-acts{display:flex;gap:1px;flex-shrink:0;}
 .ibtn{background:none;border:none;cursor:pointer;padding:5px;border-radius:5px;color:var(--ink3);display:flex;align-items:center;transition:all 120ms;}
 .ibtn .mi{font-size:15px!important;}
 .ibtn:hover{background:var(--bg);color:var(--ink);}
 .ibtn.danger:hover{background:var(--dbg);color:var(--danger);}
-.add-field-btn{background:none;border:1.5px dashed var(--border);border-radius:var(--r);padding:8px;width:100%;color:var(--ink3);cursor:pointer;font-size:0.875rem;font-family:var(--font);font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;transition:all 120ms;}
+.add-field-btn{background:none;border:1.5px dashed var(--border);border-radius:var(--r);padding:7px;width:100%;color:var(--ink3);cursor:pointer;font-size:0.84rem;font-family:var(--font);font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;transition:all 120ms;}
 .add-field-btn .mi{font-size:15px!important;}
 .add-field-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
-#preview-wrap{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;align-items:center;}
-.prev-toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:5px;width:100%;flex-shrink:0;}
+.dh{color:var(--border);cursor:grab;font-size:18px!important;transition:color 120ms;flex-shrink:0;}
+.dh:hover{color:var(--ink3);}
+/* Build tab */
+#tab-build{flex-direction:row;overflow:hidden;}
+#bl-panel{width:300px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+#bl-panel-head{padding:10px 14px 9px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px;}
+#bl-panel-head h3{font-weight:600;font-size:0.88rem;flex:1;}
+#bl-scroll{flex:1;overflow-y:auto;padding:8px 10px 16px;display:flex;flex-direction:column;}
+#bl-scroll::-webkit-scrollbar{width:3px;}
+#bl-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#bl-preview{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;}
+.prev-toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:5px;flex-shrink:0;}
 .psz{background:none;border:1.5px solid var(--border);border-radius:6px;color:var(--ink3);padding:5px 11px;cursor:pointer;font-size:0.78rem;font-family:var(--font);font-weight:500;display:flex;align-items:center;gap:4px;transition:all 120ms;}
 .psz .mi{font-size:13px!important;}
 .psz:hover{border-color:var(--ink3);color:var(--ink);}
@@ -135,6 +113,35 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .prev-lbl{color:var(--ink3);font-size:0.72rem;margin-left:auto;letter-spacing:0.06em;font-weight:600;text-transform:uppercase;}
 #prev-frame-wrap{padding:24px;display:flex;justify-content:center;align-items:flex-start;width:100%;}
 #preview-frame{border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff;transition:width .3s ease;}
+/* Block cards */
+.bk{background:var(--panel);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:box-shadow 120ms;margin-bottom:5px;}
+.bk:hover{box-shadow:var(--shadow-sm);}
+.bk-head{display:flex;align-items:center;gap:5px;padding:8px 10px;cursor:pointer;user-select:none;transition:background 100ms;}
+.bk-head:hover{background:var(--bg2);}
+.bk-dh{color:var(--border);cursor:grab;font-size:18px!important;flex-shrink:0;transition:color 120ms;}
+.bk-dh:hover{color:var(--ink3);}
+.bk-lock{color:var(--border2);font-size:16px!important;flex-shrink:0;}
+.bk-icon{font-size:14px!important;color:var(--ink3);flex-shrink:0;}
+.bk-title{flex:1;font-weight:500;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bk-cols{display:flex;gap:1px;background:var(--bg2);border-radius:5px;padding:2px;flex-shrink:0;}
+.bk-col-btn{background:none;border:none;cursor:pointer;font-size:0.68rem;font-weight:700;color:var(--ink3);padding:2px 6px;border-radius:3px;font-family:var(--font);line-height:1;}
+.bk-col-btn.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-sm);}
+.bk-vis,.bk-del{font-size:15px!important;cursor:pointer;padding:2px;border-radius:4px;flex-shrink:0;transition:all 120ms;}
+.bk-vis{color:var(--ink3);}
+.bk-vis:hover,.bk-vis.on{color:var(--accent);}
+.bk-del{color:var(--ink3);}
+.bk-del:hover{color:var(--danger);background:var(--dbg);}
+.bk-chevron{font-size:15px!important;color:var(--ink3);transition:transform .2s ease;flex-shrink:0;}
+.bk.open .bk-chevron{transform:rotate(180deg);}
+.bk-body{display:none;border-top:1px solid var(--border2);padding:12px 12px 14px;}
+.bk.open .bk-body{display:block;}
+.bk.bk-dragging{opacity:.35;}
+.bk.drag-over{outline:2px dashed var(--accent);outline-offset:-2px;}
+/* Element list in content blocks */
+.el-list{min-height:32px;border:1.5px dashed var(--border);border-radius:var(--r);padding:4px;margin-bottom:7px;display:flex;flex-direction:column;gap:3px;}
+.el-item{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:5px 7px;display:flex;align-items:center;gap:5px;}
+.el-item:hover{border-color:var(--ink3);}
+/* Subscribers */
 .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
 .stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 22px;}
 .stat-num{font-family:var(--display);font-size:2.1rem;font-weight:300;color:var(--ink);line-height:1;margin-bottom:5px;}
@@ -168,6 +175,7 @@ tr:hover td{background:#FAFAF8;}
 .btn-outline:hover{border-color:var(--ink3);color:var(--ink);}
 .btn-danger{background:var(--dbg);color:var(--danger);border-color:transparent;}
 .btn-danger:hover{background:var(--danger);color:#fff;}
+/* Cards (settings/embed pages) */
 .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);padding:22px;}
 .card+.card{margin-top:14px;}
 .card-title{font-weight:600;font-size:0.9rem;margin-bottom:10px;display:flex;align-items:center;gap:7px;color:var(--ink);}
@@ -185,7 +193,6 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .setting-row:last-child{border-bottom:none;padding-bottom:0;}
 .setting-info{flex:1;}
 .setting-title{font-weight:500;font-size:0.9rem;margin-bottom:2px;}
-.setting-desc{font-size:0.8rem;color:var(--ink3);line-height:1.55;}
 .tgl{position:relative;width:38px;height:22px;flex-shrink:0;}
 .tgl input{opacity:0;width:0;height:0;}
 .tgl-s{position:absolute;inset:0;background:var(--border);border-radius:11px;cursor:pointer;transition:background 150ms;}
@@ -201,6 +208,16 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .warn-box{background:var(--wbg);border-color:#EDD088;color:var(--warn);}
 .embed-prev-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;height:320px;}
 .embed-prev-wrap iframe{width:100%;height:100%;border:none;}
+.embed-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.embed-opts .cg{margin:0;}
+/* Design tab */
+#tab-design .page-body{max-width:680px;}
+.palette-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.palette-swatch{width:32px;height:32px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform 120ms,border-color 120ms;position:relative;display:flex;align-items:center;justify-content:center;}
+.palette-swatch:hover{transform:scale(1.1);border-color:var(--ink3);}
+.palette-swatch.active::after{content:'✓';color:#fff;font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4);}
+.custom-font-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:5px;}
+.custom-font-name{flex:1;font-size:0.83rem;font-weight:500;}
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
@@ -212,39 +229,26 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:16px;border-top:1px solid var(--border2);}
 .modal-section{margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);}
 .modal-section-title{font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;}
-/* Condition rows */
 .cond-row{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:6px 8px;margin-bottom:5px;flex-wrap:wrap;}
 .cond-row select,.cond-row input{flex:1;min-width:60px;padding:4px 7px;font-size:0.79rem;}
 .cond-row .ibtn{flex-shrink:0;}
-/* Reward rows */
 .reward-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
 .reward-row input[type=text]{flex:1;}
 .reward-row input[type=color]{width:30px;height:30px;}
 .reward-row input[type=number]{width:60px;}
-/* Palette swatches */
-.palette-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
-.palette-swatch{width:32px;height:32px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform 120ms,border-color 120ms;position:relative;display:flex;align-items:center;justify-content:center;}
-.palette-swatch:hover{transform:scale(1.1);border-color:var(--ink3);}
-.palette-swatch.active::after{content:'✓';color:#fff;font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4);}
-/* Custom font list */
-.custom-font-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:5px;}
-.custom-font-name{flex:1;font-size:0.83rem;font-weight:500;}
-/* Block picker */
 .block-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .block-type-btn{background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer;text-align:center;transition:all 120ms;font-family:var(--font);}
 .block-type-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
-.block-type-btn .mi{font-size:24px!important;display:block;margin-bottom:4px;color:var(--ink3);}
+.block-type-btn .mi{font-size:22px!important;display:block;margin-bottom:4px;color:var(--ink3);}
 .block-type-btn:hover .mi{color:var(--accent);}
 .block-type-label{font-size:0.8rem;font-weight:500;}
-.embed-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
-.embed-opts .cg{margin:0;}
 #toast{position:fixed;bottom:22px;right:22px;background:var(--ink);color:#fff;padding:9px 14px;border-radius:var(--r);font-size:0.875rem;font-weight:500;opacity:0;transform:translateY(8px);transition:all .22s ease;pointer-events:none;z-index:9999;display:flex;align-items:center;gap:7px;box-shadow:var(--shadow);}
 #toast.show{opacity:1;transform:translateY(0);}
 #toast.success{background:var(--success);}
 #toast.error{background:var(--danger);}
 #toast .mi{font-size:15px!important;}
-.drag-over{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:var(--r);}
 .dragging{opacity:.35;}
+.drag-over{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:var(--r);}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -254,7 +258,6 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 </head>
 <body>
 
-<!-- Auth screen -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">Sign<em>Flow</em></div>
@@ -265,14 +268,14 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   </div>
 </div>
 
-<!-- Topbar -->
 <div id="topbar">
   <div class="t-logo">Sign<em>Flow</em></div>
   <nav class="t-nav">
-    <button class="t-tab active" onclick="switchTab('editor',this)">Editor</button>
+    <button class="t-tab active" onclick="switchTab('build',this)">Build</button>
+    <button class="t-tab" onclick="switchTab('design',this)">Design</button>
+    <button class="t-tab" onclick="switchTab('settings',this)">Settings</button>
     <button class="t-tab" onclick="switchTab('subscribers',this)">Subscribers</button>
     <button class="t-tab" onclick="switchTab('embed',this)">Embed</button>
-    <button class="t-tab" onclick="switchTab('settings',this)">Settings</button>
   </nav>
   <div class="t-spacer"></div>
   <div class="t-actions">
@@ -282,156 +285,43 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div id="user-badge">
       <img id="user-avatar" src="" alt="">
       <span class="u-name" id="user-name"></span>
-      <button class="tbtn tbtn-ghost btn-sm" onclick="window.location='/auth/logout'" style="font-size:0.78rem;padding:5px 10px">Sign out</button>
+      <button class="tbtn tbtn-ghost" onclick="window.location='/auth/logout'" style="font-size:0.78rem;padding:5px 10px">Sign out</button>
     </div>
   </div>
 </div>
 
-<!-- App -->
 <div id="app">
 
-<!-- EDITOR -->
-<div id="tab-editor" class="page active">
-  <div id="sidebar">
-    <div class="s-header">
-      <div class="s-tabs">
-        <button class="stab active" onclick="switchSidebar('content',this)">Content</button>
-        <button class="stab" onclick="switchSidebar('design',this)">Design</button>
-        <button class="stab" onclick="switchSidebar('fields',this)">Fields</button>
-      </div>
+<!-- BUILD TAB -->
+<div id="tab-build" class="page active">
+  <div id="bl-panel">
+    <div id="bl-panel-head">
+      <h3>Blocks</h3>
+      <button class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem" onclick="openBlockPicker()"><span class="material-icons-round mi">add</span> Add block</button>
     </div>
+    <div id="bl-scroll"><!-- populated by renderBuildPanel() --></div>
+  </div>
+  <div id="bl-preview">
+    <div class="prev-toolbar">
+      <button class="psz active" onclick="setPreviewSize('desktop',this)"><span class="material-icons-round mi">desktop_mac</span> Desktop</button>
+      <button class="psz" onclick="setPreviewSize('tablet',this)"><span class="material-icons-round mi">tablet_mac</span> Tablet</button>
+      <button class="psz" onclick="setPreviewSize('mobile',this)"><span class="material-icons-round mi">smartphone</span> Mobile</button>
+      <span class="prev-lbl">Live preview</span>
+    </div>
+    <div id="prev-frame-wrap">
+      <iframe id="preview-frame" src="/" style="width:100%;height:680px"></iframe>
+    </div>
+  </div>
+</div>
 
-    <!-- Content panel -->
-    <div class="s-panel active" id="spanel-content">
-
-      <!-- Static sections: hero, form, footer -->
-      <div class="sc open" id="sc-hero" draggable="true">
-        <div class="sc-head" onclick="toggleCard('sc-hero')">
-          <span class="material-icons-round dh">drag_indicator</span>
-          <span class="sc-title">Hero</span>
-          <span class="material-icons-round sc-vis" id="toggle-hero" onclick="toggleSection(event,'hero')">visibility</span>
-          <span class="material-icons-round chevron">expand_more</span>
-        </div>
-        <div class="sc-body">
-          <div class="cg"><label class="cl">Heading</label><input type="text" id="c-heading" oninput="updateSection('hero','heading',this.value)"></div>
-          <div class="cg"><label class="cl">Subheading</label><textarea id="c-subheading" rows="2" oninput="updateSection('hero','subheading',this.value)"></textarea></div>
-          <div class="cg">
-            <label class="cl">Hero Image</label>
-            <button class="up-btn" onclick="triggerUpload('hero-img')"><span class="material-icons-round mi">upload</span> Upload image</button>
-            <input type="file" id="upload-hero-img" accept="image/*" style="display:none" onchange="handleImageUpload(this,'hero-img')">
-            <img id="preview-hero-img" class="img-prev">
-          </div>
-          <div class="cg"><label class="cl">Position</label>
-            <select id="c-imgpos" onchange="updateSection('hero','imagePosition',this.value)">
-              <option value="above">Above heading</option><option value="below">Below heading</option>
-            </select>
-          </div>
-          <button class="up-btn del" onclick="clearHeroImage()" style="margin-top:4px"><span class="material-icons-round mi">delete</span> Remove image</button>
-          <div class="modal-section"><div class="modal-section-title">Block colors</div>
-            <div class="color-grid">
-              <div><div class="color-lbl">Background</div><div class="cr"><input type="color" oninput="updateSectionColor('hero','bg',this.value)"><input type="text" oninput="updateSectionColorHex('hero','bg',this.value)" placeholder="inherit"></div></div>
-              <div><div class="color-lbl">Text</div><div class="cr"><input type="color" oninput="updateSectionColor('hero','text',this.value)"><input type="text" oninput="updateSectionColorHex('hero','text',this.value)" placeholder="inherit"></div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="sc open" id="sc-form">
-        <div class="sc-head" onclick="toggleCard('sc-form')">
-          <span class="material-icons-round dh">drag_indicator</span>
-          <span class="sc-title">Signup Form</span>
-          <span class="material-icons-round sc-vis" id="toggle-form" onclick="toggleSection(event,'form')">visibility</span>
-          <span class="material-icons-round chevron">expand_more</span>
-        </div>
-        <div class="sc-body">
-          <div class="cg"><label class="cl">Button label</label><input type="text" id="c-btntext" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
-          <div class="cg"><label class="cl">Success message</label><textarea id="c-success" rows="2" oninput="updateSection('form','submitSuccessMessage',this.value)"></textarea></div>
-          <div class="cg"><label class="cl">Error message</label><input type="text" id="c-error" oninput="updateSection('form','submitErrorMessage',this.value)"></div>
-        </div>
-      </div>
-
-      <div class="sc open" id="sc-footer">
-        <div class="sc-head" onclick="toggleCard('sc-footer')">
-          <span class="material-icons-round dh">drag_indicator</span>
-          <span class="sc-title">Footer</span>
-          <span class="material-icons-round sc-vis" id="toggle-footer" onclick="toggleSection(event,'footer')">visibility</span>
-          <span class="material-icons-round chevron">expand_more</span>
-        </div>
-        <div class="sc-body">
-          <div class="cg"><label class="cl">Footer text</label><textarea id="c-footer" rows="2" oninput="updateSection('footer','text',this.value)"></textarea></div>
-        </div>
-      </div>
-
-      <!-- Logo block -->
-      <div class="sc" id="sc-logo">
-        <div class="sc-head" onclick="toggleCard('sc-logo')">
-          <span class="material-icons-round" style="color:transparent;font-size:18px">drag_indicator</span>
-          <span class="sc-title">Logo</span>
-          <span class="material-icons-round chevron">expand_more</span>
-        </div>
-        <div class="sc-body">
-          <div class="cg">
-            <button class="up-btn" onclick="triggerUpload('logo')"><span class="material-icons-round mi">upload</span> Upload logo</button>
-            <input type="file" id="upload-logo" accept="image/*" style="display:none" onchange="handleImageUpload(this,'logo')">
-            <img id="preview-logo" class="img-prev">
-          </div>
-          <div class="cg"><label class="cl">Width</label><input type="text" id="c-logowidth" placeholder="180px" oninput="cfg.design.logoWidth=this.value;schedulePreview()"></div>
-          <button class="up-btn del" onclick="clearLogo()"><span class="material-icons-round mi">delete</span> Remove logo</button>
-        </div>
-      </div>
-
-      <!-- Cookie & Legal -->
-      <div class="sc" id="sc-legal">
-        <div class="sc-head" onclick="toggleCard('sc-legal')">
-          <span class="material-icons-round" style="color:transparent;font-size:18px">drag_indicator</span>
-          <span class="sc-title">Cookie & Legal</span>
-          <span class="material-icons-round chevron">expand_more</span>
-        </div>
-        <div class="sc-body">
-          <div class="cg"><label class="cl">Cookie banner text</label><textarea id="c-cookie" rows="2" oninput="cfg.site.cookieBannerText=this.value;schedulePreview()"></textarea></div>
-          <div class="cg"><label class="cl">Privacy policy URL</label><input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()"></div>
-          <div class="cg"><label class="cl">Site title (browser tab)</label><input type="text" id="c-sitetitle" oninput="cfg.site.title=this.value;schedulePreview()"></div>
-        </div>
-      </div>
-
-      <!-- Background -->
-      <div class="sc" id="sc-bg">
-        <div class="sc-head" onclick="toggleCard('sc-bg')">
-          <span class="material-icons-round" style="color:transparent;font-size:18px">drag_indicator</span>
-          <span class="sc-title">Background</span>
-          <span class="material-icons-round chevron">expand_more</span>
-        </div>
-        <div class="sc-body">
-          <div class="cg">
-            <button class="up-btn" onclick="triggerUpload('bg')"><span class="material-icons-round mi">upload</span> Upload background</button>
-            <input type="file" id="upload-bg" accept="image/*" style="display:none" onchange="handleImageUpload(this,'bg')">
-            <img id="preview-bg" class="img-prev">
-          </div>
-          <div class="cg">
-            <label class="cl">Overlay — <span id="overlay-val">0.4</span></label>
-            <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
-          </div>
-          <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
-        </div>
-      </div>
-
-      <!-- Dynamic blocks container -->
-      <div id="dynamic-blocks"></div>
-
-      <!-- Add Block button -->
-      <button class="add-field-btn" onclick="openBlockPicker()">
-        <span class="material-icons-round mi">add_box</span> Add block
-      </button>
-
-    </div><!-- /content -->
-
-    <!-- Design panel -->
-    <div class="s-panel" id="spanel-design">
-
+<!-- DESIGN TAB -->
+<div id="tab-design" class="page">
+  <div class="page-body">
+    <div class="page-head"><h2>Design</h2><p>Typography, colours, and layout settings for your signup form.</p></div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">text_fields</span> Typography</div>
       <div class="cg"><label class="cl">Heading font</label><div class="font-picker" id="heading-font-picker"></div></div>
       <div class="cg"><label class="cl">Body font</label><div class="font-picker" id="body-font-picker"></div></div>
-
-      <!-- Custom fonts -->
       <div class="cg">
         <label class="cl">Custom fonts</label>
         <div id="custom-font-list"></div>
@@ -444,14 +334,11 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         </div>
         <div class="info-box" style="margin-top:6px;font-size:0.75rem">Upload a .woff2 file, enter a name, then click a font chip to select it.</div>
       </div>
-
-      <div class="cg">
-        <label class="cl">Colour palettes</label>
-        <div class="palette-grid" id="palette-grid"></div>
-      </div>
-
-      <div class="cg">
-        <label class="cl">Colours</label>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">palette</span> Colours</div>
+      <div class="cg"><label class="cl">Palettes</label><div class="palette-grid" id="palette-grid"></div></div>
+      <div class="cg"><label class="cl">Custom colours</label>
         <div class="color-grid">
           <div><div class="color-lbl">Primary</div><div class="cr"><input type="color" id="c-primary" oninput="cfg.design.primaryColor=this.value;syncHex('primary',this.value);schedulePreview()"><input type="text" id="c-primary-hex" style="flex:1" oninput="syncColor('primary',this.value)"></div></div>
           <div><div class="color-lbl">Accent</div><div class="cr"><input type="color" id="c-accent" oninput="cfg.design.accentColor=this.value;syncHex('accent',this.value);schedulePreview()"><input type="text" id="c-accent-hex" style="flex:1" oninput="syncColor('accent',this.value)"></div></div>
@@ -459,23 +346,22 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
           <div><div class="color-lbl">Text</div><div class="cr"><input type="color" id="c-text" oninput="cfg.design.textColor=this.value;syncHex('text',this.value);schedulePreview()"><input type="text" id="c-text-hex" style="flex:1" oninput="syncColor('text',this.value)"></div></div>
         </div>
       </div>
-
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">tune</span> Layout</div>
       <div class="cg"><label class="cl">Container width</label>
         <select id="c-width" onchange="cfg.design.containerWidth=this.value;schedulePreview()">
           <option value="480px">Narrow (480px)</option><option value="560px">Medium (560px)</option>
           <option value="640px">Wide (640px)</option><option value="720px">Extra wide (720px)</option>
         </select>
       </div>
-
       <div class="cg"><label class="cl">Button corners</label>
         <select id="c-radius" onchange="cfg.design.buttonRadius=this.value;schedulePreview()">
           <option value="0px">Square</option><option value="4px">Slight</option>
           <option value="8px">Rounded</option><option value="24px">Pill</option>
         </select>
       </div>
-
-      <!-- Layout controls -->
-      <div class="cg"><label class="cl">Card padding (v h)</label>
+      <div class="cg"><label class="cl">Card padding (vertical / horizontal)</label>
         <div class="cr">
           <input type="text" id="c-card-pad-v" placeholder="48px" style="flex:1" oninput="updateCardPadding()">
           <input type="text" id="c-card-pad-h" placeholder="40px" style="flex:1" oninput="updateCardPadding()">
@@ -487,95 +373,49 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="cg"><label class="cl">Field corner radius</label>
         <div class="cr"><input type="range" id="c-field-radius-range" min="0" max="24" step="1" oninput="cfg.design.fieldRadius=this.value+'px';document.getElementById('c-field-radius-px').value=this.value;schedulePreview()"><input type="text" id="c-field-radius-px" style="width:52px;flex-shrink:0" oninput="cfg.design.fieldRadius=this.value;schedulePreview()"></div>
       </div>
-
-    </div><!-- /design -->
-
-    <!-- Fields panel -->
-    <div class="s-panel" id="spanel-fields">
-      <p style="font-size:0.8rem;color:var(--ink3);line-height:1.6">Email is always required. Drag to reorder. Set conditions to show/hide fields dynamically.</p>
-      <div class="field-list" id="field-list"></div>
-      <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>
-      <div class="info-box" style="margin-top:4px">GDPR: Only collect data you need. Mark fields optional where possible.</div>
-    </div>
-
-  </div><!-- /sidebar -->
-
-  <!-- Preview -->
-  <div id="preview-wrap">
-    <div class="prev-toolbar">
-      <button class="psz active" onclick="setPreviewSize('desktop',this)"><span class="material-icons-round mi">desktop_mac</span> Desktop</button>
-      <button class="psz" onclick="setPreviewSize('tablet',this)"><span class="material-icons-round mi">tablet_mac</span> Tablet</button>
-      <button class="psz" onclick="setPreviewSize('mobile',this)"><span class="material-icons-round mi">smartphone</span> Mobile</button>
-      <span class="prev-lbl">Live preview</span>
-    </div>
-    <div id="prev-frame-wrap">
-      <iframe id="preview-frame" src="/" style="width:100%;height:680px"></iframe>
-    </div>
-  </div>
-
-</div><!-- /editor -->
-
-<!-- SUBSCRIBERS -->
-<div id="tab-subscribers" class="page">
-  <div class="page-body">
-    <div class="page-head"><h2>Subscribers</h2><p>Manage your mailing list and export data.</p></div>
-    <div class="stats-row" id="sub-stats">
-      <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-lbl">Total</div></div>
-      <div class="stat-card"><div class="stat-num" id="stat-active">—</div><div class="stat-lbl">Active</div></div>
-      <div class="stat-card"><div class="stat-num" id="stat-unsub">—</div><div class="stat-lbl">Unsubscribed</div></div>
-    </div>
-    <div class="table-wrap">
-      <div class="table-bar">
-        <input type="text" placeholder="Search by email…" oninput="debounceSearch(this.value)">
-        <select id="sub-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadSubscribers(1)">
-          <option value="all">All statuses</option><option value="active">Active</option><option value="unsubscribed">Unsubscribed</option>
-        </select>
-        <div style="flex:1"></div>
-        <button class="btn btn-primary btn-sm" onclick="exportData('csv')"><span class="material-icons-round mi">download</span> CSV</button>
-        <button class="btn btn-outline btn-sm" onclick="exportData('json')"><span class="material-icons-round mi">download</span> JSON</button>
-      </div>
-      <div class="tscroll"><table><thead><tr id="sub-thead"></tr></thead><tbody id="sub-tbody"></tbody></table></div>
-      <div class="table-foot"><span class="t-count" id="sub-count"></span><div class="pagination" id="sub-pagination"></div></div>
     </div>
   </div>
 </div>
 
-<!-- EMBED -->
-<div id="tab-embed" class="page">
-  <div class="page-body">
-    <div class="page-head"><h2>Embed</h2><p>Drop the signup form into any website with a single line of code.</p></div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">code</span> JS snippet <span style="font-size:0.72rem;font-weight:400;color:var(--ink3);margin-left:4px">recommended</span></div>
-      <p class="card-desc">Auto-resizing iframe. Fires a <code>signflow:success</code> event on the parent page on signup.</p>
-      <div class="embed-opts">
-        <div class="cg"><label class="cl">Width</label><select id="embed-width" onchange="updateEmbedCode()"><option value="100%">100%</option><option value="600px">600px</option><option value="480px">480px</option></select></div>
-        <div class="cg"><label class="cl">Corners</label><select id="embed-radius" onchange="updateEmbedCode()"><option value="0px">None</option><option value="8px">Slight</option><option value="12px" selected>Rounded</option><option value="24px">Large</option></select></div>
-        <div class="cg"><label class="cl">Shadow</label><select id="embed-shadow" onchange="updateEmbedCode()"><option value="true">Yes</option><option value="false">No</option></select></div>
-        <div class="cg"><label class="cl">Min height</label><input type="text" id="embed-minheight" value="420" oninput="updateEmbedCode()"></div>
-      </div>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang">HTML</span><button class="code-copy" onclick="copyEmbedCode('embed-snippet')"><span class="material-icons-round mi">content_copy</span> Copy</button></div>
-        <pre id="embed-snippet"></pre>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">web</span> Raw iframe</div>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang">HTML</span><button class="code-copy" onclick="copyEmbedCode('embed-iframe')"><span class="material-icons-round mi">content_copy</span> Copy</button></div>
-        <pre id="embed-iframe"></pre>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">preview</span> Preview</div>
-      <div class="embed-prev-wrap"><iframe id="embed-preview-frame" src="/embed"></iframe></div>
-    </div>
-  </div>
-</div>
-
-<!-- SETTINGS -->
+<!-- SETTINGS TAB -->
 <div id="tab-settings" class="page">
   <div class="page-body narrow">
-    <div class="page-head"><h2>Settings</h2><p>CAPTCHA, authentication, and deployment info.</p></div>
+    <div class="page-head"><h2>Settings</h2><p>Logo, branding, form details, and technical settings.</p></div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">image</span> Logo</div>
+      <div class="cg">
+        <button class="up-btn" onclick="triggerUpload('logo')"><span class="material-icons-round mi">upload</span> Upload logo</button>
+        <input type="file" id="upload-logo" accept="image/*" style="display:none" onchange="handleImageUpload(this,'logo')">
+        <img id="preview-logo" class="img-prev">
+      </div>
+      <div class="cg"><label class="cl">Width</label><input type="text" id="c-logowidth" placeholder="180px" oninput="cfg.design.logoWidth=this.value;schedulePreview()"></div>
+      <button class="up-btn del" onclick="clearLogo()" style="margin-top:4px"><span class="material-icons-round mi">delete</span> Remove logo</button>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">wallpaper</span> Background</div>
+      <div class="cg">
+        <button class="up-btn" onclick="triggerUpload('bg')"><span class="material-icons-round mi">upload</span> Upload background image</button>
+        <input type="file" id="upload-bg" accept="image/*" style="display:none" onchange="handleImageUpload(this,'bg')">
+        <img id="preview-bg" class="img-prev">
+      </div>
+      <div class="cg">
+        <label class="cl">Overlay opacity — <span id="overlay-val">0.4</span></label>
+        <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
+      </div>
+      <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">cookie</span> Cookie & Legal</div>
+      <div class="cg"><label class="cl">Cookie banner text</label><textarea id="c-cookie" rows="2" oninput="cfg.site.cookieBannerText=this.value;schedulePreview()"></textarea></div>
+      <div class="cg"><label class="cl">Privacy policy URL</label><input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()"></div>
+      <div class="cg"><label class="cl">Site title (browser tab)</label><input type="text" id="c-sitetitle" oninput="cfg.site.title=this.value;schedulePreview()"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">send</span> Form Details</div>
+      <div class="cg"><label class="cl">Button label</label><input type="text" id="c-btntext" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
+      <div class="cg"><label class="cl">Success message</label><textarea id="c-success" rows="2" oninput="updateSection('form','submitSuccessMessage',this.value)"></textarea></div>
+      <div class="cg"><label class="cl">Error message</label><input type="text" id="c-error" oninput="updateSection('form','submitErrorMessage',this.value)"></div>
+    </div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">smart_toy</span> hCaptcha</div>
       <p class="card-desc">Privacy-friendly, GDPR-compliant. Free keys at <a href="https://www.hcaptcha.com" target="_blank" style="color:var(--accent)">hcaptcha.com</a>.</p>
@@ -616,6 +456,63 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   </div>
 </div>
 
+<!-- SUBSCRIBERS TAB -->
+<div id="tab-subscribers" class="page">
+  <div class="page-body">
+    <div class="page-head"><h2>Subscribers</h2><p>Manage your mailing list and export data.</p></div>
+    <div class="stats-row" id="sub-stats">
+      <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-lbl">Total</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-active">—</div><div class="stat-lbl">Active</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-unsub">—</div><div class="stat-lbl">Unsubscribed</div></div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-bar">
+        <input type="text" placeholder="Search by email…" oninput="debounceSearch(this.value)">
+        <select id="sub-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadSubscribers(1)">
+          <option value="all">All statuses</option><option value="active">Active</option><option value="unsubscribed">Unsubscribed</option>
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary btn-sm" onclick="exportData('csv')"><span class="material-icons-round mi">download</span> CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="exportData('json')"><span class="material-icons-round mi">download</span> JSON</button>
+      </div>
+      <div class="tscroll"><table><thead><tr id="sub-thead"></tr></thead><tbody id="sub-tbody"></tbody></table></div>
+      <div class="table-foot"><span class="t-count" id="sub-count"></span><div class="pagination" id="sub-pagination"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- EMBED TAB -->
+<div id="tab-embed" class="page">
+  <div class="page-body">
+    <div class="page-head"><h2>Embed</h2><p>Drop the signup form into any website with a single line of code.</p></div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">code</span> JS snippet <span style="font-size:0.72rem;font-weight:400;color:var(--ink3);margin-left:4px">recommended</span></div>
+      <p class="card-desc">Auto-resizing iframe. Fires a <code>signflow:success</code> event on the parent page on signup.</p>
+      <div class="embed-opts">
+        <div class="cg"><label class="cl">Width</label><select id="embed-width" onchange="updateEmbedCode()"><option value="100%">100%</option><option value="600px">600px</option><option value="480px">480px</option></select></div>
+        <div class="cg"><label class="cl">Corners</label><select id="embed-radius" onchange="updateEmbedCode()"><option value="0px">None</option><option value="8px">Slight</option><option value="12px" selected>Rounded</option><option value="24px">Large</option></select></div>
+        <div class="cg"><label class="cl">Shadow</label><select id="embed-shadow" onchange="updateEmbedCode()"><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="cg"><label class="cl">Min height</label><input type="text" id="embed-minheight" value="420" oninput="updateEmbedCode()"></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang">HTML</span><button class="code-copy" onclick="copyEmbedCode('embed-snippet')"><span class="material-icons-round mi">content_copy</span> Copy</button></div>
+        <pre id="embed-snippet"></pre>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">web</span> Raw iframe</div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang">HTML</span><button class="code-copy" onclick="copyEmbedCode('embed-iframe')"><span class="material-icons-round mi">content_copy</span> Copy</button></div>
+        <pre id="embed-iframe"></pre>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">preview</span> Preview</div>
+      <div class="embed-prev-wrap"><iframe id="embed-preview-frame" src="/embed"></iframe></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /app -->
 
 <!-- Field Modal -->
@@ -630,38 +527,25 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div class="cg">
       <label class="cl">Field type</label>
       <select id="modal-type" onchange="onModalTypeChange()">
-        <option value="text">Text</option>
-        <option value="email">Email</option>
-        <option value="number">Number</option>
-        <option value="tel">Phone</option>
-        <option value="textarea">Long text</option>
-        <option value="select">Dropdown</option>
-        <option value="checkbox">Checkbox</option>
-        <option value="date">Date (native)</option>
-        <option value="age">Age (range-limited)</option>
-        <option value="slider">Slider</option>
-        <option value="year">Year picker</option>
-        <option value="yearmonth">Year + Month picker</option>
+        <option value="text">Text</option><option value="email">Email</option><option value="number">Number</option>
+        <option value="tel">Phone</option><option value="textarea">Long text</option><option value="select">Dropdown</option>
+        <option value="checkbox">Checkbox</option><option value="date">Date (native)</option>
+        <option value="age">Age (range-limited)</option><option value="slider">Slider</option>
+        <option value="year">Year picker</option><option value="yearmonth">Year + Month picker</option>
       </select>
     </div>
-    <!-- Dropdown options -->
     <div class="cg" id="modal-options-group" style="display:none"><label class="cl">Options (one per line)</label><textarea id="modal-options" rows="4" placeholder="Option 1&#10;Option 2"></textarea></div>
-    <!-- Placeholder -->
     <div class="cg" id="modal-placeholder-group"><label class="cl">Placeholder</label><input type="text" id="modal-placeholder"></div>
-    <!-- Age config -->
     <div id="modal-age-group" style="display:none">
       <div class="cr">
         <div class="cg" style="flex:1;margin:0"><label class="cl">Min age</label><input type="number" id="modal-age-min" placeholder="18" min="0" max="120"></div>
         <div class="cg" style="flex:1;margin:0"><label class="cl">Max age</label><input type="number" id="modal-age-max" placeholder="99" min="0" max="120"></div>
       </div>
     </div>
-    <!-- Date config -->
     <div id="modal-date-group" style="display:none">
       <div class="cg"><label class="cl">Date mode</label>
         <select id="modal-date-mode" onchange="onDateModeChange()">
-          <option value="free">Free (any date)</option>
-          <option value="range">Date range</option>
-          <option value="specific">Specific dates only</option>
+          <option value="free">Free (any date)</option><option value="range">Date range</option><option value="specific">Specific dates only</option>
         </select>
       </div>
       <div id="modal-date-range-group" style="display:none">
@@ -675,14 +559,12 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <textarea id="modal-date-specific" rows="4" placeholder="2025-12-24&#10;2025-12-25"></textarea>
       </div>
     </div>
-    <!-- Year config -->
     <div id="modal-year-group" style="display:none">
       <div class="cr">
         <div class="cg" style="flex:1;margin:0"><label class="cl">Min year</label><input type="number" id="modal-year-min" placeholder="1920"></div>
         <div class="cg" style="flex:1;margin:0"><label class="cl">Max year</label><input type="number" id="modal-year-max" placeholder="2010"></div>
       </div>
     </div>
-    <!-- Slider config -->
     <div id="modal-slider-group" style="display:none">
       <div class="cr" style="gap:6px">
         <div style="flex:1"><label class="cl">Min</label><input type="number" id="modal-slider-min" value="0"></div>
@@ -700,15 +582,12 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
       <div class="cg" style="margin-top:8px"><label class="cl">Track style</label>
         <select id="modal-slider-track">
-          <option value="linear">Linear (horizontal)</option>
-          <option value="angled">Angled (tilted)</option>
-          <option value="arc">Arc (semicircle)</option>
+          <option value="linear">Linear (horizontal)</option><option value="angled">Angled (tilted)</option><option value="arc">Arc (semicircle)</option>
         </select>
       </div>
       <div class="cg"><label class="cl">Slide mode</label>
         <select id="modal-slider-mode">
-          <option value="smooth">Smooth (continuous)</option>
-          <option value="step">Stepped (snaps to step)</option>
+          <option value="smooth">Smooth (continuous)</option><option value="step">Stepped (snaps to step)</option>
         </select>
       </div>
       <div class="cg"><label class="cl">Knob icon (emoji or char)</label><input type="text" id="modal-slider-icon" placeholder="● ★ 🎯" maxlength="4"></div>
@@ -720,18 +599,14 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <div style="flex:1"><label class="cl">Value font size (px)</label><input type="number" id="modal-slider-val-size" value="14" min="8" max="32"></div>
       </div>
     </div>
-    <!-- Required toggle -->
     <div class="cg" style="display:flex;align-items:center;gap:10px;margin-top:8px">
       <label class="tgl"><input type="checkbox" id="modal-required"><span class="tgl-s"></span></label>
       <label for="modal-required" class="tgl-lbl">Required field</label>
     </div>
-    <!-- Conditions -->
     <div class="modal-section" id="modal-conditions-section">
       <div class="modal-section-title">Conditional visibility</div>
       <div id="modal-conditions-list"></div>
-      <button class="add-field-btn" onclick="addCondition()" style="margin-top:4px">
-        <span class="material-icons-round mi">add</span> Add condition
-      </button>
+      <button class="add-field-btn" onclick="addCondition()" style="margin-top:4px"><span class="material-icons-round mi">add</span> Add condition</button>
     </div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeFieldModal()">Cancel</button>
@@ -748,18 +623,28 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="modal-close" onclick="closeBlockPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
     </div>
     <div class="block-picker">
-      <button class="block-type-btn" onclick="addBlock('divider')">
-        <span class="material-icons-round mi">horizontal_rule</span>
-        <span class="block-type-label">Divider</span>
-      </button>
-      <button class="block-type-btn" onclick="addBlock('video')">
-        <span class="material-icons-round mi">play_circle</span>
-        <span class="block-type-label">Video</span>
-      </button>
-      <button class="block-type-btn" onclick="addBlock('spinwheel')">
-        <span class="material-icons-round mi">casino</span>
-        <span class="block-type-label">Spin Wheel</span>
-      </button>
+      <button class="block-type-btn" onclick="addBlock('content')"><span class="material-icons-round mi">widgets</span><span class="block-type-label">Content</span></button>
+      <button class="block-type-btn" onclick="addBlock('divider')"><span class="material-icons-round mi">horizontal_rule</span><span class="block-type-label">Divider</span></button>
+      <button class="block-type-btn" onclick="addBlock('video')"><span class="material-icons-round mi">play_circle</span><span class="block-type-label">Video</span></button>
+      <button class="block-type-btn" onclick="addBlock('spinwheel')"><span class="material-icons-round mi">casino</span><span class="block-type-label">Spin Wheel</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Element picker modal -->
+<div id="el-modal" class="modal-overlay">
+  <div class="modal-box" style="width:360px">
+    <div class="modal-head">
+      <h2>Add element</h2>
+      <button class="modal-close" onclick="closeElPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div class="block-picker">
+      <button class="block-type-btn" onclick="addEl('heading')"><span class="material-icons-round mi">title</span><span class="block-type-label">Heading</span></button>
+      <button class="block-type-btn" onclick="addEl('paragraph')"><span class="material-icons-round mi">notes</span><span class="block-type-label">Paragraph</span></button>
+      <button class="block-type-btn" onclick="addEl('image')"><span class="material-icons-round mi">image</span><span class="block-type-label">Image</span></button>
+      <button class="block-type-btn" onclick="addEl('spacer')"><span class="material-icons-round mi">space_bar</span><span class="block-type-label">Spacer</span></button>
+      <button class="block-type-btn" onclick="addEl('divider')"><span class="material-icons-round mi">horizontal_rule</span><span class="block-type-label">Divider</span></button>
+      <button class="block-type-btn" onclick="addEl('wysiwyg')"><span class="material-icons-round mi">edit_note</span><span class="block-type-label">Rich Text</span></button>
     </div>
   </div>
 </div>
@@ -767,11 +652,9 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 <div id="toast"></div>
 
 <script>
-let cfg=null,previewTimer=null,editingFieldId=null,subPage=1,subSearch='',searchTimer=null,currentTab='editor';
-
+let cfg=null,previewTimer=null,editingFieldId=null,subPage=1,subSearch='',searchTimer=null,currentTab='build';
 const HEADING_FONTS=['Playfair Display','Merriweather','Lora','Cormorant Garamond','Libre Baskerville','Raleway','Montserrat','Oswald','Bebas Neue','DM Serif Display','Noto Serif','Noto Display'];
 const BODY_FONTS=['Lato','Open Sans','Nunito','Source Sans 3','Roboto','PT Sans','Mulish','Karla','Fira Sans','IBM Plex Sans','Noto Sans','Jost'];
-
 const PALETTES=[
   {name:'Classic',colors:{primary:'#1a1a2e',accent:'#e94560',bg:'#f8f5f0',text:'#1a1a2e'}},
   {name:'Ocean',colors:{primary:'#0d3b66',accent:'#ee964b',bg:'#f5f0e8',text:'#0d3b66'}},
@@ -787,8 +670,7 @@ async function checkSession(){
   try{
     const j=await fetch('/auth/me').then(r=>r.json());
     if(j.authenticated){
-      const badge=document.getElementById('user-badge');
-      if(badge)badge.style.display='flex';
+      const badge=document.getElementById('user-badge');if(badge)badge.style.display='flex';
       const av=document.getElementById('user-avatar');if(av&&j.picture)av.src=j.picture;
       const nm=document.getElementById('user-name');if(nm&&j.name)nm.textContent=j.name.split(' ')[0];
       document.getElementById('login-screen').style.display='none';
@@ -808,30 +690,32 @@ async function loadConfig(){
 }
 
 function populateControls(){
+  // Render build panel first (creates DOM elements with IDs we need to populate)
+  renderBuildPanel();
   const hero=cfg.sections.find(s=>s.id==='hero'),form=cfg.sections.find(s=>s.id==='form'),footer=cfg.sections.find(s=>s.id==='footer');
-  if(hero){sv('c-heading',hero.heading);sv('c-subheading',hero.subheading);sv('c-imgpos',hero.imagePosition);if(hero.imageUrl){const e=document.getElementById('preview-hero-img');e.src=hero.imageUrl;e.style.display='block';}updateVis('toggle-hero',hero.visible);}
-  if(form){sv('c-btntext',cfg.design.buttonText);sv('c-success',form.submitSuccessMessage);sv('c-error',form.submitErrorMessage);updateVis('toggle-form',form.visible);}
-  if(footer){sv('c-footer',footer.text);updateVis('toggle-footer',footer.visible);}
-  sv('c-logowidth',cfg.design.logoWidth);
-  if(cfg.design.logoUrl){const e=document.getElementById('preview-logo');e.src=cfg.design.logoUrl;e.style.display='block';}
+  if(hero){sv('c-heading',hero.heading);sv('c-subheading',hero.subheading);sv('c-imgpos',hero.imagePosition);if(hero.imageUrl){const e=document.getElementById('preview-hero-img');if(e){e.src=hero.imageUrl;e.style.display='block';}}}
+  if(form){sv('c-success',form.submitSuccessMessage);sv('c-error',form.submitErrorMessage);}
+  if(footer)sv('c-footer',footer.text);
+  sv('c-btntext',cfg.design.buttonText);sv('c-logowidth',cfg.design.logoWidth);
+  if(cfg.design.logoUrl){const e=document.getElementById('preview-logo');if(e){e.src=cfg.design.logoUrl;e.style.display='block';}}
   sv('c-cookie',cfg.site.cookieBannerText);sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);
-  if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');e.src=cfg.design.backgroundImage;e.style.display='block';}
-  document.getElementById('c-overlay').value=cfg.design.backgroundOverlay;
-  document.getElementById('overlay-val').textContent=cfg.design.backgroundOverlay;
+  if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=cfg.design.backgroundImage;e.style.display='block';}}
+  const ov=document.getElementById('c-overlay');if(ov)ov.value=cfg.design.backgroundOverlay;
+  const ovv=document.getElementById('overlay-val');if(ovv)ovv.textContent=cfg.design.backgroundOverlay;
   sc('primary',cfg.design.primaryColor);sc('accent',cfg.design.accentColor);sc('bg',cfg.design.backgroundColor);sc('text',cfg.design.textColor);
   sv('c-width',cfg.design.containerWidth);sv('c-radius',cfg.design.buttonRadius);
-  // Layout
-  const pad=cfg.design.cardPadding||'48px 40px';const padParts=pad.split(' ');
-  sv('c-card-pad-v',padParts[0]||'48px');sv('c-card-pad-h',padParts[1]||'40px');
+  const pad=cfg.design.cardPadding||'48px 40px';const pp=pad.split(' ');
+  sv('c-card-pad-v',pp[0]||'48px');sv('c-card-pad-h',pp[1]||'40px');
   const cr=parseInt(cfg.design.cardRadius)||12;
-  document.getElementById('c-card-radius-range').value=cr;document.getElementById('c-card-radius-px').value=cfg.design.cardRadius||'12px';
+  const crr=document.getElementById('c-card-radius-range');if(crr)crr.value=cr;
+  const crp=document.getElementById('c-card-radius-px');if(crp)crp.value=cfg.design.cardRadius||'12px';
   const fr=parseInt(cfg.design.fieldRadius)||6;
-  document.getElementById('c-field-radius-range').value=fr;document.getElementById('c-field-radius-px').value=cfg.design.fieldRadius||'6px';
-  // Captcha
+  const frr=document.getElementById('c-field-radius-range');if(frr)frr.value=fr;
+  const frp=document.getElementById('c-field-radius-px');if(frp)frp.value=cfg.design.fieldRadius||'6px';
   const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
   sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
   toggleCaptchaFields();
-  renderFieldList();renderDynamicBlocks();renderCustomFontList();
+  renderFieldList();renderCustomFontList();
 }
 
 function sv(id,val){const e=document.getElementById(id);if(e)e.value=val||'';}
@@ -839,16 +723,9 @@ function sc(n,val){const e=document.getElementById('c-'+n);if(e)e.value=val;cons
 function syncColor(n,val){if(/^#[0-9a-fA-F]{6}$/.test(val)){const e=document.getElementById('c-'+n);if(e)e.value=val;const m={primary:'primaryColor',accent:'accentColor',bg:'backgroundColor',text:'textColor'};cfg.design[m[n]]=val;schedulePreview();}}
 function syncHex(n,val){const e=document.getElementById('c-'+n+'-hex');if(e)e.value=val;}
 function updateSection(id,key,val){const s=cfg.sections.find(s=>s.id===id);if(s)s[key]=val;schedulePreview();}
-function toggleSection(e,id){e.stopPropagation();const s=cfg.sections.find(s=>s.id===id);if(s){s.visible=!s.visible;updateVis('toggle-'+id,s.visible);schedulePreview();}}
-function updateVis(id,v){const e=document.getElementById(id);if(e){e.textContent=v?'visibility':'visibility_off';e.classList.toggle('on',v);}}
-function toggleCard(id){document.getElementById(id).classList.toggle('open');}
-function updateCardPadding(){
-  const v=document.getElementById('c-card-pad-v').value||'48px';
-  const h=document.getElementById('c-card-pad-h').value||'40px';
-  cfg.design.cardPadding=v+' '+h;schedulePreview();
-}
+function updateCardPadding(){const v=document.getElementById('c-card-pad-v').value||'48px';const h=document.getElementById('c-card-pad-h').value||'40px';cfg.design.cardPadding=v+' '+h;schedulePreview();}
 function updateSectionColor(id,key,val){const s=cfg.sections.find(s=>s.id===id);if(s){if(!s.colors)s.colors={};s.colors[key]=val;schedulePreview();}}
-function updateSectionColorHex(id,key,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||val===''){updateSectionColor(id,key,val);}}
+function updateSectionColorHex(id,key,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||val==='')updateSectionColor(id,key,val);}
 
 // ── Save ──
 async function saveConfig(){
@@ -865,7 +742,7 @@ function setSaveInd(s){const e=document.getElementById('save-ind');e.className='
 function schedulePreview(){setSaveInd('');clearTimeout(previewTimer);previewTimer=setTimeout(refreshPreview,600);}
 async function refreshPreview(){
   await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
-  const f=document.getElementById('preview-frame');f.src=f.src;
+  const f=document.getElementById('preview-frame');if(f)f.src=f.src;
 }
 function setPreviewSize(s,btn){
   document.querySelectorAll('.psz').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
@@ -883,16 +760,16 @@ async function handleImageUpload(input,type){
   try{
     const j=await fetch('/api/admin/upload',{method:'POST',body:fd}).then(r=>r.json());
     if(j.url){
-      if(type==='logo'){cfg.design.logoUrl=j.url;const e=document.getElementById('preview-logo');e.src=j.url;e.style.display='block';}
-      else if(type==='bg'){cfg.design.backgroundImage=j.url;const e=document.getElementById('preview-bg');e.src=j.url;e.style.display='block';}
-      else if(type==='hero-img'){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl=j.url;const e=document.getElementById('preview-hero-img');e.src=j.url;e.style.display='block';}
+      if(type==='logo'){cfg.design.logoUrl=j.url;const e=document.getElementById('preview-logo');if(e){e.src=j.url;e.style.display='block';}}
+      else if(type==='bg'){cfg.design.backgroundImage=j.url;const e=document.getElementById('preview-bg');if(e){e.src=j.url;e.style.display='block';}}
+      else if(type==='hero-img'){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl=j.url;const e=document.getElementById('preview-hero-img');if(e){e.src=j.url;e.style.display='block';}}
       schedulePreview();toast('Uploaded','success');
     }
   }catch(e){toast('Upload failed','error');}
 }
-function clearLogo(){cfg.design.logoUrl='';document.getElementById('preview-logo').style.display='none';schedulePreview();}
-function clearBg(){cfg.design.backgroundImage='';document.getElementById('preview-bg').style.display='none';schedulePreview();}
-function clearHeroImage(){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl='';document.getElementById('preview-hero-img').style.display='none';schedulePreview();}
+function clearLogo(){cfg.design.logoUrl='';const e=document.getElementById('preview-logo');if(e)e.style.display='none';schedulePreview();}
+function clearBg(){cfg.design.backgroundImage='';const e=document.getElementById('preview-bg');if(e)e.style.display='none';schedulePreview();}
+function clearHeroImage(){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl='';const e=document.getElementById('preview-hero-img');if(e)e.style.display='none';schedulePreview();}
 
 async function handleFontUpload(input){
   const file=input.files[0];if(!file)return;
@@ -904,18 +781,14 @@ async function handleFontUpload(input){
     if(j.url){
       if(!cfg.design.customFonts)cfg.design.customFonts=[];
       cfg.design.customFonts.push({name,url:j.url});
-      document.getElementById('custom-font-name').value='';
-      input.value='';
+      document.getElementById('custom-font-name').value='';input.value='';
       renderCustomFontList();buildFontPickers();schedulePreview();toast('Font uploaded: '+name,'success');
     }
   }catch(e){toast('Upload failed','error');}
 }
-function removeCustomFont(name){
-  cfg.design.customFonts=cfg.design.customFonts.filter(f=>f.name!==name);
-  renderCustomFontList();buildFontPickers();schedulePreview();
-}
+function removeCustomFont(name){cfg.design.customFonts=cfg.design.customFonts.filter(f=>f.name!==name);renderCustomFontList();buildFontPickers();schedulePreview();}
 function renderCustomFontList(){
-  const list=document.getElementById('custom-font-list');list.innerHTML='';
+  const list=document.getElementById('custom-font-list');if(!list)return;list.innerHTML='';
   (cfg.design.customFonts||[]).forEach(f=>{
     const item=document.createElement('div');item.className='custom-font-item';
     item.innerHTML=`<span class="custom-font-name" style="font-family:'${f.name}'">${f.name}</span><button class="ibtn danger" onclick="removeCustomFont('${f.name}')"><span class="material-icons-round mi">delete</span></button>`;
@@ -925,12 +798,12 @@ function renderCustomFontList(){
 
 // ── Fonts ──
 function buildFontPickers(){
-  const customFonts=(cfg.design.customFonts||[]).map(f=>f.name);
+  const customFonts=(cfg&&cfg.design.customFonts||[]).map(f=>f.name);
   buildPicker('heading-font-picker',[...HEADING_FONTS,...customFonts],cfg.design.googleFont,f=>{cfg.design.googleFont=f;schedulePreview();});
   buildPicker('body-font-picker',[...BODY_FONTS,...customFonts],cfg.design.bodyFont,f=>{cfg.design.bodyFont=f;schedulePreview();});
 }
 function buildPicker(cid,fonts,current,onChange){
-  const c=document.getElementById(cid);c.innerHTML='';
+  const c=document.getElementById(cid);if(!c)return;c.innerHTML='';
   fonts.forEach(f=>{
     const ch=document.createElement('div');ch.className='fc'+(f===current?' active':'');
     ch.textContent=f;ch.style.fontFamily=`'${f}',serif`;
@@ -941,140 +814,233 @@ function buildPicker(cid,fonts,current,onChange){
 
 // ── Palettes ──
 function buildPalettes(){
-  const grid=document.getElementById('palette-grid');grid.innerHTML='';
+  const grid=document.getElementById('palette-grid');if(!grid)return;grid.innerHTML='';
   PALETTES.forEach(p=>{
     const sw=document.createElement('div');sw.className='palette-swatch';
-    sw.title=p.name;
-    sw.style.background=`linear-gradient(135deg, ${p.colors.primary} 0%, ${p.colors.primary} 50%, ${p.colors.accent} 50%)`;
+    sw.title=p.name;sw.style.background=`linear-gradient(135deg,${p.colors.primary} 0%,${p.colors.primary} 50%,${p.colors.accent} 50%)`;
     sw.onclick=()=>{
       cfg.design.primaryColor=p.colors.primary;cfg.design.accentColor=p.colors.accent;
       cfg.design.backgroundColor=p.colors.bg;cfg.design.textColor=p.colors.text;
       sc('primary',p.colors.primary);sc('accent',p.colors.accent);sc('bg',p.colors.bg);sc('text',p.colors.text);
-      schedulePreview();toast('Palette applied: '+p.name,'success');
+      grid.querySelectorAll('.palette-swatch').forEach(s=>s.classList.remove('active'));sw.classList.add('active');
+      schedulePreview();
     };
     grid.appendChild(sw);
   });
 }
 
-// ── Dynamic blocks ──
-const DYNAMIC_TYPES=['divider','video','spinwheel'];
+// ── Build panel ──
+const BK_ICONS={hero:'auto_awesome',form:'edit_square',footer:'notes',divider:'horizontal_rule',video:'play_circle',spinwheel:'casino',content:'widgets'};
+const BK_LABELS={hero:'Hero',form:'Form',footer:'Footer',divider:'Divider',video:'Video',spinwheel:'Spin Wheel',content:'Content'};
 
-function renderDynamicBlocks(){
-  const container=document.getElementById('dynamic-blocks');container.innerHTML='';
-  cfg.sections.filter(s=>DYNAMIC_TYPES.includes(s.type)).forEach(block=>{
-    container.appendChild(createBlockCard(block));
+function isBkFixed(s){return s.id==='hero'||s.id==='footer';}
+function isBkDeletable(s){return s.id!=='hero'&&s.id!=='footer'&&s.id!=='form';}
+
+function renderBuildPanel(){
+  const scroll=document.getElementById('bl-scroll');scroll.innerHTML='';
+  const hero=cfg.sections.find(s=>s.id==='hero');
+  if(hero)scroll.appendChild(makeBkCard(hero));
+  cfg.sections.filter(s=>s.id!=='hero'&&s.id!=='footer').forEach(s=>{
+    const card=makeBkCard(s);
+    if(!isBkFixed(s))setupBkDrag(card,s.id);
+    scroll.appendChild(card);
   });
+  const footer=cfg.sections.find(s=>s.id==='footer');
+  if(footer)scroll.appendChild(makeBkCard(footer));
 }
 
-function createBlockCard(block){
+function makeBkCard(s){
+  const fixed=isBkFixed(s),deletable=isBkDeletable(s);
+  const cols=s.columns||1;
   const card=document.createElement('div');
-  card.className='sc open';card.id='sc-block-'+block.id;
-  const typeLabel={divider:'Divider',video:'Video',spinwheel:'Spin Wheel'}[block.type]||block.type;
-  const icon={divider:'horizontal_rule',video:'play_circle',spinwheel:'casino'}[block.type]||'widgets';
-
+  card.className='bk open';card.id='bk-'+s.id;card.dataset.id=s.id;
   card.innerHTML=`
-    <div class="sc-head" onclick="toggleCard('sc-block-${block.id}')">
-      <span class="material-icons-round dh">drag_indicator</span>
-      <span class="material-icons-round" style="font-size:16px;color:var(--ink3)">${icon}</span>
-      <span class="sc-title">${typeLabel}</span>
-      <span class="sc-badge">${block.type}</span>
-      <span class="material-icons-round sc-vis ${block.visible?'on':''}" onclick="toggleBlockVis(event,'${block.id}')">${block.visible?'visibility':'visibility_off'}</span>
-      <span class="material-icons-round sc-del" onclick="deleteBlock(event,'${block.id}')">delete</span>
-      <span class="material-icons-round chevron">expand_more</span>
+    <div class="bk-head" onclick="toggleBk('bk-${s.id}')">
+      <span class="material-icons-round ${fixed?'bk-lock':'bk-dh'}">${fixed?'lock':'drag_indicator'}</span>
+      <span class="material-icons-round bk-icon">${BK_ICONS[s.type]||'widgets'}</span>
+      <span class="bk-title">${BK_LABELS[s.type]||s.type}</span>
+      <div class="bk-cols" onclick="event.stopPropagation()">
+        <button class="bk-col-btn${cols===1?' active':''}" onclick="event.stopPropagation();setBkCols('${s.id}',1)">1</button>
+        <button class="bk-col-btn${cols===2?' active':''}" onclick="event.stopPropagation();setBkCols('${s.id}',2)">2</button>
+      </div>
+      <span class="material-icons-round bk-vis ${s.visible?'on':''}" onclick="event.stopPropagation();toggleBkVis('${s.id}')">${s.visible?'visibility':'visibility_off'}</span>
+      ${deletable?`<span class="material-icons-round bk-del" onclick="event.stopPropagation();deleteBk('${s.id}')">delete</span>`:''}
+      <span class="material-icons-round bk-chevron">expand_more</span>
     </div>
-    <div class="sc-body">${renderBlockEditor(block)}</div>`;
+    <div class="bk-body">${getBkBody(s)}</div>`;
   return card;
 }
 
-function renderBlockEditor(block){
-  if(block.type==='divider'){
-    return `
-      <div class="cg"><label class="cl">Style</label>
-        <select onchange="updateBlockProp('${block.id}','style',this.value)">
-          <option value="line" ${block.style==='line'?'selected':''}>Line</option>
-          <option value="dots" ${block.style==='dots'?'selected':''}>Dots</option>
-          <option value="wave" ${block.style==='wave'?'selected':''}>Wave</option>
-          <option value="space" ${block.style==='space'?'selected':''}>Space only</option>
-        </select>
-      </div>
-      <div class="cg"><label class="cl">Color</label>
-        <div class="cr"><input type="color" value="${block.color||'#e0e0e0'}" oninput="updateBlockProp('${block.id}','color',this.value)">
-        <input type="text" value="${block.color||'#e0e0e0'}" oninput="updateBlockProp('${block.id}','color',this.value)"></div>
-      </div>
-      <div class="cr">
-        <div class="cg" style="flex:1;margin:0"><label class="cl">Thickness (px)</label><input type="number" value="${block.thickness||1}" min="1" max="8" oninput="updateBlockProp('${block.id}','thickness',+this.value)"></div>
-        <div class="cg" style="flex:1;margin:0"><label class="cl">Spacing (px)</label><input type="number" value="${block.spacing||20}" min="0" max="80" oninput="updateBlockProp('${block.id}','spacing',+this.value)"></div>
-      </div>`;
-  }
-  if(block.type==='video'){
-    return `
-      <div class="cg"><label class="cl">Video URL</label>
-        <input type="text" value="${block.url||''}" placeholder="YouTube, Vimeo, or direct .mp4" oninput="updateBlockProp('${block.id}','url',this.value)">
-      </div>
-      <div class="cg"><label class="cl">Aspect ratio</label>
-        <select onchange="updateBlockProp('${block.id}','aspectRatio',this.value)">
-          <option value="16:9" ${block.aspectRatio==='16:9'?'selected':''}>16:9 (widescreen)</option>
-          <option value="4:3" ${block.aspectRatio==='4:3'?'selected':''}>4:3 (classic)</option>
-          <option value="1:1" ${block.aspectRatio==='1:1'?'selected':''}>1:1 (square)</option>
-        </select>
-      </div>
-      <div class="cg"><label class="cl">Caption (optional)</label>
-        <input type="text" value="${block.caption||''}" oninput="updateBlockProp('${block.id}','caption',this.value)">
-      </div>`;
-  }
-  if(block.type==='spinwheel'){
-    const rewards=block.rewards||[];
-    const rewardRows=rewards.map((r,i)=>`
-      <div class="reward-row">
-        <input type="color" value="${r.color||'#e94560'}" oninput="updateReward('${block.id}',${i},'color',this.value)">
-        <input type="text" value="${r.label||''}" placeholder="Prize label" oninput="updateReward('${block.id}',${i},'label',this.value)">
-        <input type="number" value="${r.probability||1}" min="0.1" max="10" step="0.1" title="Weight" oninput="updateReward('${block.id}',${i},'probability',+this.value)" style="width:60px">
-        <button class="ibtn danger" onclick="removeReward('${block.id}',${i})"><span class="material-icons-round mi">delete</span></button>
-      </div>`).join('');
-    return `
-      <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:8px">Up to 8 rewards. Weight controls probability (higher = more likely).</p>
-      <div id="rewards-list-${block.id}">${rewardRows}</div>
-      ${rewards.length<8?`<button class="add-field-btn" onclick="addReward('${block.id}')"><span class="material-icons-round mi">add</span> Add reward</button>`:''}
-      <div class="cg" style="margin-top:8px"><label class="cl">Spin button text</label>
-        <input type="text" value="${block.spinButtonText||'Spin!'}" oninput="updateBlockProp('${block.id}','spinButtonText',this.value)">
-      </div>`;
-  }
+function getBkBody(s){
+  if(s.id==='hero'||s.type==='hero')return heroBkBody(s);
+  if(s.id==='form'||s.type==='form')return formBkBody();
+  if(s.id==='footer'||s.type==='footer')return footerBkBody(s);
+  if(s.type==='divider')return dividerBkBody(s);
+  if(s.type==='video')return videoBkBody(s);
+  if(s.type==='spinwheel')return spinwheelBkBody(s);
+  if(s.type==='content')return contentBkBody(s);
   return '';
 }
 
-function updateBlockProp(id,key,val){
-  const block=cfg.sections.find(s=>s.id===id);if(block){block[key]=val;schedulePreview();}
+function heroBkBody(s){
+  const c=s.colors||{};
+  return `
+    <div class="cg"><label class="cl">Heading</label><input type="text" id="c-heading" oninput="updateSection('hero','heading',this.value)"></div>
+    <div class="cg"><label class="cl">Subheading</label><textarea id="c-subheading" rows="2" oninput="updateSection('hero','subheading',this.value)"></textarea></div>
+    <div class="cg">
+      <label class="cl">Hero image</label>
+      <button class="up-btn" onclick="triggerUpload('hero-img')"><span class="material-icons-round mi">upload</span> Upload image</button>
+      <input type="file" id="upload-hero-img" accept="image/*" style="display:none" onchange="handleImageUpload(this,'hero-img')">
+      <img id="preview-hero-img" class="img-prev"${s.imageUrl?' src="'+s.imageUrl+'" style="display:block"':''}>
+    </div>
+    <div class="cg"><label class="cl">Image position</label>
+      <select id="c-imgpos" onchange="updateSection('hero','imagePosition',this.value)">
+        <option value="above">Above heading</option><option value="below">Below heading</option>
+      </select>
+    </div>
+    <button class="up-btn del" onclick="clearHeroImage()" style="margin-top:4px"><span class="material-icons-round mi">delete</span> Remove image</button>
+    <div class="modal-section"><div class="modal-section-title">Block colours</div>
+      <div class="color-grid">
+        <div><div class="color-lbl">Background</div><div class="cr"><input type="color" value="${c.bg||'#ffffff'}" oninput="updateSectionColor('hero','bg',this.value)"><input type="text" value="${c.bg||''}" oninput="updateSectionColorHex('hero','bg',this.value)" placeholder="inherit"></div></div>
+        <div><div class="color-lbl">Text</div><div class="cr"><input type="color" value="${c.text||'#1a1a1a'}" oninput="updateSectionColor('hero','text',this.value)"><input type="text" value="${c.text||''}" oninput="updateSectionColorHex('hero','text',this.value)" placeholder="inherit"></div></div>
+      </div>
+    </div>`;
 }
-function toggleBlockVis(e,id){
-  e.stopPropagation();
-  const block=cfg.sections.find(s=>s.id===id);if(!block)return;
-  block.visible=!block.visible;
-  const el=e.target;el.textContent=block.visible?'visibility':'visibility_off';
-  el.classList.toggle('on',block.visible);
+
+function formBkBody(){
+  return `
+    <p style="font-size:0.78rem;color:var(--ink3);margin-bottom:8px;line-height:1.5">Email is always required. Drag to reorder. Use conditions to show/hide fields dynamically.</p>
+    <div class="field-list" id="field-list"></div>
+    <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>`;
+}
+
+function footerBkBody(s){
+  return `<div class="cg"><label class="cl">Footer text</label><textarea id="c-footer" rows="2" oninput="updateSection('footer','text',this.value)">${(s.text||'').replace(/</g,'&lt;')}</textarea></div>`;
+}
+
+function dividerBkBody(b){
+  return `
+    <div class="cg"><label class="cl">Style</label>
+      <select onchange="updateBlockProp('${b.id}','style',this.value)">
+        <option value="line"${b.style==='line'?' selected':''}>Line</option>
+        <option value="dots"${b.style==='dots'?' selected':''}>Dots</option>
+        <option value="wave"${b.style==='wave'?' selected':''}>Wave</option>
+        <option value="space"${b.style==='space'?' selected':''}>Space only</option>
+      </select>
+    </div>
+    <div class="cg"><label class="cl">Colour</label>
+      <div class="cr"><input type="color" value="${b.color||'#e0e0e0'}" oninput="updateBlockProp('${b.id}','color',this.value)">
+      <input type="text" value="${b.color||'#e0e0e0'}" oninput="updateBlockProp('${b.id}','color',this.value)"></div>
+    </div>
+    <div class="cr">
+      <div class="cg" style="flex:1;margin:0"><label class="cl">Thickness (px)</label><input type="number" value="${b.thickness||1}" min="1" max="8" oninput="updateBlockProp('${b.id}','thickness',+this.value)"></div>
+      <div class="cg" style="flex:1;margin:0"><label class="cl">Spacing (px)</label><input type="number" value="${b.spacing||20}" min="0" max="80" oninput="updateBlockProp('${b.id}','spacing',+this.value)"></div>
+    </div>`;
+}
+
+function videoBkBody(b){
+  return `
+    <div class="cg"><label class="cl">Video URL</label><input type="text" value="${b.url||''}" placeholder="YouTube, Vimeo, or direct .mp4" oninput="updateBlockProp('${b.id}','url',this.value)"></div>
+    <div class="cg"><label class="cl">Aspect ratio</label>
+      <select onchange="updateBlockProp('${b.id}','aspectRatio',this.value)">
+        <option value="16:9"${b.aspectRatio==='16:9'?' selected':''}>16:9</option>
+        <option value="4:3"${b.aspectRatio==='4:3'?' selected':''}>4:3</option>
+        <option value="1:1"${b.aspectRatio==='1:1'?' selected':''}>1:1</option>
+      </select>
+    </div>
+    <div class="cg"><label class="cl">Caption</label><input type="text" value="${b.caption||''}" oninput="updateBlockProp('${b.id}','caption',this.value)"></div>`;
+}
+
+function spinwheelBkBody(b){
+  const rewards=b.rewards||[];
+  const rows=rewards.map((r,i)=>`
+    <div class="reward-row">
+      <input type="color" value="${r.color||'#e94560'}" oninput="updateReward('${b.id}',${i},'color',this.value)">
+      <input type="text" value="${r.label||''}" placeholder="Prize label" oninput="updateReward('${b.id}',${i},'label',this.value)">
+      <input type="number" value="${r.probability||1}" min="0.1" max="10" step="0.1" style="width:60px" oninput="updateReward('${b.id}',${i},'probability',+this.value)">
+      <button class="ibtn danger" onclick="removeReward('${b.id}',${i})"><span class="material-icons-round mi">delete</span></button>
+    </div>`).join('');
+  return `
+    <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:8px">Up to 8 rewards. Weight controls probability.</p>
+    <div id="rewards-list-${b.id}">${rows}</div>
+    ${rewards.length<8?`<button class="add-field-btn" onclick="addReward('${b.id}')"><span class="material-icons-round mi">add</span> Add reward</button>`:''}
+    <div class="cg" style="margin-top:8px"><label class="cl">Spin button text</label><input type="text" value="${b.spinButtonText||'Spin!'}" oninput="updateBlockProp('${b.id}','spinButtonText',this.value)"></div>`;
+}
+
+function contentBkBody(b){
+  const els=b.elements||[];
+  const EL_ICONS={heading:'title',paragraph:'notes',image:'image',spacer:'space_bar',divider:'horizontal_rule',wysiwyg:'edit_note'};
+  const EL_LABELS={heading:'Heading',paragraph:'Paragraph',image:'Image',spacer:'Spacer',divider:'Divider',wysiwyg:'Rich Text'};
+  const elCards=els.map(el=>{
+    const preview=el.text?(' — '+el.text.substring(0,22)+(el.text.length>22?'…':'')):el.url?(' — '+el.url.substring(0,18)+'…'):'';
+    return `<div class="el-item" draggable="true" data-el-id="${el.id}"
+      ondragstart="elDragStart(event,'${b.id}','${el.id}')" ondragend="elDragEnd(event)">
+      <span class="material-icons-round dh" style="font-size:16px!important">drag_indicator</span>
+      <span class="material-icons-round" style="font-size:14px!important;color:var(--ink3)">${EL_ICONS[el.type]||'widgets'}</span>
+      <span style="flex:1;font-size:0.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${EL_LABELS[el.type]||el.type}${preview}</span>
+      <button class="ibtn" onclick="editEl('${b.id}','${el.id}')" title="Edit"><span class="material-icons-round mi">edit</span></button>
+      <button class="ibtn danger" onclick="deleteEl('${b.id}','${el.id}')"><span class="material-icons-round mi">delete</span></button>
+    </div>`;
+  }).join('');
+  return `
+    <div class="el-list" id="el-list-${b.id}" ondragover="elDragOver(event,'${b.id}')" ondrop="elDrop(event,'${b.id}')">${elCards}</div>
+    <button class="add-field-btn" onclick="openElPicker('${b.id}')"><span class="material-icons-round mi">add</span> Add element</button>`;
+}
+
+function toggleBk(id){document.getElementById(id)&&document.getElementById(id).classList.toggle('open');}
+
+function setBkCols(blockId,cols){
+  const s=cfg.sections.find(x=>x.id===blockId);if(s)s.columns=cols;
+  const card=document.getElementById('bk-'+blockId);
+  if(card)card.querySelectorAll('.bk-col-btn').forEach((b,i)=>b.classList.toggle('active',i+1===cols));
   schedulePreview();
 }
-function deleteBlock(e,id){
-  e.stopPropagation();
+
+function toggleBkVis(blockId){
+  const s=cfg.sections.find(x=>x.id===blockId);if(!s)return;
+  s.visible=!s.visible;
+  const card=document.getElementById('bk-'+blockId);
+  if(card){const vis=card.querySelector('.bk-vis');if(vis){vis.textContent=s.visible?'visibility':'visibility_off';vis.classList.toggle('on',s.visible);}}
+  schedulePreview();
+}
+
+function deleteBk(blockId){
   if(!confirm('Remove this block?'))return;
-  cfg.sections=cfg.sections.filter(s=>s.id!==id);
-  renderDynamicBlocks();schedulePreview();
+  cfg.sections=cfg.sections.filter(s=>s.id!==blockId);
+  renderBuildPanel();renderFieldList();schedulePreview();
 }
-function updateReward(blockId,idx,key,val){
-  const block=cfg.sections.find(s=>s.id===blockId);
-  if(block&&block.rewards&&block.rewards[idx]){block.rewards[idx][key]=val;schedulePreview();}
+
+// Block drag-reorder (middle blocks only)
+let _bkDragId=null;
+function setupBkDrag(card,blockId){
+  card.draggable=true;
+  card.addEventListener('dragstart',e=>{_bkDragId=blockId;card.classList.add('bk-dragging');e.dataTransfer.effectAllowed='move';});
+  card.addEventListener('dragend',()=>{card.classList.remove('bk-dragging');_bkDragId=null;document.querySelectorAll('.bk.drag-over').forEach(el=>el.classList.remove('drag-over'));});
+  card.addEventListener('dragover',e=>{e.preventDefault();if(_bkDragId&&_bkDragId!==blockId)card.classList.add('drag-over');});
+  card.addEventListener('dragleave',()=>card.classList.remove('drag-over'));
+  card.addEventListener('drop',e=>{
+    e.preventDefault();card.classList.remove('drag-over');
+    if(!_bkDragId||_bkDragId===blockId)return;
+    const di=cfg.sections.findIndex(s=>s.id===_bkDragId),ti=cfg.sections.findIndex(s=>s.id===blockId);
+    if(di===-1||ti===-1)return;
+    const[item]=cfg.sections.splice(di,1);cfg.sections.splice(ti,0,item);
+    renderBuildPanel();renderFieldList();schedulePreview();
+  });
 }
+
+// Block CRUD
+function updateBlockProp(id,key,val){const b=cfg.sections.find(s=>s.id===id);if(b){b[key]=val;schedulePreview();}}
+function toggleBlockVis(e,id){e.stopPropagation();const b=cfg.sections.find(s=>s.id===id);if(!b)return;b.visible=!b.visible;schedulePreview();}
+function deleteBlock(e,id){e.stopPropagation();if(!confirm('Remove this block?'))return;cfg.sections=cfg.sections.filter(s=>s.id!==id);renderBuildPanel();renderFieldList();schedulePreview();}
+function updateReward(blockId,idx,key,val){const b=cfg.sections.find(s=>s.id===blockId);if(b&&b.rewards&&b.rewards[idx]){b.rewards[idx][key]=val;schedulePreview();}}
 function addReward(blockId){
-  const block=cfg.sections.find(s=>s.id===blockId);
-  if(!block)return;if(!block.rewards)block.rewards=[];
-  if(block.rewards.length>=8){toast('Maximum 8 rewards','error');return;}
-  const defaultColors=['#e94560','#e67e22','#27ae60','#2980b9','#8e44ad','#f39c12','#16a085','#c0392b'];
-  block.rewards.push({label:'Prize '+(block.rewards.length+1),color:defaultColors[block.rewards.length%8],probability:1});
-  renderDynamicBlocks();schedulePreview();
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b)return;if(!b.rewards)b.rewards=[];
+  if(b.rewards.length>=8){toast('Maximum 8 rewards','error');return;}
+  const dc=['#e94560','#e67e22','#27ae60','#2980b9','#8e44ad','#f39c12','#16a085','#c0392b'];
+  b.rewards.push({label:'Prize '+(b.rewards.length+1),color:dc[b.rewards.length%8],probability:1});
+  renderBuildPanel();renderFieldList();schedulePreview();
 }
-function removeReward(blockId,idx){
-  const block=cfg.sections.find(s=>s.id===blockId);
-  if(block&&block.rewards){block.rewards.splice(idx,1);renderDynamicBlocks();schedulePreview();}
-}
+function removeReward(blockId,idx){const b=cfg.sections.find(s=>s.id===blockId);if(b&&b.rewards){b.rewards.splice(idx,1);renderBuildPanel();renderFieldList();schedulePreview();}}
 
 function openBlockPicker(){document.getElementById('block-modal').classList.add('open');}
 function closeBlockPicker(){document.getElementById('block-modal').classList.remove('open');}
@@ -1082,19 +1048,78 @@ function addBlock(type){
   closeBlockPicker();
   const id=type+'-'+Date.now();
   const defaults={
-    divider:{id,type:'divider',visible:true,style:'line',color:'#e0e0e0',thickness:1,spacing:20,colors:{}},
-    video:{id,type:'video',visible:true,url:'',aspectRatio:'16:9',caption:'',colors:{}},
-    spinwheel:{id,type:'spinwheel',visible:true,rewards:[{label:'Prize 1',color:'#e94560',probability:1}],spinButtonText:'Spin!',colors:{}},
+    divider:{id,type:'divider',visible:true,style:'line',color:'#e0e0e0',thickness:1,spacing:20,columns:1,colors:{}},
+    video:{id,type:'video',visible:true,url:'',aspectRatio:'16:9',caption:'',columns:1,colors:{}},
+    spinwheel:{id,type:'spinwheel',visible:true,rewards:[{label:'Prize 1',color:'#e94560',probability:1}],spinButtonText:'Spin!',columns:1,colors:{}},
+    content:{id,type:'content',visible:true,columns:1,elements:[],colors:{}},
   };
-  cfg.sections.push(defaults[type]);
-  renderDynamicBlocks();schedulePreview();
-  toast(type+' block added','success');
+  const footerIdx=cfg.sections.findIndex(s=>s.id==='footer');
+  if(footerIdx>=0)cfg.sections.splice(footerIdx,0,defaults[type]);
+  else cfg.sections.push(defaults[type]);
+  renderBuildPanel();renderFieldList();schedulePreview();toast(type+' block added','success');
+}
+
+// Element functions (for content blocks)
+let _elDragBlockId=null,_elDragId=null,_elPickerBlockId=null;
+function elDragStart(e,blockId,elId){_elDragBlockId=blockId;_elDragId=elId;e.dataTransfer.effectAllowed='move';}
+function elDragEnd(){_elDragBlockId=null;_elDragId=null;}
+function elDragOver(e){e.preventDefault();}
+function elDrop(e,blockId){
+  e.preventDefault();
+  if(!_elDragId||_elDragBlockId!==blockId)return;
+  const target=e.target.closest('[data-el-id]');if(!target)return;
+  const targetId=target.dataset.elId;if(targetId===_elDragId)return;
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b||!b.elements)return;
+  const di=b.elements.findIndex(x=>x.id===_elDragId),ti=b.elements.findIndex(x=>x.id===targetId);
+  if(di===-1||ti===-1)return;
+  const[item]=b.elements.splice(di,1);b.elements.splice(ti,0,item);
+  renderBuildPanel();renderFieldList();schedulePreview();
+}
+function openElPicker(blockId){_elPickerBlockId=blockId;document.getElementById('el-modal').classList.add('open');}
+function closeElPicker(){document.getElementById('el-modal').classList.remove('open');}
+function addEl(type){
+  closeElPicker();if(!_elPickerBlockId)return;
+  const b=cfg.sections.find(s=>s.id===_elPickerBlockId);if(!b)return;
+  if(!b.elements)b.elements=[];
+  const id=type+'-'+Date.now();
+  const defaults={
+    heading:{id,type:'heading',text:'New heading',level:2},
+    paragraph:{id,type:'paragraph',text:'Your paragraph text here.'},
+    image:{id,type:'image',url:'',alt:''},
+    spacer:{id,type:'spacer',height:40},
+    divider:{id,type:'divider',style:'line',color:'#e0e0e0',thickness:1},
+    wysiwyg:{id,type:'wysiwyg',html:'<p>Edit your content here</p>'},
+  };
+  b.elements.push(defaults[type]||{id,type});
+  renderBuildPanel();renderFieldList();schedulePreview();
+}
+function editEl(blockId,elId){
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b)return;
+  const el=(b.elements||[]).find(x=>x.id===elId);if(!el)return;
+  if(el.type==='heading'||el.type==='paragraph'){
+    const v=prompt('Edit text:',el.text||'');
+    if(v!==null){el.text=v;renderBuildPanel();renderFieldList();schedulePreview();}
+  }else if(el.type==='wysiwyg'){
+    const v=prompt('Edit HTML:',el.html||'');
+    if(v!==null){el.html=v;renderBuildPanel();renderFieldList();schedulePreview();}
+  }else if(el.type==='image'){
+    const v=prompt('Image URL:',el.url||'');
+    if(v!==null){el.url=v;renderBuildPanel();renderFieldList();schedulePreview();}
+  }else if(el.type==='spacer'){
+    const v=prompt('Height (px):',el.height||40);
+    if(v!==null){el.height=parseInt(v)||40;renderBuildPanel();renderFieldList();schedulePreview();}
+  }
+}
+function deleteEl(blockId,elId){
+  const b=cfg.sections.find(s=>s.id===blockId);if(!b)return;
+  b.elements=(b.elements||[]).filter(x=>x.id!==elId);
+  renderBuildPanel();renderFieldList();schedulePreview();
 }
 
 // ── Fields ──
 function renderFieldList(){
-  const list=document.getElementById('field-list');list.innerHTML='';
-  cfg.fields.forEach(f=>{
+  const list=document.getElementById('field-list');if(!list)return;list.innerHTML='';
+  (cfg.fields||[]).forEach(f=>{
     const condCount=(f.conditions||[]).length;
     const item=document.createElement('div');item.className='fi';item.draggable=!f.system;item.dataset.id=f.id;
     item.innerHTML=`
@@ -1123,6 +1148,7 @@ function dropField(dragId,targetId){
   renderFieldList();schedulePreview();
 }
 
+// ── Field modal ──
 function openFieldModal(fieldId){
   editingFieldId=fieldId||null;
   document.getElementById('modal-title').textContent=fieldId?'Edit field':'Add field';
@@ -1132,13 +1158,9 @@ function openFieldModal(fieldId){
     sv('modal-placeholder',f.placeholder||'');sv('modal-options',(f.options||[]).join('\n'));
     document.getElementById('modal-required').checked=f.required;
     document.getElementById('modal-id').disabled=f.system;document.getElementById('modal-type').disabled=f.system;
-    // Age
     if(f.type==='age'){sv('modal-age-min',f.minAge||'');sv('modal-age-max',f.maxAge||'');}
-    // Date
     if(f.type==='date'){sv('modal-date-mode',f.dateMode||'free');sv('modal-date-min',f.minDate||'');sv('modal-date-max',f.maxDate||'');sv('modal-date-specific',(f.allowedDates||[]).join('\n'));}
-    // Year/YearMonth
     if(f.type==='year'||f.type==='yearmonth'){sv('modal-year-min',f.minYear||'');sv('modal-year-max',f.maxYear||'');}
-    // Slider
     if(f.type==='slider'){
       sv('modal-slider-min',f.min??0);sv('modal-slider-max',f.max??100);sv('modal-slider-step',f.step??1);sv('modal-slider-default',f.defaultValue??50);
       sv('modal-slider-track',f.trackStyle||'linear');sv('modal-slider-mode',f.slideMode||'smooth');sv('modal-slider-icon',f.knobIcon||'●');
@@ -1188,16 +1210,10 @@ function saveField(){
   if(!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(id)){toast('ID must start with a letter, no spaces','error');return;}
   const existing=cfg.fields.find(f=>f.id===id);
   if(existing&&existing.id!==editingFieldId){toast('Field ID already exists','error');return;}
-
   const field={id,label,type,required,placeholder,system:false};
   if(type==='select')field.options=options;
   if(type==='age'){field.minAge=parseInt(document.getElementById('modal-age-min').value)||0;field.maxAge=parseInt(document.getElementById('modal-age-max').value)||120;}
-  if(type==='date'){
-    field.dateMode=document.getElementById('modal-date-mode').value;
-    field.minDate=document.getElementById('modal-date-min').value||'';
-    field.maxDate=document.getElementById('modal-date-max').value||'';
-    field.allowedDates=document.getElementById('modal-date-specific').value.split('\n').map(d=>d.trim()).filter(Boolean);
-  }
+  if(type==='date'){field.dateMode=document.getElementById('modal-date-mode').value;field.minDate=document.getElementById('modal-date-min').value||'';field.maxDate=document.getElementById('modal-date-max').value||'';field.allowedDates=document.getElementById('modal-date-specific').value.split('\n').map(d=>d.trim()).filter(Boolean);}
   if(type==='year'||type==='yearmonth'){field.minYear=parseInt(document.getElementById('modal-year-min').value)||1920;field.maxYear=parseInt(document.getElementById('modal-year-max').value)||new Date().getFullYear();}
   if(type==='slider'){
     field.min=parseFloat(document.getElementById('modal-slider-min').value)||0;
@@ -1215,15 +1231,11 @@ function saveField(){
     field.valueSize=parseInt(document.getElementById('modal-slider-val-size').value)||14;
   }
   field.conditions=collectConditions();
-
   if(editingFieldId){const idx=cfg.fields.findIndex(f=>f.id===editingFieldId);cfg.fields[idx]={...cfg.fields[idx],...field};}
   else cfg.fields.push(field);
   renderFieldList();schedulePreview();closeFieldModal();
 }
-function deleteField(id){
-  if(!confirm('Delete this field?'))return;
-  cfg.fields=cfg.fields.filter(f=>f.id!==id);renderFieldList();schedulePreview();
-}
+function deleteField(id){if(!confirm('Delete this field?'))return;cfg.fields=cfg.fields.filter(f=>f.id!==id);renderFieldList();schedulePreview();}
 
 // ── Conditions ──
 let _conditions=[];
@@ -1234,34 +1246,29 @@ function renderConditions(conds){
 }
 function createConditionRow(c,i){
   const row=document.createElement('div');row.className='cond-row';
-  const fieldOpts=cfg.fields.filter(f=>f.id!==editingFieldId).map(f=>`<option value="${f.id}" ${c.fieldId===f.id?'selected':''}>${f.label}</option>`).join('');
+  const fieldOpts=(cfg.fields||[]).filter(f=>f.id!==editingFieldId).map(f=>`<option value="${f.id}"${c.fieldId===f.id?' selected':''}>${f.label}</option>`).join('');
   row.innerHTML=`
     <span style="font-size:0.75rem;color:var(--ink3);white-space:nowrap">When</span>
     <select onchange="_conditions[${i}].fieldId=this.value"><option value="">—field—</option>${fieldOpts}</select>
     <select onchange="_conditions[${i}].operator=this.value">
-      <option value="eq" ${c.operator==='eq'?'selected':''}>equals</option>
-      <option value="neq" ${c.operator==='neq'?'selected':''}>≠</option>
-      <option value="contains" ${c.operator==='contains'?'selected':''}>contains</option>
-      <option value="gt" ${c.operator==='gt'?'selected':''}>></option>
-      <option value="lt" ${c.operator==='lt'?'selected':''}>< </option>
-      <option value="empty" ${c.operator==='empty'?'selected':''}>is empty</option>
-      <option value="notempty" ${c.operator==='notempty'?'selected':''}>not empty</option>
+      <option value="eq"${c.operator==='eq'?' selected':''}>equals</option>
+      <option value="neq"${c.operator==='neq'?' selected':''}>≠</option>
+      <option value="contains"${c.operator==='contains'?' selected':''}>contains</option>
+      <option value="gt"${c.operator==='gt'?' selected':''}>></option>
+      <option value="lt"${c.operator==='lt'?' selected':''}>&#60;</option>
+      <option value="empty"${c.operator==='empty'?' selected':''}>is empty</option>
+      <option value="notempty"${c.operator==='notempty'?' selected':''}>not empty</option>
     </select>
     <input type="text" value="${c.value||''}" placeholder="value" oninput="_conditions[${i}].value=this.value">
     <select onchange="_conditions[${i}].action=this.value">
-      <option value="show" ${c.action==='show'||!c.action?'selected':''}>→ show</option>
-      <option value="hide" ${c.action==='hide'?'selected':''}>→ hide</option>
+      <option value="show"${c.action==='show'||!c.action?' selected':''}>→ show</option>
+      <option value="hide"${c.action==='hide'?' selected':''}>→ hide</option>
     </select>
     <button class="ibtn danger" onclick="removeCondition(${i})"><span class="material-icons-round mi">close</span></button>`;
   return row;
 }
-function addCondition(){
-  _conditions.push({fieldId:'',operator:'eq',value:'',action:'show'});
-  renderConditions(_conditions);
-}
-function removeCondition(i){
-  _conditions.splice(i,1);renderConditions(_conditions);
-}
+function addCondition(){_conditions.push({fieldId:'',operator:'eq',value:'',action:'show'});renderConditions(_conditions);}
+function removeCondition(i){_conditions.splice(i,1);renderConditions(_conditions);}
 function collectConditions(){return _conditions.filter(c=>c.fieldId);}
 
 // ── Tabs ──
@@ -1274,12 +1281,6 @@ function switchTab(tab,btn){
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
 }
-function switchSidebar(panel,btn){
-  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.s-panel').forEach(p=>p.classList.remove('active'));
-  if(btn)btn.classList.add('active');
-  document.getElementById('spanel-'+panel).classList.add('active');
-}
 
 // ── Subscribers ──
 async function loadSubscribers(page){
@@ -1291,13 +1292,11 @@ async function loadSubscribers(page){
   document.getElementById('stat-active').textContent=all.subscribers.filter(s=>s.status==='active').length;
   document.getElementById('stat-unsub').textContent=all.subscribers.filter(s=>s.status==='unsubscribed').length;
   const thead=document.getElementById('sub-thead');thead.innerHTML='';
-  ['Email','Status','Subscribed',...cfg.fields.filter(f=>!f.system).map(f=>f.label),''].forEach(h=>{
-    const th=document.createElement('th');th.textContent=h;thead.appendChild(th);
-  });
+  ['Email','Status','Subscribed',...(cfg.fields||[]).filter(f=>!f.system).map(f=>f.label),''].forEach(h=>{const th=document.createElement('th');th.textContent=h;thead.appendChild(th);});
   const tbody=document.getElementById('sub-tbody');tbody.innerHTML='';
   j.subscribers.forEach(s=>{
     const tr=document.createElement('tr');
-    const fields=cfg.fields.filter(f=>!f.system).map(f=>`<td>${s.customFields?.[f.id]||'—'}</td>`).join('');
+    const fields=(cfg.fields||[]).filter(f=>!f.system).map(f=>`<td>${s.customFields?.[f.id]||'—'}</td>`).join('');
     tr.innerHTML=`<td class="email-cell">${s.email}</td><td><span class="badge ${s.status}">${s.status}</span></td><td class="date-cell">${new Date(s.subscribedAt).toLocaleDateString()}</td>${fields}<td><button class="btn btn-danger btn-sm" onclick="deleteSubscriber('${s.id}','${s.email}')">Delete</button></td>`;
     tbody.appendChild(tr);
   });
@@ -1355,6 +1354,7 @@ function toast(msg,type=''){
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveConfig();}});
 document.getElementById('field-modal').addEventListener('click',e=>{if(e.target===document.getElementById('field-modal'))closeFieldModal();});
 document.getElementById('block-modal').addEventListener('click',e=>{if(e.target===document.getElementById('block-modal'))closeBlockPicker();});
+document.getElementById('el-modal').addEventListener('click',e=>{if(e.target===document.getElementById('el-modal'))closeElPicker();});
 checkSession();
 </script>
 </body>
