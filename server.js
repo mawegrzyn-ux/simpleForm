@@ -97,6 +97,18 @@ const upload = multer({
     file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Images only'));
   }
 });
+const fontStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, FONTS_DIR),
+  filename:    (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`)
+});
+const FONT_EXTS = new Set(['.woff','.woff2','.ttf','.otf']);
+const uploadFont = multer({
+  storage: fontStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    FONT_EXTS.has(path.extname(file.originalname).toLowerCase()) ? cb(null, true) : cb(new Error('Font files only'));
+  }
+});
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const submitLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10,  message: { error: 'Too many requests' } });
