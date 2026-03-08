@@ -118,7 +118,7 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 #prev-frame-wrap{padding:24px;display:flex;justify-content:center;align-items:flex-start;width:100%;}
 #preview-frame{border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff;transition:width .3s ease;}
 /* Block cards */
-.bk{background:var(--panel);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:box-shadow 120ms;margin-bottom:5px;}
+.bk{background:var(--panel);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:box-shadow 120ms;margin-bottom:5px;flex-shrink:0;}
 .bk:hover{box-shadow:var(--shadow-sm);}
 .bk-head{display:flex;align-items:center;gap:5px;padding:8px 10px;cursor:pointer;user-select:none;transition:background 100ms;}
 .bk-head:hover{background:var(--bg2);}
@@ -962,7 +962,7 @@ function renderBuildPanel(){
   const scroll=document.getElementById('bl-scroll');scroll.innerHTML='';
   const hero=cfg.sections.find(s=>s.id==='hero');
   if(hero)scroll.appendChild(makeBkCard(hero));
-  cfg.sections.filter(s=>s.id!=='hero'&&s.id!=='footer').forEach(s=>{
+  cfg.sections.filter(s=>s.id!=='hero'&&s.id!=='footer'&&s.id!=='form'&&s.type!=='form').forEach(s=>{
     const card=makeBkCard(s);
     if(!isBkFixed(s))setupBkDrag(card,s.id);
     scroll.appendChild(card);
