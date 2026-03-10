@@ -1325,7 +1325,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
     --font-body: '${d.bodyFont}', sans-serif;
   }
   body { font-family: var(--font-body); ${bgStyle} min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
-  .sf-card { background: #fff; border-radius: ${d.cardRadius || '12px'}; padding: ${d.cardPadding || '48px 40px'}; max-width: var(--container); width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+  .sf-card { background: #fff; border-radius: ${d.cardRadius || '12px'}; padding: ${d.cardPadding || '48px 40px'}; max-width: var(--container); width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.15); color: var(--text); }
   .sf-logo { text-align: center; margin-bottom: 24px; }
   .sf-logo img { width: ${d.logoWidth}; max-width: 100%; }
   .sf-hero-img { width: 100%; border-radius: 8px; margin-bottom: 28px; object-fit: cover; max-height: 280px; }
