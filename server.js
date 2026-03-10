@@ -1789,6 +1789,14 @@ function renderAccessDeniedPage(email) {
 </div></body></html>`;
 }
 
+// ── Global error safety (prevent unhandled rejections from crashing the process) ──
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠ Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('⚠ Uncaught exception:', err);
+});
+
 // ── Start ──
 (async () => {
   migrateIfNeeded();

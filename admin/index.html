@@ -1022,7 +1022,9 @@ const PALETTES=[
 async function checkSession(){
   const msg=document.getElementById('auth-status-msg'),btn=document.getElementById('auth-login-btn');
   try{
-    const j=await fetch('/auth/me').then(r=>r.json());
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),8000);
+    const j=await fetch('/auth/me',{signal:ctrl.signal}).then(r=>r.json()).finally(()=>clearTimeout(tid));
     if(j.authenticated){
       const badge=document.getElementById('user-badge');if(badge)badge.style.display='flex';
       const av=document.getElementById('user-avatar');if(av&&j.picture)av.src=j.picture;
@@ -1031,7 +1033,10 @@ async function checkSession(){
       document.getElementById('app').style.display='flex';
       await loadFormsIndex();
     }else{msg.textContent='Sign in to access the admin panel.';btn.style.display='flex';}
-  }catch(e){msg.textContent='Could not reach server. Please refresh.';}
+  }catch(e){
+    if(e.name==='AbortError'){msg.textContent='Server not responding. Is PM2 running?';btn.style.display='flex';btn.textContent='Retry';btn.onclick=()=>{msg.textContent='Checking session…';btn.style.display='none';btn.onclick=()=>window.location='/auth/login';checkSession();};}
+    else{msg.textContent='Could not reach server. Please refresh.';}
+  }
 }
 
 // ── Forms index ──
