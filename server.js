@@ -727,7 +727,7 @@ function googleFontTag(cfg) {
   const customFontNames = new Set((cfg.design.customFonts || []).map(f => f.name));
   const d = cfg.design;
   const seen = new Set();
-  const fonts = [d.h1Font||d.googleFont, d.h2Font||d.googleFont, d.h3Font||d.googleFont, d.h4Font||d.googleFont, d.bodyFont]
+  const fonts = [d.h1Font||d.googleFont, d.h2Font||d.googleFont, d.h3Font||d.googleFont, d.h4Font||d.googleFont, d.bodyFont, d.btnFont]
     .filter(Boolean)
     .filter(f => !NON_GF_FONTS.has(f) && !customFontNames.has(f))
     .filter(f => { if(seen.has(f)) return false; seen.add(f); return true; });
@@ -1403,6 +1403,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
     --font-h4: '${d.h4Font||d.googleFont}', serif;
     --font-heading: var(--font-h1);
     --font-body: '${d.bodyFont}', sans-serif;
+    --font-btn: '${d.btnFont||d.bodyFont}', sans-serif;
   }
   body { font-family: var(--font-body); ${bgStyle} min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
   .sf-card { background: #fff; border-radius: ${d.cardRadius || '12px'}; padding: ${d.cardPadding || '48px 40px'}; max-width: var(--container); width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.15); color: var(--text); }
@@ -1422,7 +1423,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }
-  .sf-btn { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font-heading); font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: 0.03em; transition: opacity 0.2s, transform 0.1s; }
+  .sf-btn { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font-btn); font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: 0.03em; transition: opacity 0.2s, transform 0.1s; }
   .sf-btn:hover { opacity: 0.9; transform: translateY(-1px); }
   .sf-btn:active { transform: translateY(0); }
   .sf-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
@@ -1609,6 +1610,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
     --radius: ${d.buttonRadius};
     --font-heading: '${d.googleFont}', serif;
     --font-body: '${d.bodyFont}', sans-serif;
+    --font-btn: '${d.btnFont||d.bodyFont}', sans-serif;
   }
   html, body { background: transparent; }
   body { font-family: var(--font-body); color: var(--text); padding: 4px 2px 16px; }
@@ -1625,7 +1627,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }
-  .sf-btn { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font-heading); font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 6px; letter-spacing: 0.03em; transition: opacity 0.2s, transform 0.1s; }
+  .sf-btn { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font-btn); font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 6px; letter-spacing: 0.03em; transition: opacity 0.2s, transform 0.1s; }
   .sf-btn:hover { opacity: 0.9; transform: translateY(-1px); }
   .sf-btn:active { transform: translateY(0); }
   .sf-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }

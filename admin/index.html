@@ -70,7 +70,14 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .cr{display:flex;gap:8px;align-items:center;}
 .color-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .color-lbl{font-size:0.72rem;color:var(--ink3);margin-bottom:4px;font-weight:500;}
-.font-picker{display:flex;flex-wrap:wrap;gap:5px;}
+.font-picker{position:relative;}
+.fp-wrap{position:relative;width:100%;}
+.fp-trigger{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);background:var(--panel);cursor:pointer;font-family:var(--font);font-size:0.875rem;color:var(--ink);transition:border-color 120ms;text-align:left;}
+.fp-trigger:hover{border-color:var(--ink3);}
+.fp-wrap.open .fp-trigger{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,75,57,.1);}
+.fp-sel{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fp-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;min-width:200px;background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);padding:8px;box-shadow:var(--shadow);z-index:300;flex-wrap:wrap;gap:5px;max-height:220px;overflow-y:auto;}
+.fp-wrap.open .fp-dropdown{display:flex;}
 .fc{padding:4px 10px;border:1.5px solid var(--border);border-radius:20px;font-size:0.78rem;cursor:pointer;transition:all 120ms;white-space:nowrap;color:var(--ink2);}
 .fc:hover{border-color:var(--accent);color:var(--accent);}
 .fc.active{background:var(--accent);color:#fff;border-color:var(--accent);}
@@ -440,6 +447,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="cg"><label class="cl">H3 font</label><div class="font-picker" id="h3-font-picker"></div></div>
       <div class="cg"><label class="cl">H4 font</label><div class="font-picker" id="h4-font-picker"></div></div>
       <div class="cg"><label class="cl">Body font</label><div class="font-picker" id="body-font-picker"></div></div>
+      <div class="cg"><label class="cl">Submit button font</label><div class="font-picker" id="btn-font-picker"></div></div>
       <div class="cg">
         <label class="cl">Custom fonts</label>
         <div id="custom-font-list"></div>
@@ -495,9 +503,6 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="cg"><label class="cl">Card corner radius</label>
         <div class="cr"><input type="range" id="c-card-radius-range" min="0" max="40" step="2" oninput="cfg.design.cardRadius=this.value+'px';document.getElementById('c-card-radius-px').value=this.value;schedulePreview()"><input type="text" id="c-card-radius-px" style="width:52px;flex-shrink:0" oninput="cfg.design.cardRadius=this.value;schedulePreview()"></div>
       </div>
-      <div class="cg"><label class="cl">Field corner radius</label>
-        <div class="cr"><input type="range" id="c-field-radius-range" min="0" max="24" step="1" oninput="cfg.design.fieldRadius=this.value+'px';document.getElementById('c-field-radius-px').value=this.value;schedulePreview()"><input type="text" id="c-field-radius-px" style="width:52px;flex-shrink:0" oninput="cfg.design.fieldRadius=this.value;schedulePreview()"></div>
-      </div>
     </div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">input</span> Field Style</div>
@@ -518,6 +523,9 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
       <div class="cg"><label class="cl">Border width</label>
         <div class="cr"><input type="range" id="c-field-border-w-range" min="0" max="4" step="1" value="2" oninput="cfg.design.fieldBorderWidth=parseInt(this.value);document.getElementById('c-field-border-w-px').value=this.value;schedulePreview()"><input type="text" id="c-field-border-w-px" style="width:52px;flex-shrink:0" value="2" oninput="cfg.design.fieldBorderWidth=parseInt(this.value)||0;schedulePreview()"></div>
+      </div>
+      <div class="cg"><label class="cl">Corner radius</label>
+        <div class="cr"><input type="range" id="c-field-radius-range" min="0" max="24" step="1" oninput="cfg.design.fieldRadius=this.value+'px';document.getElementById('c-field-radius-px').value=this.value;schedulePreview()"><input type="text" id="c-field-radius-px" style="width:52px;flex-shrink:0" oninput="cfg.design.fieldRadius=this.value;schedulePreview()"></div>
       </div>
     </div>
     <div class="card">
@@ -1319,16 +1327,34 @@ function buildFontPickers(){
   buildPicker('h3-font-picker',allH,cfg.design.h3Font||cfg.design.googleFont,f=>{cfg.design.h3Font=f;schedulePreview();});
   buildPicker('h4-font-picker',allH,cfg.design.h4Font||cfg.design.googleFont,f=>{cfg.design.h4Font=f;schedulePreview();});
   buildPicker('body-font-picker',allB,cfg.design.bodyFont,f=>{cfg.design.bodyFont=f;schedulePreview();});
+  buildPicker('btn-font-picker',allB,cfg.design.btnFont||cfg.design.bodyFont,f=>{cfg.design.btnFont=f;schedulePreview();});
 }
 function buildPicker(cid,fonts,current,onChange){
-  const c=document.getElementById(cid);if(!c)return;c.innerHTML='';
-  fonts.forEach(f=>{
-    const ch=document.createElement('div');ch.className='fc'+(f===current?' active':'');
-    ch.textContent=f;ch.style.fontFamily=`'${f}',serif`;
-    ch.onclick=()=>{c.querySelectorAll('.fc').forEach(x=>x.classList.remove('active'));ch.classList.add('active');onChange(f);};
-    c.appendChild(ch);
+  const c=document.getElementById(cid);if(!c)return;
+  const sel=current||fonts[0]||'';
+  const chips=fonts.map(f=>`<div class="fc${f===sel?' active':''}" style="font-family:'${f}',sans-serif" data-f="${f.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${f}</div>`).join('');
+  c.innerHTML=`<div class="fp-wrap"><button type="button" class="fp-trigger" onclick="toggleFpDropdown(this)"><span class="fp-sel" style="font-family:'${sel}',sans-serif">${sel||'Select…'}</span><span class="material-icons-round" style="font-size:14px;color:var(--ink3);flex-shrink:0">expand_more</span></button><div class="fp-dropdown">${chips}</div></div>`;
+  c.querySelectorAll('.fc').forEach(ch=>{
+    ch.onclick=e=>{
+      e.stopPropagation();
+      const f=ch.dataset.f;
+      c.querySelectorAll('.fc').forEach(x=>x.classList.remove('active'));
+      ch.classList.add('active');
+      const sp=c.querySelector('.fp-sel');if(sp){sp.textContent=f;sp.style.fontFamily=`'${f}',sans-serif`;}
+      c.querySelector('.fp-wrap').classList.remove('open');
+      onChange(f);
+    };
   });
 }
+function toggleFpDropdown(trigger){
+  const wrap=trigger.closest('.fp-wrap');
+  const isOpen=wrap.classList.contains('open');
+  document.querySelectorAll('.fp-wrap.open').forEach(w=>w.classList.remove('open'));
+  if(!isOpen)wrap.classList.add('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.fp-wrap'))document.querySelectorAll('.fp-wrap.open').forEach(w=>w.classList.remove('open'));
+});
 
 // ── Palettes ──
 function buildPalettes(){
