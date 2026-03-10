@@ -135,6 +135,9 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .bk-container>.bk-head{background:#2c2c3a;color:#fff;}
 .bk-container>.bk-head:hover{background:#3a3a4d;}
 .bk-container>.bk-head .bk-dh,.bk-container>.bk-head .bk-icon,.bk-container>.bk-head .bk-chevron,.bk-container>.bk-head .bk-vis,.bk-container>.bk-head .bk-del{color:rgba(255,255,255,.6);}
+.bk-container>.bk-head .bk-cols{background:rgba(0,0,0,.3);}
+.bk-container>.bk-head .bk-col-btn{color:rgba(255,255,255,.6);}
+.bk-container>.bk-head .bk-col-btn.active{background:rgba(255,255,255,.2);color:#fff;box-shadow:none;}
 .bk-container>.bk-head .bk-vis.on,.bk-container>.bk-head .bk-vis:hover{color:#fff;}
 .bk-container>.bk-head .bk-del:hover{color:#ff8a8a;background:rgba(255,255,255,.08);}
 .bk-container>.bk-head .bk-title{color:#fff;}
@@ -264,6 +267,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
+#wysiwyg-modal{z-index:510;}
 .modal-box{background:var(--panel);border-radius:var(--rlg);padding:26px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:fadeUp .18s var(--ease);}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-head h2{font-weight:600;font-size:1rem;}
@@ -441,11 +445,8 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="card" style="padding:16px">
         <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">cookie</span> Cookie & Legal</div>
         <div class="cg"><label class="cl">Cookie banner text</label><textarea id="c-cookie" rows="2" oninput="cfg.site.cookieBannerText=this.value;schedulePreview()"></textarea></div>
-        <div class="cg"><label class="cl">Privacy policy URL</label><input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()"></div>
-        <div class="cg">
-          <label class="cl">Submit disclaimer text</label>
-          <textarea id="c-gdpr-text" rows="3" oninput="cfg.site.gdprText=this.value;schedulePreview()"></textarea>
-          <div class="info-box" style="margin-top:5px;font-size:0.73rem">Use <code>{privacyUrl}</code> as placeholder. HTML allowed.</div>
+        <div class="cg"><label class="cl">Privacy policy URL</label><input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()">
+          <div class="info-box" style="margin-top:5px;font-size:0.73rem">Leave as <code>/privacy</code> to use the built-in form privacy page (editable in the Privacy Page section below).</div>
         </div>
       </div>
       <div class="card" style="padding:16px">
@@ -498,16 +499,13 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
     </div>
     <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">palette</span> Brand Colours</div>
-      <p class="card-desc" style="margin-bottom:10px">Define your brand palette. These swatches appear in all colour pickers across the editor.</p>
-      <div class="bc-def-row" id="brand-color-list"></div>
-      <button class="add-field-btn" onclick="addBrandColor()" style="margin-top:4px"><span class="material-icons-round mi">add</span> Add colour</button>
-    </div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">color_lens</span> Theme Colours</div>
+      <div class="card-title"><span class="material-icons-round mi">palette</span> Colours</div>
       <div class="cg"><label class="cl">Quick palettes</label><div class="palette-grid" id="palette-grid"></div></div>
-      <div class="cg"><label class="cl">Custom colours</label>
-        <div class="brand-swatch-row" id="bs-main"></div>
+      <div class="cg" style="border-top:1px solid var(--border2);padding-top:12px;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <label class="cl" style="margin:0;flex:1">Theme colours</label>
+          <div class="brand-swatch-row" id="bs-main" style="margin:0"></div>
+        </div>
         <div class="color-grid">
           <div><div class="color-lbl">Primary</div><div class="cr"><input type="color" id="c-primary" oninput="cfg.design.primaryColor=this.value;syncHex('primary',this.value);schedulePreview()"><input type="text" id="c-primary-hex" style="flex:1" oninput="syncColor('primary',this.value)"></div></div>
           <div><div class="color-lbl">Accent</div><div class="cr"><input type="color" id="c-accent" oninput="cfg.design.accentColor=this.value;syncHex('accent',this.value);schedulePreview()"><input type="text" id="c-accent-hex" style="flex:1" oninput="syncColor('accent',this.value)"></div></div>
@@ -515,19 +513,18 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
           <div><div class="color-lbl">Text</div><div class="cr"><input type="color" id="c-text" oninput="cfg.design.textColor=this.value;syncHex('text',this.value);schedulePreview()"><input type="text" id="c-text-hex" style="flex:1" oninput="syncColor('text',this.value)"></div></div>
         </div>
       </div>
+      <div style="border-top:1px solid var(--border2);padding-top:12px;margin-top:12px">
+        <label class="cl" style="margin-bottom:8px">Brand colours <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.7rem;color:var(--ink3)">(named swatches — appear in all colour pickers)</span></label>
+        <div id="brand-color-list" style="display:flex;flex-direction:column;gap:5px;margin-bottom:6px"></div>
+        <button class="add-field-btn" onclick="addBrandColor()"><span class="material-icons-round mi">add</span> Add colour</button>
+      </div>
     </div>
     <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">tune</span> Layout</div>
+      <div class="card-title"><span class="material-icons-round mi">tune</span> Form Layout</div>
       <div class="cg"><label class="cl">Container width</label>
         <select id="c-width" onchange="cfg.design.containerWidth=this.value;schedulePreview()">
           <option value="480px">Narrow (480px)</option><option value="560px">Medium (560px)</option>
           <option value="640px">Wide (640px)</option><option value="720px">Extra wide (720px)</option>
-        </select>
-      </div>
-      <div class="cg"><label class="cl">Button corners</label>
-        <select id="c-radius" onchange="cfg.design.buttonRadius=this.value;schedulePreview()">
-          <option value="0px">Square</option><option value="4px">Slight</option>
-          <option value="8px">Rounded</option><option value="24px">Pill</option>
         </select>
       </div>
       <div class="cg"><label class="cl">Card padding (vertical / horizontal)</label>
@@ -541,7 +538,31 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
     </div>
     <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">smart_button</span> Button</div>
+      <div class="brand-swatch-row" id="bs-btn"></div>
+      <div class="color-grid" style="margin-bottom:10px">
+        <div><div class="color-lbl">Background</div><div class="cr"><input type="color" id="c-btn-bg" oninput="cfg.design.btnBg=this.value;syncHex('btn-bg',this.value);schedulePreview()"><input type="text" id="c-btn-bg-hex" style="flex:1" placeholder="uses accent" oninput="syncBtnColorHex('btnBg','btn-bg',this.value)"></div></div>
+        <div><div class="color-lbl">Text colour</div><div class="cr"><input type="color" id="c-btn-text" oninput="cfg.design.btnTextColor=this.value;syncHex('btn-text',this.value);schedulePreview()"><input type="text" id="c-btn-text-hex" style="flex:1" placeholder="#ffffff" oninput="syncBtnColorHex('btnTextColor','btn-text',this.value)"></div></div>
+        <div><div class="color-lbl">Border colour</div><div class="cr"><input type="color" id="c-btn-border-color" oninput="cfg.design.btnBorderColor=this.value;syncHex('btn-border-color',this.value);schedulePreview()"><input type="text" id="c-btn-border-color-hex" style="flex:1" placeholder="transparent" oninput="syncBtnColorHex('btnBorderColor','btn-border-color',this.value)"></div></div>
+      </div>
+      <div class="cg"><label class="cl">Border style</label>
+        <select id="c-btn-border-style" onchange="cfg.design.btnBorderStyle=this.value;schedulePreview()">
+          <option value="solid">Solid</option><option value="dashed">Dashed</option><option value="none">None</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Border width</label>
+        <div class="cr"><input type="range" id="c-btn-border-w-range" min="0" max="8" step="1" oninput="cfg.design.btnBorderWidth=parseInt(this.value);document.getElementById('c-btn-border-w-px').value=this.value;schedulePreview()"><input type="text" id="c-btn-border-w-px" style="width:52px;flex-shrink:0" oninput="cfg.design.btnBorderWidth=parseInt(this.value)||0;schedulePreview()"></div>
+      </div>
+      <div class="cg"><label class="cl">Corner radius</label>
+        <select id="c-radius" onchange="cfg.design.buttonRadius=this.value;schedulePreview()">
+          <option value="0px">Square</option><option value="4px">Slight</option>
+          <option value="8px">Rounded</option><option value="24px">Pill</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-title"><span class="material-icons-round mi">input</span> Field Style</div>
+      <div class="cg"><label class="cl">Font family</label><div class="font-picker" id="field-font-picker"></div></div>
       <div class="brand-swatch-row" id="bs-fields"></div>
       <div class="color-grid" style="margin-bottom:10px">
         <div><div class="color-lbl">Input background</div><div class="cr"><input type="color" id="c-field-bg" value="#fafafa" oninput="cfg.design.fieldBg=this.value;syncHex('field-bg',this.value);schedulePreview()"><input type="text" id="c-field-bg-hex" style="flex:1" placeholder="#fafafa" oninput="syncFieldStyleHex('fieldBg','field-bg',this.value)"></div></div>
@@ -580,8 +601,11 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <img id="preview-bg" class="img-prev">
       </div>
       <div class="cg">
-        <label class="cl">Overlay opacity — <span id="overlay-val">0.4</span></label>
-        <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
+        <label class="cl">Overlay colour &amp; opacity — <span id="overlay-val">0.4</span></label>
+        <div class="cr">
+          <input type="color" id="c-overlay-color" value="#000000" oninput="cfg.design.backgroundOverlayColor=this.value;schedulePreview()" title="Overlay colour">
+          <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" style="flex:1" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
+        </div>
       </div>
       <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
     </div>
@@ -916,7 +940,10 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="ibtn" onclick="wysiFmt('insertUnorderedList')" title="Bullet list"><span class="material-icons-round mi">format_list_bulleted</span></button>
       <button class="ibtn" onclick="wysiFmt('insertOrderedList')" title="Numbered list"><span class="material-icons-round mi">format_list_numbered</span></button>
       <div style="width:1px;background:var(--border2);margin:0 3px;align-self:stretch"></div>
-      <button class="ibtn" onclick="wysiFmt('formatBlock','h2')" title="Heading 2"><span class="material-icons-round mi">title</span></button>
+      <button class="ibtn" onclick="wysiFmt('formatBlock','h1')" title="Heading 1" style="font-size:11px;font-weight:700;padding:4px 6px">H1</button>
+      <button class="ibtn" onclick="wysiFmt('formatBlock','h2')" title="Heading 2" style="font-size:11px;font-weight:700;padding:4px 6px">H2</button>
+      <button class="ibtn" onclick="wysiFmt('formatBlock','h3')" title="Heading 3" style="font-size:11px;font-weight:700;padding:4px 6px">H3</button>
+      <button class="ibtn" onclick="wysiFmt('formatBlock','h4')" title="Heading 4" style="font-size:11px;font-weight:700;padding:4px 6px">H4</button>
       <button class="ibtn" onclick="wysiFmt('formatBlock','p')" title="Paragraph"><span class="material-icons-round mi">notes</span></button>
       <div style="width:1px;background:var(--border2);margin:0 3px;align-self:stretch"></div>
       <button class="ibtn" onclick="wysiLink()" title="Link"><span class="material-icons-round mi">link</span></button>
@@ -1117,10 +1144,10 @@ function populateControls(){
   sv('c-logowidth',cfg.design.logoWidth);
   if(cfg.design.logoUrl){const e=document.getElementById('preview-logo');if(e){e.src=cfg.design.logoUrl;e.style.display='block';}}
   sv('c-cookie',cfg.site.cookieBannerText);sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);
-  sv('c-gdpr-text',cfg.site.gdprText||'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.');
   if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=cfg.design.backgroundImage;e.style.display='block';}}
   const ov=document.getElementById('c-overlay');if(ov)ov.value=cfg.design.backgroundOverlay;
   const ovv=document.getElementById('overlay-val');if(ovv)ovv.textContent=cfg.design.backgroundOverlay;
+  const ovc=document.getElementById('c-overlay-color');if(ovc)ovc.value=cfg.design.backgroundOverlayColor||'#000000';
   sc('primary',cfg.design.primaryColor);sc('accent',cfg.design.accentColor);sc('bg',cfg.design.backgroundColor);sc('text',cfg.design.textColor);
   sv('c-width',cfg.design.containerWidth);sv('c-radius',cfg.design.buttonRadius);
   const pad=cfg.design.cardPadding||'48px 40px';const pp=pad.split(' ');
@@ -1148,6 +1175,20 @@ function populateControls(){
   const fbw=cfg.design.fieldBorderWidth??2;
   const fbwr=document.getElementById('c-field-border-w-range');if(fbwr)fbwr.value=fbw;
   const fbwp=document.getElementById('c-field-border-w-px');if(fbwp)fbwp.value=fbw;
+  // Button style controls
+  const btnBg=cfg.design.btnBg||cfg.design.accentColor||'';
+  const btnBgEl=document.getElementById('c-btn-bg');if(btnBgEl&&btnBg)btnBgEl.value=btnBg;
+  const btnBgHex=document.getElementById('c-btn-bg-hex');if(btnBgHex)btnBgHex.value=btnBg;
+  const btnTc=cfg.design.btnTextColor||'#ffffff';
+  const btnTcEl=document.getElementById('c-btn-text');if(btnTcEl)btnTcEl.value=btnTc;
+  const btnTcHex=document.getElementById('c-btn-text-hex');if(btnTcHex)btnTcHex.value=btnTc;
+  const btnBc=cfg.design.btnBorderColor||'';
+  const btnBcEl=document.getElementById('c-btn-border-color');if(btnBcEl&&btnBc)btnBcEl.value=btnBc;
+  const btnBcHex=document.getElementById('c-btn-border-color-hex');if(btnBcHex)btnBcHex.value=btnBc;
+  const btnBsEl=document.getElementById('c-btn-border-style');if(btnBsEl)btnBsEl.value=cfg.design.btnBorderStyle||'solid';
+  const btnBw=cfg.design.btnBorderWidth??0;
+  const btnBwR=document.getElementById('c-btn-border-w-range');if(btnBwR)btnBwR.value=btnBw;
+  const btnBwP=document.getElementById('c-btn-border-w-px');if(btnBwP)btnBwP.value=btnBw;
   // Privacy content
   const privPrev=document.getElementById('privacy-preview');
   if(privPrev&&cfg.site.privacyContent)privPrev.innerHTML=cfg.site.privacyContent;
@@ -1164,6 +1205,7 @@ function sc(n,val){const e=document.getElementById('c-'+n);if(e)e.value=val;cons
 function syncColor(n,val){if(/^#[0-9a-fA-F]{6}$/.test(val)){const e=document.getElementById('c-'+n);if(e)e.value=val;const m={primary:'primaryColor',accent:'accentColor',bg:'backgroundColor',text:'textColor'};cfg.design[m[n]]=val;schedulePreview();}}
 function syncHex(n,val){const e=document.getElementById('c-'+n+'-hex');if(e)e.value=val;}
 function syncFieldStyleHex(key,inputId,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||!val){const e=document.getElementById('c-'+inputId);if(e)e.value=val||'#ffffff';cfg.design[key]=val;schedulePreview();}}
+function syncBtnColorHex(key,inputId,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||!val){const e=document.getElementById('c-'+inputId);if(e)e.value=val||'#ffffff';cfg.design[key]=val;schedulePreview();}}
 function updateSection(id,key,val){const s=cfg.sections.find(s=>s.id===id);if(s)s[key]=val;schedulePreview();}
 function updateCardPadding(){const v=document.getElementById('c-card-pad-v').value||'48px';const h=document.getElementById('c-card-pad-h').value||'40px';cfg.design.cardPadding=v+' '+h;schedulePreview();}
 function updateSectionColor(id,key,val){const s=cfg.sections.find(s=>s.id===id);if(s){if(!s.colors)s.colors={};s.colors[key]=val;schedulePreview();}}
@@ -1372,6 +1414,7 @@ function buildFontPickers(){
   buildPicker('h4-font-picker',allH,cfg.design.h4Font||cfg.design.googleFont,f=>{cfg.design.h4Font=f;schedulePreview();});
   buildPicker('body-font-picker',allB,cfg.design.bodyFont,f=>{cfg.design.bodyFont=f;schedulePreview();});
   buildPicker('btn-font-picker',allB,cfg.design.btnFont||cfg.design.bodyFont,f=>{cfg.design.btnFont=f;schedulePreview();});
+  buildPicker('field-font-picker',allB,cfg.design.fieldFont||cfg.design.bodyFont,f=>{cfg.design.fieldFont=f;schedulePreview();});
 }
 function buildPicker(cid,fonts,current,onChange){
   const c=document.getElementById(cid);if(!c)return;
@@ -1466,12 +1509,13 @@ function makeBkCard(s,isConfirmation){
   const showCols=s.type==='container';
   const card=document.createElement('div');
   const _bkCls=s.type==='container'?' bk-container':s.id==='hero'?' bk-hero':(s.id==='form'||s.type==='form')?' bk-form':s.id==='footer'?' bk-footer':'';
-  card.className='bk open'+_bkCls;card.id='bk-'+s.id;card.dataset.id=s.id;
+  const _isOpen=_bkOpenMap[s.id]!==false;
+  card.className='bk'+(_isOpen?' open':'')+_bkCls;card.id='bk-'+s.id;card.dataset.id=s.id;
   card.innerHTML=`
     <div class="bk-head" onclick="toggleBk('bk-${s.id}')">
       <span class="material-icons-round ${fixed?'bk-lock':'bk-dh'}">${fixed?'lock':'drag_indicator'}</span>
       <span class="material-icons-round bk-icon">${BK_ICONS[s.type]||'widgets'}</span>
-      <span class="bk-title">${BK_LABELS[s.type]||s.type}</span>
+      <span class="bk-title">${s.name||BK_LABELS[s.type]||s.type}</span>${s.type==='container'?`<span class="material-icons-round bk-rename" onclick="event.stopPropagation();renameBk('${s.id}')" title="Rename container" style="font-size:13px!important;color:rgba(255,255,255,.45);cursor:pointer;flex-shrink:0;padding:2px;border-radius:3px;transition:color 120ms" onmouseenter="this.style.color='rgba(255,255,255,.9)'" onmouseleave="this.style.color='rgba(255,255,255,.45)'">edit</span>`:''}
       ${showCols?`<div class="bk-cols" onclick="event.stopPropagation()">
         <button class="bk-col-btn${cols===1?' active':''}" onclick="event.stopPropagation();setBkCols('${s.id}',1)">1</button>
         <button class="bk-col-btn${cols===2?' active':''}" onclick="event.stopPropagation();setBkCols('${s.id}',2)">2</button>
@@ -1635,7 +1679,25 @@ function contentBkBody(b){
     <button class="add-field-btn" onclick="openElPicker('${b.id}')"><span class="material-icons-round mi">add</span> Add element</button>`;
 }
 
-function toggleBk(id){document.getElementById(id)&&document.getElementById(id).classList.toggle('open');}
+function toggleBk(id){
+  const el=document.getElementById(id);if(!el)return;
+  el.classList.toggle('open');
+  const blockId=id.replace('bk-','');
+  _bkOpenMap[blockId]=el.classList.contains('open');
+}
+
+function renameBk(id){
+  const found=_blockArray(id);if(!found)return;
+  const name=prompt('Container name:',found.block.name||'');
+  if(name===null)return;
+  found.block.name=name.trim();
+  updateBkTitle(id,found.block.name);
+  schedulePreview();
+}
+function updateBkTitle(id,name){
+  const card=document.getElementById('bk-'+id);if(!card)return;
+  const titleEl=card.querySelector('.bk-title');if(titleEl)titleEl.textContent=name||BK_LABELS[_blockArray(id)?.block?.type]||id;
+}
 
 function setBkCols(blockId,cols){
   const found=_blockArray(blockId);if(found)found.block.columns=cols;
@@ -1699,6 +1761,8 @@ function removeReward(blockId,idx){const found=_blockArray(blockId);if(found&&fo
 
 // ── Panel tabs ──
 let _panelTab='form';
+// ── Container collapse state ── {blockId: false} means collapsed (open is default)
+let _bkOpenMap={};
 function switchPanelTab(tab){
   _panelTab=tab;
   const formScroll=document.getElementById('bl-scroll');
@@ -2084,10 +2148,14 @@ function openItemEdit(blockId,idx){
     title.textContent='Edit submit button';
     const errHtml=item.errorHtml||'';
     const btnLabel=(item.buttonText||'').replace(/"/g,'&quot;');
+    const gdprHtml=cfg.site.gdprText||'';
     body.innerHTML=`
       <div class="cg"><label class="cl">Button label</label>
         <input type="text" id="ie-submit-label" value="${btnLabel}" placeholder="Uses form default if blank">
         <p style="font-size:0.73rem;color:var(--ink3);margin-top:3px">Leave blank to use the form-wide button label.</p>
+      </div>
+      <div class="cg"><label class="cl">Submit disclaimer</label>
+        <div class="wysi-preview" id="ie-submit-gdpr-preview" onclick="openSubmitDisclaimerWysiwyg()" style="min-height:36px">${gdprHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer text… (HTML allowed, use {privacyUrl} as placeholder)</span>'}</div>
       </div>
       <div class="cg"><label class="cl">Error message</label>
         <div class="wysi-preview" id="ie-submit-err-preview" onclick="openItemSubmitErrorWysiwyg()" style="min-height:36px">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
@@ -2191,6 +2259,15 @@ function saveWysiwyg(){
   if(found&&found.block.items&&_editCntIdx!==null){found.block.items[_editCntIdx].html=html;updateCntBody(_editCntBlock);schedulePreview();}
   closeWysiwygModal();
 }
+function openSubmitDisclaimerWysiwyg(){
+  const current=cfg.site.gdprText||'';
+  openWysiwygModal(current,'Submit disclaimer',html=>{
+    cfg.site.gdprText=html;
+    const prev=document.getElementById('ie-submit-gdpr-preview');
+    if(prev)prev.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer text… (HTML allowed, use {privacyUrl} as placeholder)</span>';
+    schedulePreview();
+  });
+}
 function openItemSubmitErrorWysiwyg(){
   const found=_blockArray(_editCntBlock);if(!found||!found.block.items)return;
   const item=found.block.items[_editCntIdx];if(!item)return;
@@ -2218,26 +2295,41 @@ function wysiLink(){const url=prompt('Enter URL:');if(url)wysiFmt('createLink',u
 function wysiLivePreview(){}
 
 // ── Brand colours ──
-function getBrandColors(){return cfg&&cfg.design&&Array.isArray(cfg.design.brandColors)?cfg.design.brandColors:[];}
+// Schema: {name:string, color:string}[] (migrated from string[] on read)
+function _migrateBrandColors(){
+  if(!cfg||!cfg.design)return;
+  if(!cfg.design.brandColors)cfg.design.brandColors=[];
+  cfg.design.brandColors=cfg.design.brandColors.map(b=>typeof b==='string'?{name:'',color:b}:b);
+}
+function getBrandColors(){
+  _migrateBrandColors();
+  return (cfg&&cfg.design&&Array.isArray(cfg.design.brandColors))?cfg.design.brandColors.map(b=>b.color):[];
+}
 
 function renderBrandColorList(){
   if(!cfg)return;
-  if(!cfg.design.brandColors)cfg.design.brandColors=[];
+  _migrateBrandColors();
   const list=document.getElementById('brand-color-list');if(!list)return;
   list.innerHTML='';
-  cfg.design.brandColors.forEach((c,i)=>{
+  cfg.design.brandColors.forEach((b,i)=>{
     const item=document.createElement('div');item.className='bc-item';
-    item.innerHTML=`<input type="color" value="${c||'#cccccc'}" oninput="cfg.design.brandColors[${i}]=this.value;refreshBrandSwatches();schedulePreview()">
-      <input type="text" value="${c||''}" placeholder="#rrggbb" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){cfg.design.brandColors[${i}]=this.value;document.querySelector('.bc-item:nth-child(${i+1}) input[type=color]').value=this.value;refreshBrandSwatches();schedulePreview();}">
+    item.innerHTML=`<input type="text" value="${escHtml(b.name||'')}" placeholder="Name…" style="width:90px;flex-shrink:0" oninput="cfg.design.brandColors[${i}].name=this.value">
+      <input type="color" value="${b.color||'#cccccc'}" oninput="cfg.design.brandColors[${i}].color=this.value;syncBcHex(${i},this.value);refreshBrandSwatches();schedulePreview()">
+      <input type="text" value="${b.color||''}" placeholder="#rrggbb" style="flex:1" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){cfg.design.brandColors[${i}].color=this.value;list.querySelectorAll('.bc-item')[${i}].querySelector('input[type=color]').value=this.value;refreshBrandSwatches();schedulePreview();}">
       <button class="ibtn danger" onclick="removeBrandColor(${i})"><span class="material-icons-round mi">close</span></button>`;
     list.appendChild(item);
   });
   refreshBrandSwatches();
 }
+function syncBcHex(i,val){
+  const list=document.getElementById('brand-color-list');if(!list)return;
+  const row=list.querySelectorAll('.bc-item')[i];if(!row)return;
+  const hex=row.querySelectorAll('input[type=text]')[1];if(hex)hex.value=val;
+}
 function addBrandColor(){
-  if(!cfg.design.brandColors)cfg.design.brandColors=[];
-  if(cfg.design.brandColors.length>=8){toast('Max 8 brand colours','error');return;}
-  cfg.design.brandColors.push('#cccccc');
+  _migrateBrandColors();
+  if(cfg.design.brandColors.length>=12){toast('Max 12 brand colours','error');return;}
+  cfg.design.brandColors.push({name:'',color:'#cccccc'});
   renderBrandColorList();
 }
 function removeBrandColor(i){
@@ -2256,11 +2348,12 @@ document.addEventListener('focus',e=>{
 },true);
 
 function refreshBrandSwatches(){
-  const colors=getBrandColors();
+  _migrateBrandColors();
+  const brands=cfg&&cfg.design&&Array.isArray(cfg.design.brandColors)?cfg.design.brandColors:[];
   document.querySelectorAll('.brand-swatch-row').forEach(row=>{
     if(!row.id)return;
-    row.innerHTML=colors.length
-      ?colors.map(c=>`<div class="bc-swatch" style="background:${c}" title="${c}" onclick="applyBrandSwatch('${c}')"></div>`).join('')
+    row.innerHTML=brands.length
+      ?brands.map(b=>{const c=b.color||'#ccc';const lbl=b.name?`${b.name} (${c})`:c;return `<div class="bc-swatch" style="background:${c}" title="${lbl}" onclick="applyBrandSwatch('${c}')"></div>`;}).join('')
       :'<span style="font-size:0.72rem;color:var(--ink3)">No brand colours defined yet</span>';
   });
 }
@@ -2551,6 +2644,7 @@ function renderDesignTemplates(){
     row.innerHTML=`<span class="dtmpl-name">${escHtml(t.name)}</span>
       <div class="dtmpl-acts">
         <button class="btn btn-outline btn-sm" onclick="applyDesignTemplate('${t.id}')"><span class="material-icons-round mi">check_circle</span> Apply</button>
+        <button class="btn btn-outline btn-sm" onclick="updateDesignTemplate('${t.id}')" title="Overwrite with current design"><span class="material-icons-round mi">upload</span> Update</button>
         <button class="ibtn danger" onclick="deleteDesignTemplate('${t.id}')"><span class="material-icons-round mi">delete</span></button>
       </div>`;
     el.appendChild(row);
@@ -2584,6 +2678,13 @@ async function deleteDesignTemplate(id){
   const r=await fetch(`/api/admin/design-templates/${id}`,{method:'DELETE'});
   if(r.ok){designTemplates=designTemplates.filter(t=>t.id!==id);renderDesignTemplates();toast('Template deleted','success');}
   else toast('Delete failed','error');
+}
+async function updateDesignTemplate(id){
+  const t=designTemplates.find(t=>t.id===id);if(!t||!cfg)return;
+  if(!confirm(`Update "${t.name}" with current design settings?`))return;
+  const r=await fetch(`/api/admin/design-templates/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({design:cfg.design})});
+  if(r.ok){const updated=await r.json();t.design=updated.design||cfg.design;toast('Template updated','success');}
+  else toast('Update failed','error');
 }
 
 // ── Forms management ──

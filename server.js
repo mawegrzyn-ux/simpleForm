@@ -163,10 +163,12 @@ function defaultFormConfig(slug, name) {
     design: { googleFont: 'Playfair Display', bodyFont: 'Lato', primaryColor: '#1a1a2e',
               accentColor: '#e94560', backgroundColor: '#f8f5f0', textColor: '#1a1a2e',
               buttonText: 'Subscribe Now', buttonRadius: '4px', containerWidth: '560px',
-              backgroundImage: '', backgroundOverlay: 0.4, logoUrl: '', logoWidth: '180px',
+              backgroundImage: '', backgroundOverlay: 0.4, backgroundOverlayColor: '#000000', logoUrl: '', logoWidth: '180px',
               cardPadding: '48px 40px', cardRadius: '12px', fieldRadius: '6px',
               fieldBg: '#fafafa', fieldBorderColor: '#e0e0e0', fieldBorderStyle: 'solid',
-              fieldBorderWidth: 2, customFonts: [] },
+              fieldBorderWidth: 2, fieldFont: '',
+              btnBg: '', btnTextColor: '#ffffff', btnBorderColor: 'transparent', btnBorderStyle: 'solid', btnBorderWidth: 0,
+              customFonts: [] },
     sections: [
       { id: 'hero',   type: 'hero',   visible: true, heading: 'Sign Up', subheading: '', imageUrl: '', imagePosition: 'above', colors: {} },
       { id: 'form',   type: 'form',   visible: true, submitSuccessMessage: "Thanks! You're on the list.", submitErrorMessage: 'Something went wrong.', colors: {} },
@@ -630,6 +632,17 @@ app.delete('/api/admin/design-templates/:id', adminAuth, (req, res) => {
     if (templates.length === before) return res.status(404).json({ error: 'Not found' });
     writeDesignTemplates(templates);
     res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/design-templates/:id', adminAuth, (req, res) => {
+  try {
+    const templates = readDesignTemplates();
+    const idx = templates.findIndex(t => t.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ error: 'Not found' });
+    templates[idx].design = req.body.design;
+    writeDesignTemplates(templates);
+    res.json(templates[idx]);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1370,6 +1383,12 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
   return '';
 }
 
+function hexToRgb(hex) {
+  const h = (hex||'#000000').replace('#','');
+  const r = parseInt(h.slice(0,2),16)||0, g = parseInt(h.slice(2,4),16)||0, b = parseInt(h.slice(4,6),16)||0;
+  return `${r},${g},${b}`;
+}
+
 function renderPublicPage(cfg) {
   const d = cfg.design;
   const s = cfg.site;
@@ -1377,8 +1396,9 @@ function renderPublicPage(cfg) {
 
   const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
 
+  const overlayRgb = hexToRgb(d.backgroundOverlayColor||'#000000');
   const bgStyle = d.backgroundImage
-    ? `background: linear-gradient(rgba(0,0,0,${d.backgroundOverlay}),rgba(0,0,0,${d.backgroundOverlay})), url('${d.backgroundImage}') center/cover no-repeat fixed; color: #fff;`
+    ? `background: linear-gradient(rgba(${overlayRgb},${d.backgroundOverlay}),rgba(${overlayRgb},${d.backgroundOverlay})), url('${d.backgroundImage}') center/cover no-repeat fixed; color: #fff;`
     : `background: ${d.backgroundColor};`;
 
   const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '')).join('\n  ');
@@ -1408,6 +1428,12 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
     --font-heading: var(--font-h1);
     --font-body: '${d.bodyFont}', sans-serif;
     --font-btn: '${d.btnFont||d.bodyFont}', sans-serif;
+    --font-field: '${d.fieldFont||d.bodyFont}', sans-serif;
+    --btn-bg: ${d.btnBg || d.accentColor};
+    --btn-color: ${d.btnTextColor || '#fff'};
+    --btn-border-color: ${d.btnBorderColor || 'transparent'};
+    --btn-border-style: ${d.btnBorderStyle || 'solid'};
+    --btn-border-width: ${d.btnBorderWidth ?? 0}px;
   }
   body { font-family: var(--font-body); ${bgStyle} min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
   .sf-card { background: #fff; border-radius: ${d.cardRadius || '12px'}; padding: ${d.cardPadding || '48px 40px'}; max-width: var(--container); width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.15); color: var(--text); }
@@ -1423,11 +1449,11 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   .sf-field { margin-bottom: 16px; }
   .sf-field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
   .req { color: var(--accent); }
-  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-body); font-size: 1rem; color: var(--text); transition: border-color 0.2s; background: ${d.fieldBg||'#fafafa'}; }
+  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-field); font-size: 1rem; color: var(--text); transition: border-color 0.2s; background: ${d.fieldBg||'#fafafa'}; }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }
-  .sf-btn { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font-btn); font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: 0.03em; transition: opacity 0.2s, transform 0.1s; }
+  .sf-btn { width: 100%; padding: 14px; background: var(--btn-bg); color: var(--btn-color); border: var(--btn-border-width) var(--btn-border-style) var(--btn-border-color); border-radius: var(--radius); font-family: var(--font-btn); font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: 0.03em; transition: opacity 0.2s, transform 0.1s; }
   .sf-btn:hover { opacity: 0.9; transform: translateY(-1px); }
   .sf-btn:active { transform: translateY(0); }
   .sf-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
@@ -1615,6 +1641,12 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
     --font-heading: '${d.googleFont}', serif;
     --font-body: '${d.bodyFont}', sans-serif;
     --font-btn: '${d.btnFont||d.bodyFont}', sans-serif;
+    --font-field: '${d.fieldFont||d.bodyFont}', sans-serif;
+    --btn-bg: ${d.btnBg || d.accentColor};
+    --btn-color: ${d.btnTextColor || '#fff'};
+    --btn-border-color: ${d.btnBorderColor || 'transparent'};
+    --btn-border-style: ${d.btnBorderStyle || 'solid'};
+    --btn-border-width: ${d.btnBorderWidth ?? 0}px;
   }
   html, body { background: transparent; }
   body { font-family: var(--font-body); color: var(--text); padding: 4px 2px 16px; }
@@ -1627,11 +1659,11 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   .sf-field { margin-bottom: 14px; }
   .sf-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
   .req { color: var(--accent); }
-  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-body); font-size: 0.97rem; color: var(--text); transition: border-color 0.2s; background: ${d.fieldBg||'#fafafa'}; }
+  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-field); font-size: 0.97rem; color: var(--text); transition: border-color 0.2s; background: ${d.fieldBg||'#fafafa'}; }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }
-  .sf-btn { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font-btn); font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 6px; letter-spacing: 0.03em; transition: opacity 0.2s, transform 0.1s; }
+  .sf-btn { width: 100%; padding: 12px; background: var(--btn-bg); color: var(--btn-color); border: var(--btn-border-width) var(--btn-border-style) var(--btn-border-color); border-radius: var(--radius); font-family: var(--font-btn); font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 6px; letter-spacing: 0.03em; transition: opacity 0.2s, transform 0.1s; }
   .sf-btn:hover { opacity: 0.9; transform: translateY(-1px); }
   .sf-btn:active { transform: translateY(0); }
   .sf-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
