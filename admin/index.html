@@ -1049,8 +1049,8 @@ function populateControls(){
   const fbwr=document.getElementById('c-field-border-w-range');if(fbwr)fbwr.value=fbw;
   const fbwp=document.getElementById('c-field-border-w-px');if(fbwp)fbwp.value=fbw;
   // Privacy content
-  const pp=document.getElementById('privacy-preview');
-  if(pp&&cfg.site.privacyContent)pp.innerHTML=cfg.site.privacyContent;
+  const privPrev=document.getElementById('privacy-preview');
+  if(privPrev&&cfg.site.privacyContent)privPrev.innerHTML=cfg.site.privacyContent;
   // Brand colours
   renderBrandColorList();
   const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
