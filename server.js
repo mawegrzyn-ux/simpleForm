@@ -587,6 +587,23 @@ app.get('/:slug', (req, res) => {
   catch(e) { res.status(404).send('<p>Form not found. <a href="/">Home</a></p>'); }
 });
 
+// Confirmation/response state preview (admin only)
+app.get('/:slug/confirmation-preview', adminAuth, (req, res) => {
+  try {
+    const cfg = readFormConfig(req.params.slug);
+    let html = renderPublicPage(cfg);
+    // Inject script to immediately show the confirmation state and hide the form
+    html = html.replace('</body>',
+      '<script>document.addEventListener("DOMContentLoaded",function(){' +
+      'var f=document.getElementById("sf-form");' +
+      'var c=document.getElementById("sf-confirmation");' +
+      'if(f)f.style.display="none";' +
+      'if(c){c.style.display="block";}' +
+      '});<\/script></body>');
+    res.send(html);
+  } catch(e) { res.status(404).send('Form not found'); }
+});
+
 // Embed iframe page
 app.get('/:slug/embed', (req, res) => {
   try {

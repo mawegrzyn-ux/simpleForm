@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>SignFlow Admin</title>
+<title>WingVibes Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Fraunces:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <style>
@@ -322,7 +322,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 </div>
 
 <div id="topbar">
-  <div class="t-logo">Sign<em>Flow</em></div>
+  <div class="t-logo">Wing<em style="color:#7ab648;font-style:italic">Vibes</em></div>
   <nav class="t-nav">
     <button class="t-tab active" onclick="switchTab('forms',this)">Forms</button>
     <button class="t-tab" onclick="switchTab('build',this)">Build</button>
@@ -757,25 +757,6 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <label class="tgl"><input type="checkbox" id="modal-required"><span class="tgl-s"></span></label>
       <label for="modal-required" class="tgl-lbl">Required field</label>
     </div>
-    <div class="modal-section">
-      <div class="modal-section-title">Appearance <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.72rem">(overrides global Design settings)</span></div>
-      <div id="brand-swatches-field" class="brand-swatch-row"></div>
-      <div class="color-grid" style="margin-bottom:8px">
-        <div><div class="color-lbl">Label colour</div><div class="cr"><input type="color" id="modal-style-label-color" value="#666666" oninput="syncModalStyleHex('label-color',this.value)"><input type="text" id="modal-style-label-color-hex" style="flex:1" placeholder="inherit" oninput="syncModalStyleColor('label-color',this.value)"></div></div>
-        <div><div class="color-lbl">Text colour</div><div class="cr"><input type="color" id="modal-style-text-color" value="#1a1a1a" oninput="syncModalStyleHex('text-color',this.value)"><input type="text" id="modal-style-text-color-hex" style="flex:1" placeholder="inherit" oninput="syncModalStyleColor('text-color',this.value)"></div></div>
-        <div><div class="color-lbl">Background</div><div class="cr"><input type="color" id="modal-style-bg" value="#ffffff" oninput="syncModalStyleHex('bg',this.value)"><input type="text" id="modal-style-bg-hex" style="flex:1" placeholder="inherit" oninput="syncModalStyleColor('bg',this.value)"></div></div>
-      </div>
-      <div class="cr" style="gap:8px">
-        <div class="cg" style="flex:1;margin:0"><label class="cl">Font size (px)</label><input type="number" id="modal-style-font-size" placeholder="inherit" min="8" max="48"></div>
-        <div class="cg" style="flex:1;margin:0"><label class="cl">Font family</label>
-          <select id="modal-style-font">
-            <option value="">Inherit</option>
-            <option>Lato</option><option>Open Sans</option><option>Nunito</option><option>Roboto</option>
-            <option>Playfair Display</option><option>Merriweather</option><option>Lora</option>
-          </select>
-        </div>
-      </div>
-    </div>
     <div class="modal-section" id="modal-conditions-section">
       <div class="modal-section-title">Conditional visibility</div>
       <div id="modal-conditions-list"></div>
@@ -1089,7 +1070,8 @@ function schedulePreview(){setSaveInd('');clearTimeout(previewTimer);previewTime
 async function refreshPreview(){
   if(!currentFormSlug||!cfg)return;
   await fetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
-  const f=document.getElementById('preview-frame');if(f)f.src=f.src;
+  const f=document.getElementById('preview-frame');
+  if(f){if(_panelTab==='response'){f.src='/'+currentFormSlug+'/confirmation-preview?_t='+Date.now();}else{f.src=f.src;}}
   const f2=document.getElementById('design-preview-frame');if(f2)f2.src=f2.src;
 }
 function setPreviewSize(s,btn){
@@ -1470,11 +1452,13 @@ function switchPanelTab(tab){
     formScroll.style.display='flex';
     addLabel.textContent='Add container';
     tabFormBtn.classList.add('active');
+    if(currentFormSlug){const pf=document.getElementById('preview-frame');if(pf&&pf.src.includes('confirmation-preview'))pf.src='/'+currentFormSlug;}
   }else if(tab==='response'){
     responseScroll.style.display='flex';
     addLabel.textContent='Add container';
     tabResponseBtn.classList.add('active');
     renderResponsePanel();
+    if(currentFormSlug){const pf=document.getElementById('preview-frame');if(pf)pf.src='/'+currentFormSlug+'/confirmation-preview';}
   }else{
     fieldsScroll.style.display='flex';
     addLabel.textContent='Add field';
@@ -1774,6 +1758,43 @@ function openItemEdit(blockId,idx){
         </select>
       </div>
       <div class="cg"><label class="cl">Caption (optional)</label><input type="text" id="ie-video-caption" value="${item.caption||''}"></div>`;
+  } else if(item.type==='field'){
+    const fld=(cfg.fields||[]).find(f=>f.id===item.fieldId);
+    title.textContent='Field appearance';
+    const st=item.style||{};
+    body.innerHTML=`
+      <p style="font-size:0.82rem;color:var(--ink3);margin-bottom:4px">Field: <strong>${fld?fld.label:item.fieldId}</strong></p>
+      <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:10px">Leave blank to inherit from Design tab defaults.</p>
+      <div id="ie-brand-swatches" class="brand-swatch-row" style="margin-bottom:8px"></div>
+      <div class="color-grid" style="margin-bottom:8px">
+        <div><div class="color-lbl">Label colour</div><div class="cr">
+          <input type="color" id="ie-style-label" value="${st.labelColor||'#666666'}" oninput="syncIeStyleHex('label',this.value)">
+          <input type="text" id="ie-style-label-hex" style="flex:1" placeholder="inherit" value="${st.labelColor||''}" oninput="syncIeStyleColor('label',this.value)"></div></div>
+        <div><div class="color-lbl">Text colour</div><div class="cr">
+          <input type="color" id="ie-style-text" value="${st.textColor||'#1a1a1a'}" oninput="syncIeStyleHex('text',this.value)">
+          <input type="text" id="ie-style-text-hex" style="flex:1" placeholder="inherit" value="${st.textColor||''}" oninput="syncIeStyleColor('text',this.value)"></div></div>
+        <div><div class="color-lbl">Background</div><div class="cr">
+          <input type="color" id="ie-style-bg" value="${st.bg||'#ffffff'}" oninput="syncIeStyleHex('bg',this.value)">
+          <input type="text" id="ie-style-bg-hex" style="flex:1" placeholder="inherit" value="${st.bg||''}" oninput="syncIeStyleColor('bg',this.value)"></div></div>
+      </div>
+      <div class="cr" style="gap:8px">
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Font size (px)</label>
+          <input type="number" id="ie-style-size" placeholder="inherit" min="8" max="48" value="${st.fontSize||''}"></div>
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Font family</label>
+          <select id="ie-style-font">
+            <option value="">Inherit</option>
+            <option${st.fontFamily==='Lato'?' selected':''}>Lato</option>
+            <option${st.fontFamily==='Open Sans'?' selected':''}>Open Sans</option>
+            <option${st.fontFamily==='Nunito'?' selected':''}>Nunito</option>
+            <option${st.fontFamily==='Roboto'?' selected':''}>Roboto</option>
+            <option${st.fontFamily==='Playfair Display'?' selected':''}>Playfair Display</option>
+            <option${st.fontFamily==='Merriweather'?' selected':''}>Merriweather</option>
+            <option${st.fontFamily==='Lora'?' selected':''}>Lora</option>
+          </select>
+        </div>
+      </div>`;
+    const bsf=document.getElementById('ie-brand-swatches');
+    if(bsf){const colors=getBrandColors();bsf.innerHTML=colors.length?colors.map(c=>`<div class="bc-swatch" style="background:${c}" title="${c}" onclick="applyBrandSwatch('${c}')"></div>`).join(''):'';}
   }
   document.getElementById('item-edit-modal').classList.add('open');
 }
@@ -1809,10 +1830,20 @@ function saveItemEdit(){
     item.url=getVal('ie-video-url');
     item.aspectRatio=getVal('ie-video-ratio')||'16:9';
     item.caption=getVal('ie-video-caption');
+  } else if(item.type==='field'){
+    const st={};
+    const lch=getVal('ie-style-label-hex');if(lch)st.labelColor=lch;
+    const tch=getVal('ie-style-text-hex');if(tch)st.textColor=tch;
+    const bgh=getVal('ie-style-bg-hex');if(bgh)st.bg=bgh;
+    const szEl=body.querySelector('#ie-style-size');if(szEl&&szEl.value.trim())st.fontSize=parseInt(szEl.value);
+    const ff=getVal('ie-style-font');if(ff)st.fontFamily=ff;
+    item.style=Object.keys(st).length?st:{};
   }
   updateCntBody(_editCntBlock);schedulePreview();
   closeItemEdit();
 }
+function syncIeStyleHex(key,val){const el=document.getElementById('ie-style-'+key+'-hex');if(el)el.value=val;}
+function syncIeStyleColor(key,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||val===''){const el=document.getElementById('ie-style-'+key);if(el)el.value=val||'#000000';}}
 async function handleItemImageUpload(inp){
   if(!inp.files||!inp.files[0])return;
   const fd=new FormData();fd.append('image',inp.files[0]);
@@ -1935,10 +1966,6 @@ function applyBrandSwatch(color){
   try{navigator.clipboard.writeText(color);toast('Copied '+color,'success');}catch(e){toast(color,'');}
 }
 
-// Field modal style sync helpers
-function syncModalStyleHex(key,val){const el=document.getElementById('modal-style-'+key+'-hex');if(el)el.value=val;}
-function syncModalStyleColor(key,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||val===''){const el=document.getElementById('modal-style-'+key);if(el)el.value=val||'#000000';}}
-
 // ── Fields ──
 function renderFieldList(){
   ['field-list','field-list-panel'].forEach(listId=>{
@@ -1995,17 +2022,8 @@ function openFieldModal(fieldId){
       document.getElementById('modal-slider-showval').checked=f.showValue!==false;
     }
     renderConditions(f.conditions||[]);
-    const st=f.style||{};
-    sv('modal-style-label-color',st.labelColor||'#666666');sv('modal-style-label-color-hex',st.labelColor||'');
-    sv('modal-style-text-color',st.textColor||'#1a1a1a');sv('modal-style-text-color-hex',st.textColor||'');
-    sv('modal-style-bg',st.bg||'#ffffff');sv('modal-style-bg-hex',st.bg||'');
-    sv('modal-style-font-size',st.fontSize||'');sv('modal-style-font',st.fontFamily||'');
   }else{
     ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon','modal-slider-min-label','modal-slider-max-label'].forEach(id=>sv(id,''));
-    sv('modal-style-label-color','#666666');sv('modal-style-label-color-hex','');
-    sv('modal-style-text-color','#1a1a1a');sv('modal-style-text-color-hex','');
-    sv('modal-style-bg','#ffffff');sv('modal-style-bg-hex','');
-    sv('modal-style-font-size','');sv('modal-style-font','');
     sv('modal-type','text');sv('modal-date-mode','free');sv('modal-slider-min','0');sv('modal-slider-max','100');sv('modal-slider-step','1');sv('modal-slider-default','50');sv('modal-slider-track','linear');sv('modal-slider-mode','smooth');sv('modal-slider-icon','●');sv('modal-slider-knob-size','32');sv('modal-slider-track-size','6');sv('modal-slider-val-size','14');
     document.getElementById('modal-required').checked=false;
     document.getElementById('modal-id').disabled=false;document.getElementById('modal-type').disabled=false;
@@ -2013,9 +2031,6 @@ function openFieldModal(fieldId){
     renderConditions([]);
   }
   onModalTypeChange();
-  // Populate brand swatches in appearance section
-  const bsf=document.getElementById('brand-swatches-field');
-  if(bsf){const colors=getBrandColors();bsf.innerHTML=colors.length?colors.map(c=>`<div class="bc-swatch" style="background:${c}" title="${c}" onclick="applyBrandSwatch('${c}')"></div>`).join(''):'';}
   document.getElementById('field-modal').classList.add('open');
 }
 function closeFieldModal(){document.getElementById('field-modal').classList.remove('open');}
@@ -2068,13 +2083,6 @@ function saveField(){
     field.valueSize=parseInt(document.getElementById('modal-slider-val-size').value)||14;
   }
   field.conditions=collectConditions();
-  const st={};
-  const lch=document.getElementById('modal-style-label-color-hex').value.trim();if(lch)st.labelColor=lch;
-  const tch=document.getElementById('modal-style-text-color-hex').value.trim();if(tch)st.textColor=tch;
-  const bgh=document.getElementById('modal-style-bg-hex').value.trim();if(bgh)st.bg=bgh;
-  const fsz=document.getElementById('modal-style-font-size').value.trim();if(fsz)st.fontSize=parseInt(fsz);
-  const ffm=document.getElementById('modal-style-font').value;if(ffm)st.fontFamily=ffm;
-  if(Object.keys(st).length)field.style=st;
   if(editingFieldId){const idx=cfg.fields.findIndex(f=>f.id===editingFieldId);cfg.fields[idx]={...cfg.fields[idx],...field};}
   else cfg.fields.push(field);
   renderFieldList();schedulePreview();closeFieldModal();
