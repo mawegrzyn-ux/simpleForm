@@ -10,6 +10,7 @@ const helmet     = require('helmet');
 const multer     = require('multer');
 const session    = require('express-session');
 const { Issuer, generators } = require('openid-client');
+const nodemailer = require('nodemailer');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +25,51 @@ const SESSION_SECRET      = process.env.SESSION_SECRET      || uuidv4(); // must
 
 // ── hCaptcha secret (from .env) ───────────────────────────────────────────────
 const ENV_HCAPTCHA_SECRET = process.env.SF_HCAPTCHA_SECRET || null;
+
+// ── SMTP (from .env) — optional; email only sent when all three are set ────────
+const SMTP_HOST   = process.env.SMTP_HOST   || '';
+const SMTP_PORT   = parseInt(process.env.SMTP_PORT) || 587;
+const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
+const SMTP_USER   = process.env.SMTP_USER   || '';
+const SMTP_PASS   = process.env.SMTP_PASS   || '';
+const SMTP_FROM   = process.env.SMTP_FROM   || SMTP_USER; // e.g. "noreply@yourdomain.com"
+const ORIGIN      = process.env.ORIGIN      || `http://localhost:${process.env.PORT || 3000}`;
+
+// Create nodemailer transporter (lazy — only used when SMTP is configured)
+let _mailer = null;
+function getMailer() {
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
+  if (!_mailer) {
+    _mailer = nodemailer.createTransport({
+      host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_SECURE,
+      auth: { user: SMTP_USER, pass: SMTP_PASS }
+    });
+  }
+  return _mailer;
+}
+
+async function sendWelcomeEmail(cfg, subscriber) {
+  const mailer = getMailer();
+  if (!mailer) return; // SMTP not configured — skip silently
+  const s = cfg.site;
+  if (!s.emailEnabled) return;
+  const unsubUrl = `${ORIGIN}/unsubscribe?token=${subscriber.unsubscribeToken}&email=${encodeURIComponent(subscriber.email)}`;
+  const fromName  = s.emailFromName  || s.title || 'SignFlow';
+  const subject   = s.emailSubject   || `Thanks for subscribing to ${s.title}`;
+  const bodyHtml  = s.emailBodyHtml  || `<p>Hi!</p><p>Thanks for subscribing to <strong>${s.title}</strong>. We're excited to have you!</p>`;
+  const html = `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333">
+${bodyHtml}
+<p style="margin-top:32px;font-size:0.8rem;color:#aaa;border-top:1px solid #eee;padding-top:16px">
+  Don't want these emails? <a href="${unsubUrl}" style="color:#aaa">Unsubscribe</a>
+</p></body></html>`;
+  await mailer.sendMail({
+    from: `"${fromName}" <${SMTP_FROM}>`,
+    to: subscriber.email,
+    ...(s.emailReplyTo ? { replyTo: s.emailReplyTo } : {}),
+    subject,
+    html
+  });
+}
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
 const DATA_DIR         = path.join(__dirname, 'data');
@@ -159,7 +205,8 @@ function defaultFormConfig(slug, name) {
     slug, name,
     site: { title: name, favicon: '', adminPassword: '', cookieBannerText: '', privacyPolicyUrl: '/privacy',
             gdprText: 'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.',
-            unsubscribeEnabled: true, captchaEnabled: false, hcaptchaSiteKey: '', hcaptchaSecretKey: '' },
+            unsubscribeEnabled: true, captchaEnabled: false, hcaptchaSiteKey: '', hcaptchaSecretKey: '',
+            emailEnabled: false, emailFromName: '', emailReplyTo: '', emailSubject: '', emailBodyHtml: '' },
     design: { googleFont: 'Playfair Display', bodyFont: 'Lato', primaryColor: '#1a1a2e',
               accentColor: '#e94560', backgroundColor: '#f8f5f0', textColor: '#1a1a2e',
               buttonText: 'Subscribe Now', buttonRadius: '4px', containerWidth: '560px',
@@ -736,6 +783,8 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   else { subs.push(record); }
 
   writeFormSubscribers(slug, subs);
+  // Fire-and-forget welcome email (never blocks the response)
+  sendWelcomeEmail(cfg, record).catch(e => console.error('[email]', e.message));
   res.json({ success: true });
 });
 
@@ -1542,6 +1591,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
           conf.style.display = 'block';
         } else {
           if(msg){msg.className='sf-msg success'; msg.textContent=${JSON.stringify((formSection && formSection.submitSuccessMessage) || "Thank you! You're subscribed.")};msg.style.display='block';}
+          if(btn){btn.textContent='\u2713 Subscribed';btn.style.opacity='0.7';}
           form.reset();
         }
       } else {
