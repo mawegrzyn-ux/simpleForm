@@ -268,6 +268,8 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
 #wysiwyg-modal{z-index:510;}
+#wysiwyg-modal.wysi-fs .modal-box{width:calc(100vw - 40px)!important;max-width:calc(100vw - 40px)!important;height:calc(100vh - 40px);max-height:none!important;display:flex;flex-direction:column;}
+#wysiwyg-modal.wysi-fs #wysiwyg-area{flex:1;min-height:0;max-height:none!important;}
 .modal-box{background:var(--panel);border-radius:var(--rlg);padding:26px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:fadeUp .18s var(--ease);}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-head h2{font-weight:600;font-size:1rem;}
@@ -309,6 +311,21 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .bc-item input[type=color]{width:24px;height:24px;padding:1px;border-radius:3px;}
 .bc-item input[type=text]{flex:1;min-width:0;font-size:0.78rem;padding:3px 6px;}
 .bc-item .ibtn{flex-shrink:0;}
+/* Brand Colour Picker (bcp) */
+.bcp-wrap{position:relative;}
+.bcp-trigger{display:flex;align-items:center;gap:6px;width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);background:var(--panel);cursor:pointer;font-family:var(--font);font-size:0.82rem;color:var(--ink);transition:border-color 120ms;text-align:left;}
+.bcp-trigger:hover{border-color:var(--ink3);}
+.bcp-wrap.open .bcp-trigger{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,75,57,.1);}
+.bcp-swatch-pill{width:18px;height:18px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);}
+.bcp-sel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bcp-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;min-width:160px;background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);padding:5px;box-shadow:var(--shadow);z-index:600;max-height:200px;overflow-y:auto;}
+.bcp-wrap.open .bcp-dropdown{display:block;}
+.bcp-item{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:5px;cursor:pointer;transition:background 80ms;}
+.bcp-item:hover{background:var(--bg);}
+.bcp-item.active{background:var(--accent-bg);}
+.bcp-item-sw{width:16px;height:16px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);}
+.bcp-item-name{font-size:0.79rem;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bcp-item-hex{font-size:0.69rem;color:var(--ink3);font-family:monospace;flex-shrink:0;}
 /* Alignment + tag selector button groups */
 .align-group{display:flex;gap:2px;}
 .align-btn{background:var(--bg);border:1.5px solid var(--border);cursor:pointer;padding:5px 9px;color:var(--ink3);font-family:var(--font);font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:3px;transition:all 120ms;line-height:1;}
@@ -502,15 +519,12 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="card-title"><span class="material-icons-round mi">palette</span> Colours</div>
       <div class="cg"><label class="cl">Quick palettes</label><div class="palette-grid" id="palette-grid"></div></div>
       <div class="cg" style="border-top:1px solid var(--border2);padding-top:12px;margin-top:4px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <label class="cl" style="margin:0;flex:1">Theme colours</label>
-          <div class="brand-swatch-row" id="bs-main" style="margin:0"></div>
-        </div>
+        <label class="cl" style="margin-bottom:8px">Theme colours</label>
         <div class="color-grid">
-          <div><div class="color-lbl">Primary</div><div class="cr"><input type="color" id="c-primary" oninput="cfg.design.primaryColor=this.value;syncHex('primary',this.value);schedulePreview()"><input type="text" id="c-primary-hex" style="flex:1" oninput="syncColor('primary',this.value)"></div></div>
-          <div><div class="color-lbl">Accent</div><div class="cr"><input type="color" id="c-accent" oninput="cfg.design.accentColor=this.value;syncHex('accent',this.value);schedulePreview()"><input type="text" id="c-accent-hex" style="flex:1" oninput="syncColor('accent',this.value)"></div></div>
-          <div><div class="color-lbl">Background</div><div class="cr"><input type="color" id="c-bg" oninput="cfg.design.backgroundColor=this.value;syncHex('bg',this.value);schedulePreview()"><input type="text" id="c-bg-hex" style="flex:1" oninput="syncColor('bg',this.value)"></div></div>
-          <div><div class="color-lbl">Text</div><div class="cr"><input type="color" id="c-text" oninput="cfg.design.textColor=this.value;syncHex('text',this.value);schedulePreview()"><input type="text" id="c-text-hex" style="flex:1" oninput="syncColor('text',this.value)"></div></div>
+          <div><div class="color-lbl">Primary</div><div id="bcp-primary"></div></div>
+          <div><div class="color-lbl">Accent</div><div id="bcp-accent"></div></div>
+          <div><div class="color-lbl">Background</div><div id="bcp-bg"></div></div>
+          <div><div class="color-lbl">Text</div><div id="bcp-text"></div></div>
         </div>
       </div>
       <div style="border-top:1px solid var(--border2);padding-top:12px;margin-top:12px">
@@ -539,11 +553,10 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     </div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">smart_button</span> Button</div>
-      <div class="brand-swatch-row" id="bs-btn"></div>
       <div class="color-grid" style="margin-bottom:10px">
-        <div><div class="color-lbl">Background</div><div class="cr"><input type="color" id="c-btn-bg" oninput="cfg.design.btnBg=this.value;syncHex('btn-bg',this.value);schedulePreview()"><input type="text" id="c-btn-bg-hex" style="flex:1" placeholder="uses accent" oninput="syncBtnColorHex('btnBg','btn-bg',this.value)"></div></div>
-        <div><div class="color-lbl">Text colour</div><div class="cr"><input type="color" id="c-btn-text" oninput="cfg.design.btnTextColor=this.value;syncHex('btn-text',this.value);schedulePreview()"><input type="text" id="c-btn-text-hex" style="flex:1" placeholder="#ffffff" oninput="syncBtnColorHex('btnTextColor','btn-text',this.value)"></div></div>
-        <div><div class="color-lbl">Border colour</div><div class="cr"><input type="color" id="c-btn-border-color" oninput="cfg.design.btnBorderColor=this.value;syncHex('btn-border-color',this.value);schedulePreview()"><input type="text" id="c-btn-border-color-hex" style="flex:1" placeholder="transparent" oninput="syncBtnColorHex('btnBorderColor','btn-border-color',this.value)"></div></div>
+        <div><div class="color-lbl">Background</div><div id="bcp-btn-bg"></div></div>
+        <div><div class="color-lbl">Text colour</div><div id="bcp-btn-text"></div></div>
+        <div><div class="color-lbl">Border colour</div><div id="bcp-btn-border"></div></div>
       </div>
       <div class="cg"><label class="cl">Border style</label>
         <select id="c-btn-border-style" onchange="cfg.design.btnBorderStyle=this.value;schedulePreview()">
@@ -563,12 +576,11 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">input</span> Field Style</div>
       <div class="cg"><label class="cl">Font family</label><div class="font-picker" id="field-font-picker"></div></div>
-      <div class="brand-swatch-row" id="bs-fields"></div>
       <div class="color-grid" style="margin-bottom:10px">
-        <div><div class="color-lbl">Input background</div><div class="cr"><input type="color" id="c-field-bg" value="#fafafa" oninput="cfg.design.fieldBg=this.value;syncHex('field-bg',this.value);schedulePreview()"><input type="text" id="c-field-bg-hex" style="flex:1" placeholder="#fafafa" oninput="syncFieldStyleHex('fieldBg','field-bg',this.value)"></div></div>
-        <div><div class="color-lbl">Input text</div><div class="cr"><input type="color" id="c-field-text" value="#1a1a1a" oninput="cfg.design.fieldTextColor=this.value;syncHex('field-text',this.value);schedulePreview()"><input type="text" id="c-field-text-hex" style="flex:1" placeholder="#1a1a1a" oninput="syncFieldStyleHex('fieldTextColor','field-text',this.value)"></div></div>
-        <div><div class="color-lbl">Label colour</div><div class="cr"><input type="color" id="c-field-label" value="#666666" oninput="cfg.design.fieldLabelColor=this.value;syncHex('field-label',this.value);schedulePreview()"><input type="text" id="c-field-label-hex" style="flex:1" placeholder="#666666" oninput="syncFieldStyleHex('fieldLabelColor','field-label',this.value)"></div></div>
-        <div><div class="color-lbl">Border colour</div><div class="cr"><input type="color" id="c-field-border" value="#e0e0e0" oninput="cfg.design.fieldBorderColor=this.value;syncHex('field-border',this.value);schedulePreview()"><input type="text" id="c-field-border-hex" style="flex:1" placeholder="#e0e0e0" oninput="syncFieldStyleHex('fieldBorderColor','field-border',this.value)"></div></div>
+        <div><div class="color-lbl">Input background</div><div id="bcp-field-bg"></div></div>
+        <div><div class="color-lbl">Input text</div><div id="bcp-field-text"></div></div>
+        <div><div class="color-lbl">Label colour</div><div id="bcp-field-label"></div></div>
+        <div><div class="color-lbl">Border colour</div><div id="bcp-field-border"></div></div>
       </div>
       <div class="cg"><label class="cl">Border style</label>
         <select id="c-field-border-style" onchange="cfg.design.fieldBorderStyle=this.value;schedulePreview()">
@@ -602,9 +614,9 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
       <div class="cg">
         <label class="cl">Overlay colour &amp; opacity — <span id="overlay-val">0.4</span></label>
-        <div class="cr">
-          <input type="color" id="c-overlay-color" value="#000000" oninput="cfg.design.backgroundOverlayColor=this.value;schedulePreview()" title="Overlay colour">
-          <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" style="flex:1" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
+        <div class="cr" style="gap:8px;align-items:flex-start;flex-wrap:wrap">
+          <div id="bcp-overlay-color" style="flex-shrink:0;width:160px"></div>
+          <input type="range" id="c-overlay" min="0" max="0.9" step="0.05" style="flex:1;min-width:80px" oninput="document.getElementById('overlay-val').textContent=this.value;cfg.design.backgroundOverlay=parseFloat(this.value);schedulePreview()">
         </div>
       </div>
       <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
@@ -930,7 +942,10 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   <div class="modal-box" style="width:580px">
     <div class="modal-head">
       <h2 id="wysiwyg-modal-title">Edit rich text</h2>
-      <button class="modal-close" onclick="closeWysiwygModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+      <div style="display:flex;gap:4px">
+        <button class="modal-close" id="wysi-fs-btn" onclick="toggleWysiwygFs()" title="Fullscreen"><span class="material-icons-round" style="font-size:18px">fullscreen</span></button>
+        <button class="modal-close" onclick="closeWysiwygModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+      </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:3px;padding:6px 0;border-bottom:1px solid var(--border2);margin-bottom:10px">
       <button class="ibtn" onclick="wysiFmt('bold')" title="Bold"><b style="font-size:13px;font-family:serif">B</b></button>
@@ -1147,8 +1162,6 @@ function populateControls(){
   if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=cfg.design.backgroundImage;e.style.display='block';}}
   const ov=document.getElementById('c-overlay');if(ov)ov.value=cfg.design.backgroundOverlay;
   const ovv=document.getElementById('overlay-val');if(ovv)ovv.textContent=cfg.design.backgroundOverlay;
-  const ovc=document.getElementById('c-overlay-color');if(ovc)ovc.value=cfg.design.backgroundOverlayColor||'#000000';
-  sc('primary',cfg.design.primaryColor);sc('accent',cfg.design.accentColor);sc('bg',cfg.design.backgroundColor);sc('text',cfg.design.textColor);
   sv('c-width',cfg.design.containerWidth);sv('c-radius',cfg.design.buttonRadius);
   const pad=cfg.design.cardPadding||'48px 40px';const pp=pad.split(' ');
   sv('c-card-pad-v',pp[0]||'48px');sv('c-card-pad-h',pp[1]||'40px');
@@ -1159,32 +1172,11 @@ function populateControls(){
   const frr=document.getElementById('c-field-radius-range');if(frr)frr.value=fr;
   const frp=document.getElementById('c-field-radius-px');if(frp)frp.value=cfg.design.fieldRadius||'6px';
   // Field style controls
-  const fbg=cfg.design.fieldBg||'#fafafa';
-  const fbc=document.getElementById('c-field-bg');if(fbc)fbc.value=fbg;
-  const fbch=document.getElementById('c-field-bg-hex');if(fbch)fbch.value=fbg;
-  const ftc=cfg.design.fieldTextColor||'#1a1a1a';
-  const ftcc=document.getElementById('c-field-text');if(ftcc)ftcc.value=ftc;
-  const ftch=document.getElementById('c-field-text-hex');if(ftch)ftch.value=ftc;
-  const flc=cfg.design.fieldLabelColor||'#666666';
-  const flcc=document.getElementById('c-field-label');if(flcc)flcc.value=flc;
-  const flch=document.getElementById('c-field-label-hex');if(flch)flch.value=flc;
-  const fbo=cfg.design.fieldBorderColor||'#e0e0e0';
-  const fboc=document.getElementById('c-field-border');if(fboc)fboc.value=fbo;
-  const fboh=document.getElementById('c-field-border-hex');if(fboh)fboh.value=fbo;
   const fbs=document.getElementById('c-field-border-style');if(fbs)fbs.value=cfg.design.fieldBorderStyle||'solid';
   const fbw=cfg.design.fieldBorderWidth??2;
   const fbwr=document.getElementById('c-field-border-w-range');if(fbwr)fbwr.value=fbw;
   const fbwp=document.getElementById('c-field-border-w-px');if(fbwp)fbwp.value=fbw;
   // Button style controls
-  const btnBg=cfg.design.btnBg||cfg.design.accentColor||'';
-  const btnBgEl=document.getElementById('c-btn-bg');if(btnBgEl&&btnBg)btnBgEl.value=btnBg;
-  const btnBgHex=document.getElementById('c-btn-bg-hex');if(btnBgHex)btnBgHex.value=btnBg;
-  const btnTc=cfg.design.btnTextColor||'#ffffff';
-  const btnTcEl=document.getElementById('c-btn-text');if(btnTcEl)btnTcEl.value=btnTc;
-  const btnTcHex=document.getElementById('c-btn-text-hex');if(btnTcHex)btnTcHex.value=btnTc;
-  const btnBc=cfg.design.btnBorderColor||'';
-  const btnBcEl=document.getElementById('c-btn-border-color');if(btnBcEl&&btnBc)btnBcEl.value=btnBc;
-  const btnBcHex=document.getElementById('c-btn-border-color-hex');if(btnBcHex)btnBcHex.value=btnBc;
   const btnBsEl=document.getElementById('c-btn-border-style');if(btnBsEl)btnBsEl.value=cfg.design.btnBorderStyle||'solid';
   const btnBw=cfg.design.btnBorderWidth??0;
   const btnBwR=document.getElementById('c-btn-border-w-range');if(btnBwR)btnBwR.value=btnBw;
@@ -1198,6 +1190,7 @@ function populateControls(){
   sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
   toggleCaptchaFields();
   renderFieldList();renderCustomFontList();
+  rebuildDesignColorPickers();
 }
 
 function sv(id,val){const e=document.getElementById(id);if(e)e.value=val||'';}
@@ -1441,6 +1434,7 @@ function toggleFpDropdown(trigger){
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest('.fp-wrap'))document.querySelectorAll('.fp-wrap.open').forEach(w=>w.classList.remove('open'));
+  if(!e.target.closest('.bcp-wrap'))document.querySelectorAll('.bcp-wrap.open').forEach(w=>w.classList.remove('open'));
 });
 
 // ── Palettes ──
@@ -1479,15 +1473,16 @@ function isBkDeletable(s){return s.id!=='hero'&&s.id!=='footer'&&s.id!=='form';}
 function renderBuildPanel(){
   const scroll=document.getElementById('bl-scroll');scroll.innerHTML='';
   const hero=cfg.sections.find(s=>s.id==='hero');
-  if(hero)scroll.appendChild(makeBkCard(hero));
+  if(hero){const card=makeBkCard(hero);scroll.appendChild(card);initBlockBcps(hero,card.querySelector('.bk-body'));}
   // Render all middle sections in array order (form block included, fixed + locked)
   cfg.sections.filter(s=>s.id!=='hero'&&s.id!=='footer').forEach(s=>{
     const card=makeBkCard(s);
     if(!isBkFixed(s))setupBkDrag(card,s.id,'sections');
     scroll.appendChild(card);
+    initBlockBcps(s,card.querySelector('.bk-body'));
   });
   const footer=cfg.sections.find(s=>s.id==='footer');
-  if(footer)scroll.appendChild(makeBkCard(footer));
+  if(footer){const card=makeBkCard(footer);scroll.appendChild(card);initBlockBcps(footer,card.querySelector('.bk-body'));}
 }
 
 function renderResponsePanel(){
@@ -1500,6 +1495,7 @@ function renderResponsePanel(){
     const card=makeBkCard(s,true);
     setupBkDrag(card,s.id,'confirmation');
     scroll.appendChild(card);
+    initBlockBcps(s,card.querySelector('.bk-body'));
   });
 }
 
@@ -1562,8 +1558,8 @@ function heroBkBody(s){
     <button class="up-btn del" onclick="clearHeroImage()" style="margin-top:4px"><span class="material-icons-round mi">delete</span> Remove image</button>
     <div class="modal-section"><div class="modal-section-title">Block colours</div>
       <div class="color-grid">
-        <div><div class="color-lbl">Background</div><div class="cr"><input type="color" value="${c.bg||'#ffffff'}" oninput="updateSectionColor('hero','bg',this.value)"><input type="text" value="${c.bg||''}" oninput="updateSectionColorHex('hero','bg',this.value)" placeholder="inherit"></div></div>
-        <div><div class="color-lbl">Text</div><div class="cr"><input type="color" value="${c.text||'#1a1a1a'}" oninput="updateSectionColor('hero','text',this.value)"><input type="text" value="${c.text||''}" oninput="updateSectionColorHex('hero','text',this.value)" placeholder="inherit"></div></div>
+        <div><div class="color-lbl">Background</div><div id="bcp-hero-bg"></div></div>
+        <div><div class="color-lbl">Text</div><div id="bcp-hero-text"></div></div>
       </div>
     </div>`;
 }
@@ -1617,8 +1613,7 @@ function dividerBkBody(b){
       </select>
     </div>
     <div class="cg"><label class="cl">Colour</label>
-      <div class="cr"><input type="color" value="${b.color||'#e0e0e0'}" oninput="updateBlockProp('${b.id}','color',this.value)">
-      <input type="text" value="${b.color||'#e0e0e0'}" oninput="updateBlockProp('${b.id}','color',this.value)"></div>
+      <div id="bcp-div-${b.id}"></div>
     </div>
     <div class="cr">
       <div class="cg" style="flex:1;margin:0"><label class="cl">Thickness (px)</label><input type="number" value="${b.thickness||1}" min="1" max="8" oninput="updateBlockProp('${b.id}','thickness',+this.value)"></div>
@@ -1748,7 +1743,7 @@ function setupBkDrag(card,blockId,arrayName){
 function updateBlockProp(id,key,val){const found=_blockArray(id);if(found){found.block[key]=val;schedulePreview();}}
 function toggleBlockVis(e,id){e.stopPropagation();const found=_blockArray(id);if(!found)return;found.block.visible=!found.block.visible;schedulePreview();}
 function deleteBlock(e,id){e.stopPropagation();if(!confirm('Remove this block?'))return;cfg.sections=cfg.sections.filter(s=>s.id!==id);if(cfg.confirmation)cfg.confirmation=cfg.confirmation.filter(s=>s.id!==id);renderBuildPanel();renderFieldList();schedulePreview();}
-function updateBkBody(blockId){const found=_blockArray(blockId);if(!found)return;const card=document.getElementById('bk-'+blockId);if(!card)return;const body=card.querySelector('.bk-body');if(body)body.innerHTML=getBkBody(found.block);}
+function updateBkBody(blockId){const found=_blockArray(blockId);if(!found)return;const card=document.getElementById('bk-'+blockId);if(!card)return;const body=card.querySelector('.bk-body');if(body){body.innerHTML=getBkBody(found.block);initBlockBcps(found.block,body);}}
 function updateReward(blockId,idx,key,val){const found=_blockArray(blockId);if(found&&found.block.rewards&&found.block.rewards[idx]){found.block.rewards[idx][key]=val;schedulePreview();}}
 function addReward(blockId){
   const found=_blockArray(blockId);if(!found)return;const b=found.block;if(!b.rewards)b.rewards=[];
@@ -1758,6 +1753,70 @@ function addReward(blockId){
   updateBkBody(blockId);schedulePreview();
 }
 function removeReward(blockId,idx){const found=_blockArray(blockId);if(found&&found.block.rewards){found.block.rewards.splice(idx,1);updateBkBody(blockId);schedulePreview();}}
+
+// ── Brand Colour Picker (bcp) ──
+let _bcpCallbacks={};
+function buildBrandColorPicker(containerId,currentColor,onChange){
+  const c=document.getElementById(containerId);if(!c)return;
+  _migrateBrandColors();
+  const brands=(cfg&&cfg.design&&cfg.design.brandColors)||[];
+  const cur=brands.find(b=>b.color===currentColor);
+  const label=cur?(cur.name||cur.color):(currentColor||'Choose colour…');
+  const swatchStyle=currentColor?`background:${currentColor}`:'background:transparent;border:1.5px dashed var(--border)';
+  const items=brands.length
+    ?brands.map(b=>`<div class="bcp-item${b.color===currentColor?' active':''}" onclick="bcpPick('${containerId}','${b.color.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')"><span class="bcp-item-sw" style="background:${b.color}"></span><span class="bcp-item-name">${escHtml(b.name||b.color)}</span><span class="bcp-item-hex">${b.color}</span></div>`).join('')
+    :'<p style="font-size:0.75rem;color:var(--ink3);padding:4px 2px">No brand colours defined yet.</p>';
+  c.innerHTML=`<div class="bcp-wrap" id="bcpw-${containerId}">
+    <button type="button" class="bcp-trigger" onclick="event.stopPropagation();bcpToggle('${containerId}')">
+      <span class="bcp-swatch-pill" style="${swatchStyle}"></span>
+      <span class="bcp-sel">${escHtml(label)}</span>
+      <span class="material-icons-round" style="font-size:13px;color:var(--ink3);flex-shrink:0">expand_more</span>
+    </button>
+    <div class="bcp-dropdown">${items}</div>
+  </div>`;
+  _bcpCallbacks[containerId]=onChange;
+}
+function bcpToggle(id){
+  document.querySelectorAll('.bcp-wrap.open').forEach(w=>{if(w.id!=='bcpw-'+id)w.classList.remove('open');});
+  const w=document.getElementById('bcpw-'+id);if(w)w.classList.toggle('open');
+}
+function bcpPick(containerId,color){
+  const w=document.getElementById('bcpw-'+containerId);if(w)w.classList.remove('open');
+  const cb=_bcpCallbacks[containerId];if(cb)cb(color);
+  buildBrandColorPicker(containerId,color,cb);
+}
+
+function rebuildDesignColorPickers(){
+  if(!cfg)return;
+  const d=cfg.design;
+  buildBrandColorPicker('bcp-primary',d.primaryColor,v=>{d.primaryColor=v;schedulePreview();rebuildDesignColorPickers();});
+  buildBrandColorPicker('bcp-accent',d.accentColor,v=>{d.accentColor=v;schedulePreview();rebuildDesignColorPickers();});
+  buildBrandColorPicker('bcp-bg',d.backgroundColor,v=>{d.backgroundColor=v;schedulePreview();rebuildDesignColorPickers();});
+  buildBrandColorPicker('bcp-text',d.textColor,v=>{d.textColor=v;schedulePreview();rebuildDesignColorPickers();});
+  buildBrandColorPicker('bcp-btn-bg',d.btnBg||d.accentColor,v=>{d.btnBg=v;schedulePreview();});
+  buildBrandColorPicker('bcp-btn-text',d.btnTextColor||'#ffffff',v=>{d.btnTextColor=v;schedulePreview();});
+  buildBrandColorPicker('bcp-btn-border',d.btnBorderColor||'transparent',v=>{d.btnBorderColor=v;schedulePreview();});
+  buildBrandColorPicker('bcp-field-bg',d.fieldBg||'#fafafa',v=>{d.fieldBg=v;schedulePreview();});
+  buildBrandColorPicker('bcp-field-text',d.fieldTextColor||'#1a1a1a',v=>{d.fieldTextColor=v;schedulePreview();});
+  buildBrandColorPicker('bcp-field-label',d.fieldLabelColor||'#666666',v=>{d.fieldLabelColor=v;schedulePreview();});
+  buildBrandColorPicker('bcp-field-border',d.fieldBorderColor||'#e0e0e0',v=>{d.fieldBorderColor=v;schedulePreview();});
+  buildBrandColorPicker('bcp-overlay-color',d.backgroundOverlayColor||'#000000',v=>{d.backgroundOverlayColor=v;schedulePreview();});
+}
+
+function initBlockBcps(b,blockEl){
+  const style=b.style||{};
+  const c=b.colors||{};
+  if(blockEl.querySelector('#bcp-hero-bg'))
+    buildBrandColorPicker('bcp-hero-bg',c.bg||'',v=>{updateSectionColor(b.id,'bg',v);buildBrandColorPicker('bcp-hero-bg',v,_bcpCallbacks['bcp-hero-bg']);});
+  if(blockEl.querySelector('#bcp-hero-text'))
+    buildBrandColorPicker('bcp-hero-text',c.text||'',v=>{updateSectionColor(b.id,'text',v);buildBrandColorPicker('bcp-hero-text',v,_bcpCallbacks['bcp-hero-text']);});
+  if(blockEl.querySelector('#bcp-cnt-bg-'+b.id))
+    buildBrandColorPicker('bcp-cnt-bg-'+b.id,style.bg||'',v=>{updateCntStyle(b.id,'bg',v);buildBrandColorPicker('bcp-cnt-bg-'+b.id,v,_bcpCallbacks['bcp-cnt-bg-'+b.id]);});
+  if(blockEl.querySelector('#bcp-cnt-bc-'+b.id))
+    buildBrandColorPicker('bcp-cnt-bc-'+b.id,style.borderColor||'',v=>{updateCntStyle(b.id,'borderColor',v);buildBrandColorPicker('bcp-cnt-bc-'+b.id,v,_bcpCallbacks['bcp-cnt-bc-'+b.id]);});
+  if(blockEl.querySelector('#bcp-div-'+b.id))
+    buildBrandColorPicker('bcp-div-'+b.id,b.color||'#e0e0e0',v=>{updateBlockProp(b.id,'color',v);buildBrandColorPicker('bcp-div-'+b.id,v,_bcpCallbacks['bcp-div-'+b.id]);});
+}
 
 // ── Panel tabs ──
 let _panelTab='form';
@@ -1942,14 +2001,16 @@ function containerBkBody(b){
     <button class="add-field-btn" onclick="openCntPicker('${b.id}')"><span class="material-icons-round mi">add</span> Add item</button>
     <div class="modal-section"><div class="modal-section-title">Container style</div>
       <div class="cg"><label class="cl">Background</label>
-        <div class="cr"><input type="color" value="${style.bg||'#ffffff'}" oninput="updateCntStyle('${b.id}','bg',this.value);this.nextElementSibling.value=this.value"><input type="text" value="${style.bg||''}" placeholder="transparent" style="flex:1" oninput="if(/^#[0-9a-fA-F]{3,6}$/.test(this.value)||!this.value){updateCntStyle('${b.id}','bg',this.value);this.previousElementSibling.value=this.value||'#ffffff'}"></div>
+        <div id="bcp-cnt-bg-${b.id}"></div>
       </div>
       <div class="cg"><label class="cl">Border colour</label>
-        <div class="cr"><input type="color" value="${style.borderColor||'#e0e0e0'}" oninput="updateCntStyle('${b.id}','borderColor',this.value);this.nextElementSibling.value=this.value"><input type="text" value="${style.borderColor||''}" placeholder="none" style="flex:1" oninput="if(/^#[0-9a-fA-F]{3,6}$/.test(this.value)||!this.value){updateCntStyle('${b.id}','borderColor',this.value||'');this.previousElementSibling.value=this.value||'#e0e0e0'}">
-        <input type="number" value="${style.borderWidth||1}" min="0" max="16" style="width:50px" title="Thickness (px)" oninput="updateCntStyle('${b.id}','borderWidth',+this.value)"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span></div>
+        <div class="cr" style="gap:6px">
+          <div id="bcp-cnt-bc-${b.id}" style="flex:1"></div>
+          <input type="number" value="${style.borderWidth||1}" min="0" max="16" style="width:50px;flex-shrink:0" title="Thickness (px)" oninput="updateCntStyle('${b.id}','borderWidth',+this.value)"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span>
+        </div>
       </div>
       <div class="cg"><label class="cl">Corner radius</label>
-        <div class="cr"><input type="number" value="${parseInt(style.radius)||0}" min="0" max="40" style="width:64px" oninput="updateCntStyle('${b.id}','radius',this.value+'px')"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span></div>
+        <div class="cr"><input type="range" min="0" max="40" step="1" value="${parseInt(style.radius)||0}" oninput="updateCntStyle('${b.id}','radius',this.value+'px');this.nextElementSibling.value=this.value" style="flex:1"><input type="text" value="${parseInt(style.radius)||0}" style="width:48px;flex-shrink:0" oninput="updateCntStyle('${b.id}','radius',this.value+'px');this.previousElementSibling.value=parseInt(this.value)||0"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span></div>
       </div>
       <div class="cr" style="gap:10px;align-items:center;margin-top:6px">
         <label class="tgl"><input type="checkbox" ${style.shadow?'checked':''} onchange="updateCntStyle('${b.id}','shadow',this.checked)"><span class="tgl-s"></span></label>
@@ -1959,7 +2020,7 @@ function containerBkBody(b){
 }
 
 function updateCntStyle(blockId,key,val){const found=_blockArray(blockId);if(!found)return;if(!found.block.style)found.block.style={};found.block.style[key]=val;schedulePreview();}
-function updateCntBody(blockId){const found=_blockArray(blockId);if(!found)return;const card=document.getElementById('bk-'+blockId);if(!card)return;const body=card.querySelector('.bk-body');if(body)body.innerHTML=getBkBody(found.block);}
+function updateCntBody(blockId){const found=_blockArray(blockId);if(!found)return;const card=document.getElementById('bk-'+blockId);if(!card)return;const body=card.querySelector('.bk-body');if(body){body.innerHTML=getBkBody(found.block);initBlockBcps(found.block,body);}}
 
 // Container item drag-to-reorder
 let _cntItemDragBlockId=null,_cntItemDragId=null;
@@ -2083,10 +2144,11 @@ function openItemEdit(blockId,idx){
         </select>
       </div>
       <div class="cg"><label class="cl">Colour</label>
-        <div class="cr"><input type="color" id="ie-div-color" value="${item.color||'#e0e0e0'}" oninput="document.getElementById('ie-div-color-txt').value=this.value">
-        <input type="text" id="ie-div-color-txt" value="${item.color||'#e0e0e0'}" oninput="if(/^#[0-9a-fA-F]{3,6}$/.test(this.value))document.getElementById('ie-div-color').value=this.value"></div>
+        <div id="ie-bcp-div-color"></div>
+        <input type="hidden" id="ie-div-color-val" value="${item.color||'#e0e0e0'}">
       </div>
       <div class="cg"><label class="cl">Thickness (px)</label><input type="number" id="ie-div-thick" value="${item.thickness||1}" min="1" max="8"></div>`;
+    buildBrandColorPicker('ie-bcp-div-color',item.color||'#e0e0e0',v=>{const e=document.getElementById('ie-div-color-val');if(e)e.value=v;buildBrandColorPicker('ie-bcp-div-color',v,_bcpCallbacks['ie-bcp-div-color']);});
   } else if(item.type==='spacer'){
     title.textContent='Edit spacer';
     body.innerHTML=`<div class="cg"><label class="cl">Height (px)</label><input type="number" id="ie-spacer-h" value="${item.height||40}" min="4" max="300"></div>`;
@@ -2114,17 +2176,13 @@ function openItemEdit(blockId,idx){
     body.innerHTML=`
       <p style="font-size:0.82rem;color:var(--ink3);margin-bottom:4px">Field: <strong>${fld?fld.label:item.fieldId}</strong></p>
       <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:10px">Leave blank to inherit from Design tab defaults.</p>
-      <div id="ie-brand-swatches" class="brand-swatch-row" style="margin-bottom:8px"></div>
+      <input type="hidden" id="ie-style-label-hex" value="${st.labelColor||''}">
+      <input type="hidden" id="ie-style-text-hex" value="${st.textColor||''}">
+      <input type="hidden" id="ie-style-bg-hex" value="${st.bg||''}">
       <div class="color-grid" style="margin-bottom:8px">
-        <div><div class="color-lbl">Label colour</div><div class="cr">
-          <input type="color" id="ie-style-label" value="${st.labelColor||'#666666'}" oninput="syncIeStyleHex('label',this.value)">
-          <input type="text" id="ie-style-label-hex" style="flex:1" placeholder="inherit" value="${st.labelColor||''}" oninput="syncIeStyleColor('label',this.value)"></div></div>
-        <div><div class="color-lbl">Text colour</div><div class="cr">
-          <input type="color" id="ie-style-text" value="${st.textColor||'#1a1a1a'}" oninput="syncIeStyleHex('text',this.value)">
-          <input type="text" id="ie-style-text-hex" style="flex:1" placeholder="inherit" value="${st.textColor||''}" oninput="syncIeStyleColor('text',this.value)"></div></div>
-        <div><div class="color-lbl">Background</div><div class="cr">
-          <input type="color" id="ie-style-bg" value="${st.bg||'#ffffff'}" oninput="syncIeStyleHex('bg',this.value)">
-          <input type="text" id="ie-style-bg-hex" style="flex:1" placeholder="inherit" value="${st.bg||''}" oninput="syncIeStyleColor('bg',this.value)"></div></div>
+        <div><div class="color-lbl">Label colour</div><div id="ie-bcp-label"></div></div>
+        <div><div class="color-lbl">Text colour</div><div id="ie-bcp-text"></div></div>
+        <div><div class="color-lbl">Background</div><div id="ie-bcp-bg"></div></div>
       </div>
       <div class="cr" style="gap:8px">
         <div class="cg" style="flex:1;margin:0"><label class="cl">Font size (px)</label>
@@ -2142,8 +2200,9 @@ function openItemEdit(blockId,idx){
           </select>
         </div>
       </div>`;
-    const bsf=document.getElementById('ie-brand-swatches');
-    if(bsf){const colors=getBrandColors();bsf.innerHTML=colors.length?colors.map(c=>`<div class="bc-swatch" style="background:${c}" title="${c}" onclick="applyBrandSwatch('${c}')"></div>`).join(''):'';}
+    buildBrandColorPicker('ie-bcp-label',st.labelColor||'',v=>{const e=document.getElementById('ie-style-label-hex');if(e)e.value=v;buildBrandColorPicker('ie-bcp-label',v,_bcpCallbacks['ie-bcp-label']);});
+    buildBrandColorPicker('ie-bcp-text',st.textColor||'',v=>{const e=document.getElementById('ie-style-text-hex');if(e)e.value=v;buildBrandColorPicker('ie-bcp-text',v,_bcpCallbacks['ie-bcp-text']);});
+    buildBrandColorPicker('ie-bcp-bg',st.bg||'',v=>{const e=document.getElementById('ie-style-bg-hex');if(e)e.value=v;buildBrandColorPicker('ie-bcp-bg',v,_bcpCallbacks['ie-bcp-bg']);});
   } else if(item.type==='submit'){
     title.textContent='Edit submit button';
     const errHtml=item.errorHtml||'';
@@ -2154,12 +2213,16 @@ function openItemEdit(blockId,idx){
         <input type="text" id="ie-submit-label" value="${btnLabel}" placeholder="Uses form default if blank">
         <p style="font-size:0.73rem;color:var(--ink3);margin-top:3px">Leave blank to use the form-wide button label.</p>
       </div>
+      <div class="cg"><label class="cl">Button background</label><div id="ie-btn-bg-bcp"></div></div>
+      <div class="cg"><label class="cl">Button text colour</label><div id="ie-btn-text-bcp"></div></div>
       <div class="cg"><label class="cl">Submit disclaimer</label>
         <div class="wysi-preview" id="ie-submit-gdpr-preview" onclick="openSubmitDisclaimerWysiwyg()" style="min-height:36px">${gdprHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer text… (HTML allowed, use {privacyUrl} as placeholder)</span>'}</div>
       </div>
       <div class="cg"><label class="cl">Error message</label>
         <div class="wysi-preview" id="ie-submit-err-preview" onclick="openItemSubmitErrorWysiwyg()" style="min-height:36px">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
       </div>`;
+    buildBrandColorPicker('ie-btn-bg-bcp',item.btnBg||'',v=>{item.btnBg=v;buildBrandColorPicker('ie-btn-bg-bcp',v,_bcpCallbacks['ie-btn-bg-bcp']);schedulePreview();});
+    buildBrandColorPicker('ie-btn-text-bcp',item.btnTextColor||'',v=>{item.btnTextColor=v;buildBrandColorPicker('ie-btn-text-bcp',v,_bcpCallbacks['ie-btn-text-bcp']);schedulePreview();});
   }
   document.getElementById('item-edit-modal').classList.add('open');
 }
@@ -2187,7 +2250,7 @@ function saveItemEdit(){
     if(al)item.align=al.dataset.align;
   } else if(item.type==='divider'){
     item.style=getVal('ie-div-style')||'line';
-    item.color=getVal('ie-div-color-txt')||'#e0e0e0';
+    item.color=getVal('ie-div-color-val')||'#e0e0e0';
     item.thickness=parseInt(getVal('ie-div-thick'))||1;
   } else if(item.type==='spacer'){
     item.height=parseInt(getVal('ie-spacer-h'))||40;
@@ -2251,7 +2314,11 @@ function openWysiwygModal(html,title,saveFn){
   document.getElementById('wysiwyg-modal').classList.add('open');
   setTimeout(()=>document.getElementById('wysiwyg-area').focus(),100);
 }
-function closeWysiwygModal(){document.getElementById('wysiwyg-modal').classList.remove('open');_editCntBlock=null;_editCntIdx=null;_wysiwygSaveFn=null;}
+function toggleWysiwygFs(){
+  const m=document.getElementById('wysiwyg-modal');m.classList.toggle('wysi-fs');
+  const btn=document.getElementById('wysi-fs-btn');if(btn){const ic=btn.querySelector('.material-icons-round');if(ic)ic.textContent=m.classList.contains('wysi-fs')?'fullscreen_exit':'fullscreen';}
+}
+function closeWysiwygModal(){const m=document.getElementById('wysiwyg-modal');m.classList.remove('open','wysi-fs');_editCntBlock=null;_editCntIdx=null;_wysiwygSaveFn=null;}
 function saveWysiwyg(){
   const html=document.getElementById('wysiwyg-area').innerHTML;
   if(_wysiwygSaveFn){_wysiwygSaveFn(html);closeWysiwygModal();return;}
@@ -2356,6 +2423,7 @@ function refreshBrandSwatches(){
       ?brands.map(b=>{const c=b.color||'#ccc';const lbl=b.name?`${b.name} (${c})`:c;return `<div class="bc-swatch" style="background:${c}" title="${lbl}" onclick="applyBrandSwatch('${c}')"></div>`;}).join('')
       :'<span style="font-size:0.72rem;color:var(--ink3)">No brand colours defined yet</span>';
   });
+  rebuildDesignColorPickers();
 }
 function applyBrandSwatch(color){
   // Apply to last focused colour input pair (color + hex)

@@ -1163,9 +1163,13 @@ function renderBlockElement(el, cfg) {
   if (el.type === 'submit') {
     const d2 = (cfg&&cfg.design)||{};
     const s2 = (cfg&&cfg.site)||{};
+    const btnBg = el.btnBg || d2.btnBg || d2.accentColor || '';
+    const btnTc = el.btnTextColor || d2.btnTextColor || '#fff';
+    const btnStyle = (btnBg||btnTc!=='#fff') ? ` style="background:${btnBg||'var(--btn-bg)'};color:${btnTc}"` : '';
+    const btnLabel = el.buttonText || d2.buttonText || 'Subscribe';
     return `<div class="sf-gdpr">${gdprHtml(s2)}</div>
     ${s2.captchaEnabled && s2.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s2.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
-    <button type="submit" class="sf-btn">${d2.buttonText||'Subscribe'}</button>
+    <button type="submit" class="sf-btn"${btnStyle}>${btnLabel}</button>
     <div id="sf-msg" class="sf-msg"></div>`;
   }
   switch (el.type) {
