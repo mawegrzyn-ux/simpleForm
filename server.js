@@ -137,6 +137,13 @@ function readFormSubscribers(slug) {
 function writeFormSubscribers(slug, subs) {
   fs.writeFileSync(path.join(DATA_DIR, `subscribers-${slug}.json`), JSON.stringify(subs, null, 2));
 }
+function readFormMedia(slug) {
+  const f = path.join(DATA_DIR, `media-${slug}.json`);
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : [];
+}
+function writeFormMedia(slug, items) {
+  fs.writeFileSync(path.join(DATA_DIR, `media-${slug}.json`), JSON.stringify(items, null, 2));
+}
 
 // ── Design templates ──────────────────────────────────────────────────────────
 function readDesignTemplates() {
@@ -504,13 +511,42 @@ app.post('/api/admin/forms/:slug', adminAuth, (req, res) => {
 // Upload image for a form
 app.post('/api/admin/forms/:slug/upload', adminAuth, upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  res.json({ url: `/uploads/${req.file.filename}` });
+  const url = `/uploads/${req.file.filename}`;
+  try {
+    const items = readFormMedia(req.params.slug);
+    items.unshift({ id: uuidv4(), url, name: req.file.originalname, size: req.file.size, mimeType: req.file.mimetype, uploadedAt: new Date().toISOString() });
+    writeFormMedia(req.params.slug, items);
+  } catch(_) {}
+  res.json({ url });
 });
 
 // Upload font for a form
 app.post('/api/admin/forms/:slug/upload-font', adminAuth, uploadFont.single('font'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   res.json({ url: `/uploads/fonts/${req.file.filename}` });
+});
+
+// List media library for a form
+app.get('/api/admin/forms/:slug/media', adminAuth, (req, res) => {
+  try { res.json(readFormMedia(req.params.slug)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Delete a media item (removes from library + disk)
+app.delete('/api/admin/forms/:slug/media', adminAuth, (req, res) => {
+  try {
+    const { id } = req.body;
+    let items = readFormMedia(req.params.slug);
+    const item = items.find(i => i.id === id);
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    try {
+      const filePath = path.join(__dirname, 'public', item.url);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch(_) {}
+    items = items.filter(i => i.id !== id);
+    writeFormMedia(req.params.slug, items);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Get subscribers for a form (paginated)

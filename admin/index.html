@@ -315,6 +315,31 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .slug-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-family:monospace;font-size:0.73rem;color:var(--ink2);}
 .size-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-size:0.73rem;color:var(--ink3);display:inline-flex;align-items:center;gap:2px;}
 .form-card-acts{display:flex;gap:6px;flex-shrink:0;}
+/* ── Media Picker ──────────────────────────────────────────────────────── */
+#media-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:600;display:none;align-items:center;justify-content:center;}
+#media-picker-overlay.open{display:flex;}
+#media-picker-box{background:var(--panel);border-radius:var(--rlg);width:min(920px,96vw);height:min(640px,92vh);display:flex;flex-direction:column;box-shadow:var(--shadow-lg);overflow:hidden;animation:fadeUp .18s var(--ease);}
+#media-picker-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#media-picker-head h2{font-size:0.95rem;font-weight:600;flex:1;}
+#media-picker-toolbar{display:flex;align-items:center;gap:8px;padding:10px 18px;border-bottom:1px solid var(--border2);flex-shrink:0;background:var(--bg);}
+#media-search{flex:1;max-width:280px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.83rem;font-family:var(--font);width:auto;}
+#media-body{display:flex;flex:1;overflow:hidden;}
+#media-grid-wrap{flex:1;overflow-y:auto;padding:14px;}
+#media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;}
+.media-item{border:2px solid transparent;border-radius:var(--r);overflow:hidden;cursor:pointer;background:var(--bg);transition:border-color 120ms,box-shadow 120ms;position:relative;}
+.media-item:hover{border-color:var(--ink3);}
+.media-item.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,75,57,.15);}
+.media-item img{width:100%;aspect-ratio:1;object-fit:cover;display:block;}
+.mi-name{font-size:0.67rem;color:var(--ink2);padding:3px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--panel);}
+.mi-check{position:absolute;top:4px;right:4px;background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:11px!important;pointer-events:none;}
+.media-item.selected .mi-check{display:flex;}
+#media-detail{width:210px;border-left:1px solid var(--border);padding:14px;overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;gap:10px;background:var(--bg);}
+#media-detail-img{width:100%;border-radius:var(--r);object-fit:contain;max-height:120px;background:var(--panel);border:1px solid var(--border);display:none;}
+#media-detail-none{color:var(--ink3);font-size:0.82rem;text-align:center;padding-top:32px;line-height:1.7;}
+.md-row{font-size:0.78rem;line-height:1.5;word-break:break-all;}
+.md-row strong{font-size:0.67rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:1px;}
+#media-picker-foot{display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;justify-content:flex-end;}
+#media-empty{text-align:center;padding:48px 24px;color:var(--ink3);font-size:0.88rem;display:none;}
 </style>
 </head>
 <body>
@@ -498,8 +523,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">image</span> Logo</div>
       <div class="cg">
-        <button class="up-btn" onclick="triggerUpload('logo')"><span class="material-icons-round mi">upload</span> Upload logo</button>
-        <input type="file" id="upload-logo" accept="image/*" style="display:none" onchange="handleImageUpload(this,'logo')">
+        <button class="up-btn" onclick="openMediaPicker('logo')"><span class="material-icons-round mi">photo_library</span> Choose from library</button>
         <img id="preview-logo" class="img-prev">
       </div>
       <div class="cg"><label class="cl">Width</label><input type="text" id="c-logowidth" placeholder="180px" oninput="cfg.design.logoWidth=this.value;schedulePreview()"></div>
@@ -508,8 +532,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">wallpaper</span> Background</div>
       <div class="cg">
-        <button class="up-btn" onclick="triggerUpload('bg')"><span class="material-icons-round mi">upload</span> Upload background image</button>
-        <input type="file" id="upload-bg" accept="image/*" style="display:none" onchange="handleImageUpload(this,'bg')">
+        <button class="up-btn" onclick="openMediaPicker('bg')"><span class="material-icons-round mi">photo_library</span> Choose from library</button>
         <img id="preview-bg" class="img-prev">
       </div>
       <div class="cg">
@@ -900,6 +923,43 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   </div>
 </div>
 
+<!-- ── Media Picker ──────────────────────────────────────────────────────── -->
+<div id="media-picker-overlay">
+  <div id="media-picker-box">
+    <div id="media-picker-head">
+      <h2>Media Library</h2>
+      <button class="modal-close" onclick="closeMediaPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div id="media-picker-toolbar">
+      <input id="media-search" type="search" placeholder="Search by filename…" oninput="filterMedia(this.value)">
+      <label class="tbtn tbtn-ghost" style="cursor:pointer">
+        <span class="material-icons-round mi">upload</span> Upload
+        <input type="file" id="media-upload-input" accept="image/*" style="display:none" onchange="handleMediaPickerUpload(this)">
+      </label>
+    </div>
+    <div id="media-body">
+      <div id="media-grid-wrap">
+        <div id="media-grid"></div>
+        <div id="media-empty">No media yet — upload an image to get started.</div>
+      </div>
+      <div id="media-detail">
+        <div id="media-detail-none">Select an item<br>to see details</div>
+        <img id="media-detail-img" src="" alt="">
+        <div id="media-detail-info"></div>
+        <button class="up-btn del" id="media-del-btn" style="display:none;margin-top:auto" onclick="deleteSelectedMedia()">
+          <span class="material-icons-round mi">delete</span> Delete
+        </button>
+      </div>
+    </div>
+    <div id="media-picker-foot">
+      <button class="tbtn tbtn-ghost" onclick="closeMediaPicker()">Cancel</button>
+      <button class="tbtn tbtn-primary" id="media-insert-btn" onclick="insertSelectedMedia()" disabled>
+        <span class="material-icons-round mi">check</span> Insert selected
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1110,6 +1170,104 @@ async function handleImageUpload(input,type){
     }
   }catch(e){toast('Upload failed','error');}
 }
+// ── Media Picker ──────────────────────────────────────────────────────────────
+let _mediaItems=[],_mediaFiltered=[],_mediaSelected=null,_mediaCallback=null,_mediaType=null;
+async function openMediaPicker(callbackOrType){
+  _mediaCallback=typeof callbackOrType==='function'?callbackOrType:null;
+  _mediaType=typeof callbackOrType==='string'?callbackOrType:null;
+  _mediaSelected=null;
+  document.getElementById('media-search').value='';
+  document.getElementById('media-detail-img').style.display='none';
+  document.getElementById('media-detail-none').style.display='block';
+  document.getElementById('media-detail-info').innerHTML='';
+  document.getElementById('media-del-btn').style.display='none';
+  document.getElementById('media-insert-btn').disabled=true;
+  document.getElementById('media-picker-overlay').classList.add('open');
+  await loadMediaLibrary();
+}
+function closeMediaPicker(){
+  document.getElementById('media-picker-overlay').classList.remove('open');
+  _mediaCallback=null;_mediaType=null;
+}
+async function loadMediaLibrary(){
+  if(!currentFormSlug)return;
+  try{
+    _mediaItems=await fetch(`/api/admin/forms/${currentFormSlug}/media`).then(r=>r.json());
+    filterMedia(document.getElementById('media-search').value);
+  }catch(e){_mediaItems=[];renderMediaGrid([]);}
+}
+function filterMedia(q){
+  const lq=(q||'').toLowerCase().trim();
+  _mediaFiltered=lq?_mediaItems.filter(i=>(i.name||'').toLowerCase().includes(lq)):[..._mediaItems];
+  renderMediaGrid(_mediaFiltered);
+}
+function renderMediaGrid(items){
+  const grid=document.getElementById('media-grid');const empty=document.getElementById('media-empty');
+  if(!items.length){grid.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  grid.innerHTML=items.map(item=>{
+    const sel=_mediaSelected&&_mediaSelected.id===item.id?' selected':'';
+    const nm=(item.name||item.url.split('/').pop()).replace(/</g,'&lt;');
+    return `<div class="media-item${sel}" data-id="${item.id}" onclick="selectMediaItem('${item.id}')"><img src="${item.url}" alt="${nm}" loading="lazy"><div class="mi-name">${nm}</div><span class="material-icons-round mi-check">check</span></div>`;
+  }).join('');
+}
+function selectMediaItem(id){
+  _mediaSelected=_mediaFiltered.find(i=>i.id===id)||null;
+  document.querySelectorAll('#media-grid .media-item').forEach(el=>el.classList.toggle('selected',el.dataset.id===id));
+  const dImg=document.getElementById('media-detail-img');const dNone=document.getElementById('media-detail-none');
+  const dInfo=document.getElementById('media-detail-info');const dDel=document.getElementById('media-del-btn');const ins=document.getElementById('media-insert-btn');
+  if(_mediaSelected){
+    dImg.src=_mediaSelected.url;dImg.style.display='block';dNone.style.display='none';
+    const sz=_mediaSelected.size?fmtBytes(_mediaSelected.size):'—';
+    const d=_mediaSelected.uploadedAt?new Date(_mediaSelected.uploadedAt).toLocaleDateString():'—';
+    dInfo.innerHTML=`<div class="md-row"><strong>File</strong>${(_mediaSelected.name||'').replace(/</g,'&lt;')}</div><div class="md-row"><strong>Type</strong>${_mediaSelected.mimeType||'image'}</div><div class="md-row"><strong>Size</strong>${sz}</div><div class="md-row"><strong>Uploaded</strong>${d}</div>`;
+    dDel.style.display='flex';ins.disabled=false;
+  }else{
+    dImg.style.display='none';dNone.style.display='block';dInfo.innerHTML='';dDel.style.display='none';ins.disabled=true;
+  }
+}
+function insertSelectedMedia(){
+  if(!_mediaSelected)return;
+  const url=_mediaSelected.url;
+  if(_mediaCallback)_mediaCallback(url);
+  else if(_mediaType)applyMediaSelection(_mediaType,url);
+  closeMediaPicker();
+}
+function applyMediaSelection(type,url){
+  if(type==='logo'){cfg.design.logoUrl=url;const e=document.getElementById('preview-logo');if(e){e.src=url;e.style.display='block';}}
+  else if(type==='bg'){cfg.design.backgroundImage=url;const e=document.getElementById('preview-bg');if(e){e.src=url;e.style.display='block';}}
+  else if(type==='hero-img'){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl=url;const e=document.getElementById('preview-hero-img');if(e){e.src=url;e.style.display='block';}}
+  schedulePreview();
+}
+async function deleteSelectedMedia(){
+  if(!_mediaSelected)return;
+  if(!confirm(`Delete "${(_mediaSelected.name||_mediaSelected.url.split('/').pop())}"?\nThis permanently removes the file.`))return;
+  try{
+    await fetch(`/api/admin/forms/${currentFormSlug}/media`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_mediaSelected.id})});
+    _mediaSelected=null;
+    document.getElementById('media-detail-img').style.display='none';
+    document.getElementById('media-detail-none').style.display='block';
+    document.getElementById('media-detail-info').innerHTML='';
+    document.getElementById('media-del-btn').style.display='none';
+    document.getElementById('media-insert-btn').disabled=true;
+    await loadMediaLibrary();toast('Deleted','success');
+  }catch(e){toast('Delete failed','error');}
+}
+async function handleMediaPickerUpload(input){
+  const file=input.files[0];if(!file)return;
+  if(!currentFormSlug){toast('No form selected','error');return;}
+  const fd=new FormData();fd.append('image',file);
+  try{
+    const j=await fetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd}).then(r=>r.json());
+    if(j.url){input.value='';await loadMediaLibrary();const newest=_mediaItems[0];if(newest)selectMediaItem(newest.id);toast('Uploaded','success');}
+  }catch(e){toast('Upload failed','error');}
+}
+// Helper: apply picker-selected URL to the container item image editor
+function _pickItemImg(url){
+  const it=document.getElementById('ie-img-url');if(it)it.value=url;
+  const pr=document.getElementById('ie-img-preview');if(pr){pr.src=url;pr.style.display='block';}
+}
+
 function clearLogo(){cfg.design.logoUrl='';const e=document.getElementById('preview-logo');if(e)e.style.display='none';schedulePreview();}
 function clearBg(){cfg.design.backgroundImage='';const e=document.getElementById('preview-bg');if(e)e.style.display='none';schedulePreview();}
 function clearHeroImage(){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl='';const e=document.getElementById('preview-hero-img');if(e){e.style.display='none';e.src='';}schedulePreview();}
@@ -1277,8 +1435,7 @@ function heroBkBody(s){
     <div class="cg"><label class="cl">Subheading</label><textarea id="c-subheading" rows="2" oninput="updateSection('hero','subheading',this.value)">${subheadingVal}</textarea></div>
     <div class="cg">
       <label class="cl">Hero image</label>
-      <button class="up-btn" onclick="triggerUpload('hero-img')"><span class="material-icons-round mi">upload</span> Upload image</button>
-      <input type="file" id="upload-hero-img" accept="image/*" style="display:none" onchange="handleImageUpload(this,'hero-img')">
+      <button class="up-btn" onclick="openMediaPicker('hero-img')"><span class="material-icons-round mi">photo_library</span> Choose from library</button>
       <img id="preview-hero-img" class="img-prev"${s.imageUrl?' src="'+s.imageUrl+'" style="display:block"':''}>
     </div>
     <div class="cg"><label class="cl">Image position</label>
@@ -1739,8 +1896,7 @@ function openItemEdit(blockId,idx){
     title.textContent='Edit image';
     body.innerHTML=`
       <div class="cg"><label class="cl">Image</label>
-        <button class="up-btn" onclick="document.getElementById('ie-img-file').click()"><span class="material-icons-round mi">upload</span> Upload image</button>
-        <input type="file" id="ie-img-file" accept="image/*" style="display:none" onchange="handleItemImageUpload(this)">
+        <button class="up-btn" onclick="openMediaPicker(_pickItemImg)"><span class="material-icons-round mi">photo_library</span> Choose from library</button>
         ${item.url?`<img src="${item.url}" id="ie-img-preview" style="max-width:100%;border-radius:6px;margin-top:8px;max-height:100px;object-fit:contain;display:block">`:'<span id="ie-img-preview"></span>'}
       </div>
       <div class="cg"><label class="cl">Image URL</label><input type="url" id="ie-img-url" value="${item.url||''}" placeholder="https://..."></div>
@@ -1875,7 +2031,7 @@ async function handleItemImageUpload(inp){
   if(!inp.files||!inp.files[0])return;
   const fd=new FormData();fd.append('image',inp.files[0]);
   try{
-    const r=await fetch('/api/admin/upload-image',{method:'POST',body:fd});
+    const r=await fetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd});
     const j=await r.json();
     if(j.url){
       const urlInp=document.getElementById('ie-img-url');if(urlInp)urlInp.value=j.url;
