@@ -105,9 +105,10 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .bl-tab.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-sm);}
 .bl-tab:hover:not(.active){color:var(--ink);}
 #bl-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:flex;flex-direction:column;}
+#response-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:none;flex-direction:column;}
 #fields-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:none;flex-direction:column;gap:5px;}
-#bl-scroll::-webkit-scrollbar,#fields-scroll::-webkit-scrollbar{width:3px;}
-#bl-scroll::-webkit-scrollbar-thumb,#fields-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#bl-scroll::-webkit-scrollbar,#response-scroll::-webkit-scrollbar,#fields-scroll::-webkit-scrollbar{width:3px;}
+#bl-scroll::-webkit-scrollbar-thumb,#response-scroll::-webkit-scrollbar-thumb,#fields-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 #bl-preview{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;}
 .prev-toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:5px;flex-shrink:0;}
 .psz{background:none;border:1.5px solid var(--border);border-radius:6px;color:var(--ink3);padding:5px 11px;cursor:pointer;font-size:0.78rem;font-family:var(--font);font-weight:500;display:flex;align-items:center;gap:4px;transition:all 120ms;}
@@ -292,11 +293,6 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .slug-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-family:monospace;font-size:0.73rem;color:var(--ink2);}
 .size-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-size:0.73rem;color:var(--ink3);display:inline-flex;align-items:center;gap:2px;}
 .form-card-acts{display:flex;gap:6px;flex-shrink:0;}
-/* Confirmation section separator */
-.confirm-sep{display:flex;align-items:center;gap:8px;padding:10px 2px;margin:6px 0 2px;}
-.confirm-sep-line{flex:1;height:1px;background:var(--border);}
-.confirm-sep-label{font-size:0.68rem;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:0.1em;white-space:nowrap;display:flex;align-items:center;gap:4px;}
-.confirm-sep-label .mi{font-size:13px!important;}
 </style>
 </head>
 <body>
@@ -359,12 +355,14 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   <div id="bl-panel">
     <div id="bl-panel-head">
       <div class="bl-tabs">
-        <button id="tab-layout-btn" class="bl-tab active" onclick="switchPanelTab('layout')">Layout</button>
+        <button id="tab-form-btn" class="bl-tab active" onclick="switchPanelTab('form')">Form</button>
+        <button id="tab-response-btn" class="bl-tab" onclick="switchPanelTab('response')">Response</button>
         <button id="tab-fields-btn" class="bl-tab" onclick="switchPanelTab('fields')">Fields</button>
       </div>
       <button id="bl-add-btn" class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem;flex-shrink:0" onclick="panelAddAction()"><span class="material-icons-round mi">add</span> <span id="bl-add-label">Add container</span></button>
     </div>
     <div id="bl-scroll"><!-- populated by renderBuildPanel() --></div>
+    <div id="response-scroll"><!-- populated by renderResponsePanel() --></div>
     <div id="fields-scroll">
       <div class="field-list" id="field-list-panel"></div>
     </div>
@@ -874,7 +872,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 <script>
 let cfg=null,previewTimer=null,editingFieldId=null,subPage=1,subSearch='',searchTimer=null,currentTab='forms';
 let currentFormSlug=null,formsIndex=[];
-let _addingToConfirmation=false,_bkDragArray='sections';
+let _bkDragArray='sections';
 const HEADING_FONTS=['Playfair Display','Merriweather','Lora','Cormorant Garamond','Libre Baskerville','Raleway','Montserrat','Oswald','Bebas Neue','DM Serif Display','Noto Serif','Noto Display','Roc Grotesk'];
 const BODY_FONTS=['Lato','Open Sans','Nunito','Source Sans 3','Roboto','PT Sans','Mulish','Karla','Fira Sans','IBM Plex Sans','Noto Sans','Jost','Roc Grotesk'];
 // Fonts not on Google Fonts — skip from GF URL, require custom font upload
@@ -957,6 +955,7 @@ async function openFormEditor(slug){
   const dpf=document.getElementById('design-preview-frame');if(dpf)dpf.src='/'+slug;
   const epf=document.getElementById('embed-preview-frame');if(epf)epf.src='/'+slug+'/embed';
   // Populate panels and switch to Build
+  switchPanelTab('form');
   populateControls();buildFontPickers();buildPalettes();refreshPreview();
   switchTab('build');
 }
@@ -1167,25 +1166,19 @@ function renderBuildPanel(){
   });
   const footer=cfg.sections.find(s=>s.id==='footer');
   if(footer)scroll.appendChild(makeBkCard(footer));
+}
 
-  // Confirmation section
-  const sep=document.createElement('div');sep.className='confirm-sep';
-  sep.innerHTML='<div class="confirm-sep-line"></div><span class="confirm-sep-label"><span class="material-icons-round mi">check_circle</span>Confirmation screen</span><div class="confirm-sep-line"></div>';
-  scroll.appendChild(sep);
+function renderResponsePanel(){
+  const scroll=document.getElementById('response-scroll');scroll.innerHTML='';
   const info=document.createElement('p');
-  info.style.cssText='font-size:0.75rem;color:var(--ink3);text-align:center;margin-bottom:6px;line-height:1.5;padding:0 4px';
-  info.textContent='Shown after successful submission. Add any blocks (not fields).';
+  info.style.cssText='font-size:0.75rem;color:var(--ink3);margin-bottom:8px;line-height:1.5;padding:0 2px';
+  info.textContent='Shown after successful submission. Build with containers and blocks.';
   scroll.appendChild(info);
   (cfg.confirmation||[]).forEach(s=>{
     const card=makeBkCard(s,true);
     setupBkDrag(card,s.id,'confirmation');
     scroll.appendChild(card);
   });
-  const addConfBtn=document.createElement('button');
-  addConfBtn.className='add-field-btn';
-  addConfBtn.innerHTML='<span class="material-icons-round mi">add</span> Add confirmation block';
-  addConfBtn.onclick=()=>{_addingToConfirmation=true;openBlockPicker();};
-  scroll.appendChild(addConfBtn);
 }
 
 function makeBkCard(s,isConfirmation){
@@ -1351,9 +1344,11 @@ function toggleBkVis(blockId){
 
 function deleteBk(blockId){
   if(!confirm('Remove this block?'))return;
+  const inConfirmation=cfg.confirmation&&cfg.confirmation.some(s=>s.id===blockId);
   cfg.sections=cfg.sections.filter(s=>s.id!==blockId);
   if(cfg.confirmation)cfg.confirmation=cfg.confirmation.filter(s=>s.id!==blockId);
-  renderBuildPanel();renderFieldList();schedulePreview();
+  if(inConfirmation)renderResponsePanel();else renderBuildPanel();
+  renderFieldList();schedulePreview();
 }
 
 // Block drag-reorder (middle blocks only)
@@ -1367,11 +1362,13 @@ function setupBkDrag(card,blockId,arrayName){
   card.addEventListener('drop',e=>{
     e.preventDefault();card.classList.remove('drag-over');
     if(!_bkDragId||_bkDragId===blockId||_bkDragArray!==(arrayName||'sections'))return;
-    const arr=(_bkDragArray==='confirmation')?cfg.confirmation:cfg.sections;
+    const isConf=_bkDragArray==='confirmation';
+    const arr=isConf?cfg.confirmation:cfg.sections;
     const di=arr.findIndex(s=>s.id===_bkDragId),ti=arr.findIndex(s=>s.id===blockId);
     if(di===-1||ti===-1)return;
     const[item]=arr.splice(di,1);arr.splice(ti,0,item);
-    renderBuildPanel();renderFieldList();schedulePreview();
+    if(isConf)renderResponsePanel();else renderBuildPanel();
+    renderFieldList();schedulePreview();
   });
 }
 
@@ -1391,47 +1388,64 @@ function addReward(blockId){
 function removeReward(blockId,idx){const found=_blockArray(blockId);if(found&&found.block.rewards){found.block.rewards.splice(idx,1);updateBkBody(blockId);schedulePreview();}}
 
 // ── Panel tabs ──
-let _panelTab='layout';
+let _panelTab='form';
 function switchPanelTab(tab){
   _panelTab=tab;
-  const layoutScroll=document.getElementById('bl-scroll');
+  const formScroll=document.getElementById('bl-scroll');
+  const responseScroll=document.getElementById('response-scroll');
   const fieldsScroll=document.getElementById('fields-scroll');
   const addLabel=document.getElementById('bl-add-label');
-  const tabLayoutBtn=document.getElementById('tab-layout-btn');
+  const tabFormBtn=document.getElementById('tab-form-btn');
+  const tabResponseBtn=document.getElementById('tab-response-btn');
   const tabFieldsBtn=document.getElementById('tab-fields-btn');
-  if(tab==='layout'){
-    layoutScroll.style.display='flex';
-    fieldsScroll.style.display='none';
+  // hide all scrolls, deactivate all tabs
+  formScroll.style.display='none';
+  responseScroll.style.display='none';
+  fieldsScroll.style.display='none';
+  tabFormBtn.classList.remove('active');
+  tabResponseBtn.classList.remove('active');
+  tabFieldsBtn.classList.remove('active');
+  if(tab==='form'){
+    formScroll.style.display='flex';
     addLabel.textContent='Add container';
-    tabLayoutBtn.classList.add('active');tabFieldsBtn.classList.remove('active');
+    tabFormBtn.classList.add('active');
+  }else if(tab==='response'){
+    responseScroll.style.display='flex';
+    addLabel.textContent='Add block';
+    tabResponseBtn.classList.add('active');
+    renderResponsePanel();
   }else{
-    layoutScroll.style.display='none';
     fieldsScroll.style.display='flex';
     addLabel.textContent='Add field';
-    tabLayoutBtn.classList.remove('active');tabFieldsBtn.classList.add('active');
+    tabFieldsBtn.classList.add('active');
     renderFieldList();
   }
 }
-function panelAddAction(){if(_panelTab==='layout')addContainer();else openFieldModal();}
+function panelAddAction(){
+  if(_panelTab==='form')addContainer();
+  else if(_panelTab==='response')openBlockPicker();
+  else openFieldModal();
+}
 
 function addContainer(){
   const id='container-'+Date.now();
   const section={id,type:'container',visible:true,columns:1,items:[],style:{}};
-  if(_addingToConfirmation){
-    _addingToConfirmation=false;
+  if(_panelTab==='response'){
     if(!cfg.confirmation)cfg.confirmation=[];
     cfg.confirmation.push(section);
+    renderResponsePanel();
   } else {
     const footerIdx=cfg.sections.findIndex(s=>s.id==='footer');
     if(footerIdx>=0)cfg.sections.splice(footerIdx,0,section);
     else cfg.sections.push(section);
+    renderBuildPanel();
   }
-  renderBuildPanel();renderFieldList();schedulePreview();
+  renderFieldList();schedulePreview();
   setTimeout(()=>{const card=document.getElementById('bk-'+id);if(card){card.scrollIntoView({behavior:'smooth',block:'nearest'});}},80);
   toast('Container added','success');
 }
 function openBlockPicker(){document.getElementById('block-modal').classList.add('open');}
-function closeBlockPicker(){document.getElementById('block-modal').classList.remove('open');_addingToConfirmation=false;}
+function closeBlockPicker(){document.getElementById('block-modal').classList.remove('open');}
 function addBlock(type){
   closeBlockPicker();
   const id=type+'-'+Date.now();
@@ -1442,16 +1456,17 @@ function addBlock(type){
     content:{id,type:'content',visible:true,columns:1,elements:[],colors:{}},
     container:{id,type:'container',visible:true,columns:1,items:[],style:{}},
   };
-  if(_addingToConfirmation){
-    _addingToConfirmation=false;
+  if(_panelTab==='response'){
     if(!cfg.confirmation)cfg.confirmation=[];
     cfg.confirmation.push(defaults[type]);
+    renderResponsePanel();
   } else {
     const footerIdx=cfg.sections.findIndex(s=>s.id==='footer');
     if(footerIdx>=0)cfg.sections.splice(footerIdx,0,defaults[type]);
     else cfg.sections.push(defaults[type]);
+    renderBuildPanel();
   }
-  renderBuildPanel();renderFieldList();schedulePreview();toast(type+' block added','success');
+  renderFieldList();schedulePreview();toast(type+' block added','success');
 }
 
 // Element functions (for content blocks)
