@@ -1469,6 +1469,7 @@ ${customFontFaceCSS(cfg)}
   ul { padding-left:20px; }
 </style></head><body>
 <div class="wrap">
+  ${s.privacyContent ? s.privacyContent : `
   <h1>Privacy Policy</h1>
   <p><strong>Last updated:</strong> ${new Date().toLocaleDateString('en-GB', {year:'numeric',month:'long',day:'numeric'})}</p>
   <h2>1. Who we are</h2>
@@ -1495,7 +1496,7 @@ ${customFontFaceCSS(cfg)}
   <p>We use a single cookie/localStorage item to remember that you have accepted this cookie notice. No tracking or advertising cookies are used.</p>
   <h2>8. Contact</h2>
   <p>For any data-related requests, please contact the site administrator.</p>
-  <p style="margin-top:32px"><a href="/">← Back</a></p>
+  <p style="margin-top:32px"><a href="/">← Back</a></p>`}
 </div></body></html>`;
 }
 

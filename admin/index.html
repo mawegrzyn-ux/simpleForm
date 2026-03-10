@@ -264,6 +264,18 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .dragging{opacity:.35;}
 .drag-over{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:var(--r);}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+/* Wysiwyg inline preview (clickable) */
+.wysi-preview{border:1.5px solid var(--border);border-radius:var(--r);padding:8px 10px;min-height:36px;cursor:pointer;font-size:0.83rem;background:var(--panel);line-height:1.5;transition:border-color 120ms;}
+.wysi-preview:hover{border-color:var(--accent);}
+/* Brand colour swatches */
+.brand-swatch-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;}
+.bc-swatch{width:22px;height:22px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:transform 120ms,border-color 120ms;flex-shrink:0;}
+.bc-swatch:hover{transform:scale(1.15);border-color:var(--ink3);}
+.bc-def-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.bc-item{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:4px 6px;}
+.bc-item input[type=color]{width:24px;height:24px;padding:1px;border-radius:3px;}
+.bc-item input[type=text]{flex:1;min-width:0;font-size:0.78rem;padding:3px 6px;}
+.bc-item .ibtn{flex-shrink:0;}
 /* Alignment + tag selector button groups */
 .align-group{display:flex;gap:2px;}
 .align-btn{background:var(--bg);border:1.5px solid var(--border);cursor:pointer;padding:5px 9px;color:var(--ink3);font-family:var(--font);font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:3px;transition:all 120ms;line-height:1;}
@@ -403,9 +415,16 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
     </div>
     <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">palette</span> Colours</div>
-      <div class="cg"><label class="cl">Palettes</label><div class="palette-grid" id="palette-grid"></div></div>
+      <div class="card-title"><span class="material-icons-round mi">palette</span> Brand Colours</div>
+      <p class="card-desc" style="margin-bottom:10px">Define your brand palette. These swatches appear in all colour pickers across the editor.</p>
+      <div class="bc-def-row" id="brand-color-list"></div>
+      <button class="add-field-btn" onclick="addBrandColor()" style="margin-top:4px"><span class="material-icons-round mi">add</span> Add colour</button>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">color_lens</span> Theme Colours</div>
+      <div class="cg"><label class="cl">Quick palettes</label><div class="palette-grid" id="palette-grid"></div></div>
       <div class="cg"><label class="cl">Custom colours</label>
+        <div class="brand-swatch-row" id="bs-main"></div>
         <div class="color-grid">
           <div><div class="color-lbl">Primary</div><div class="cr"><input type="color" id="c-primary" oninput="cfg.design.primaryColor=this.value;syncHex('primary',this.value);schedulePreview()"><input type="text" id="c-primary-hex" style="flex:1" oninput="syncColor('primary',this.value)"></div></div>
           <div><div class="color-lbl">Accent</div><div class="cr"><input type="color" id="c-accent" oninput="cfg.design.accentColor=this.value;syncHex('accent',this.value);schedulePreview()"><input type="text" id="c-accent-hex" style="flex:1" oninput="syncColor('accent',this.value)"></div></div>
@@ -443,11 +462,12 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     </div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">input</span> Field Style</div>
-      <div class="cg"><label class="cl">Background</label>
-        <div class="cr"><input type="color" id="c-field-bg" value="#fafafa" oninput="cfg.design.fieldBg=this.value;syncHex('field-bg',this.value);schedulePreview()"><input type="text" id="c-field-bg-hex" style="flex:1" placeholder="#fafafa" oninput="syncFieldStyleHex('fieldBg','field-bg',this.value)"></div>
-      </div>
-      <div class="cg"><label class="cl">Border colour</label>
-        <div class="cr"><input type="color" id="c-field-border" value="#e0e0e0" oninput="cfg.design.fieldBorderColor=this.value;syncHex('field-border',this.value);schedulePreview()"><input type="text" id="c-field-border-hex" style="flex:1" placeholder="#e0e0e0" oninput="syncFieldStyleHex('fieldBorderColor','field-border',this.value)"></div>
+      <div class="brand-swatch-row" id="bs-fields"></div>
+      <div class="color-grid" style="margin-bottom:10px">
+        <div><div class="color-lbl">Input background</div><div class="cr"><input type="color" id="c-field-bg" value="#fafafa" oninput="cfg.design.fieldBg=this.value;syncHex('field-bg',this.value);schedulePreview()"><input type="text" id="c-field-bg-hex" style="flex:1" placeholder="#fafafa" oninput="syncFieldStyleHex('fieldBg','field-bg',this.value)"></div></div>
+        <div><div class="color-lbl">Input text</div><div class="cr"><input type="color" id="c-field-text" value="#1a1a1a" oninput="cfg.design.fieldTextColor=this.value;syncHex('field-text',this.value);schedulePreview()"><input type="text" id="c-field-text-hex" style="flex:1" placeholder="#1a1a1a" oninput="syncFieldStyleHex('fieldTextColor','field-text',this.value)"></div></div>
+        <div><div class="color-lbl">Label colour</div><div class="cr"><input type="color" id="c-field-label" value="#666666" oninput="cfg.design.fieldLabelColor=this.value;syncHex('field-label',this.value);schedulePreview()"><input type="text" id="c-field-label-hex" style="flex:1" placeholder="#666666" oninput="syncFieldStyleHex('fieldLabelColor','field-label',this.value)"></div></div>
+        <div><div class="color-lbl">Border colour</div><div class="cr"><input type="color" id="c-field-border" value="#e0e0e0" oninput="cfg.design.fieldBorderColor=this.value;syncHex('field-border',this.value);schedulePreview()"><input type="text" id="c-field-border-hex" style="flex:1" placeholder="#e0e0e0" oninput="syncFieldStyleHex('fieldBorderColor','field-border',this.value)"></div></div>
       </div>
       <div class="cg"><label class="cl">Border style</label>
         <select id="c-field-border-style" onchange="cfg.design.fieldBorderStyle=this.value;schedulePreview()">
@@ -519,10 +539,9 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="cg"><label class="cl">Site title (browser tab)</label><input type="text" id="c-sitetitle" oninput="cfg.site.title=this.value;schedulePreview()"></div>
     </div>
     <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">send</span> Form Details</div>
-      <div class="cg"><label class="cl">Button label</label><input type="text" id="c-btntext" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
-      <div class="cg"><label class="cl">Success message</label><textarea id="c-success" rows="2" oninput="updateSection('form','submitSuccessMessage',this.value)"></textarea></div>
-      <div class="cg"><label class="cl">Error message</label><input type="text" id="c-error" oninput="updateSection('form','submitErrorMessage',this.value)"></div>
+      <div class="card-title"><span class="material-icons-round mi">privacy_tip</span> Privacy Page</div>
+      <p class="card-desc">Content shown at <code>/privacy</code>. Edit below to replace the default policy template.</p>
+      <div class="wysi-preview" id="privacy-preview" onclick="openPrivacyWysiwyg()" style="min-height:60px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit privacy page content…</span></div>
     </div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">smart_toy</span> hCaptcha</div>
@@ -734,6 +753,25 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div class="cg" style="display:flex;align-items:center;gap:10px;margin-top:8px">
       <label class="tgl"><input type="checkbox" id="modal-required"><span class="tgl-s"></span></label>
       <label for="modal-required" class="tgl-lbl">Required field</label>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Appearance <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.72rem">(overrides global Design settings)</span></div>
+      <div id="brand-swatches-field" class="brand-swatch-row"></div>
+      <div class="color-grid" style="margin-bottom:8px">
+        <div><div class="color-lbl">Label colour</div><div class="cr"><input type="color" id="modal-style-label-color" value="#666666" oninput="syncModalStyleHex('label-color',this.value)"><input type="text" id="modal-style-label-color-hex" style="flex:1" placeholder="inherit" oninput="syncModalStyleColor('label-color',this.value)"></div></div>
+        <div><div class="color-lbl">Text colour</div><div class="cr"><input type="color" id="modal-style-text-color" value="#1a1a1a" oninput="syncModalStyleHex('text-color',this.value)"><input type="text" id="modal-style-text-color-hex" style="flex:1" placeholder="inherit" oninput="syncModalStyleColor('text-color',this.value)"></div></div>
+        <div><div class="color-lbl">Background</div><div class="cr"><input type="color" id="modal-style-bg" value="#ffffff" oninput="syncModalStyleHex('bg',this.value)"><input type="text" id="modal-style-bg-hex" style="flex:1" placeholder="inherit" oninput="syncModalStyleColor('bg',this.value)"></div></div>
+      </div>
+      <div class="cr" style="gap:8px">
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Font size (px)</label><input type="number" id="modal-style-font-size" placeholder="inherit" min="8" max="48"></div>
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Font family</label>
+          <select id="modal-style-font">
+            <option value="">Inherit</option>
+            <option>Lato</option><option>Open Sans</option><option>Nunito</option><option>Roboto</option>
+            <option>Playfair Display</option><option>Merriweather</option><option>Lora</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div class="modal-section" id="modal-conditions-section">
       <div class="modal-section-title">Conditional visibility</div>
@@ -975,9 +1013,8 @@ function populateControls(){
   renderBuildPanel();
   const hero=cfg.sections.find(s=>s.id==='hero'),form=cfg.sections.find(s=>s.id==='form'),footer=cfg.sections.find(s=>s.id==='footer');
   if(hero){sv('c-heading',hero.heading);sv('c-subheading',hero.subheading);sv('c-imgpos',hero.imagePosition);if(hero.imageUrl){const e=document.getElementById('preview-hero-img');if(e){e.src=hero.imageUrl;e.style.display='block';}}}
-  if(form){sv('c-success',form.submitSuccessMessage);sv('c-error',form.submitErrorMessage);}
   if(footer)sv('c-footer',footer.text);
-  sv('c-btntext',cfg.design.buttonText);sv('c-logowidth',cfg.design.logoWidth);
+  sv('c-logowidth',cfg.design.logoWidth);
   if(cfg.design.logoUrl){const e=document.getElementById('preview-logo');if(e){e.src=cfg.design.logoUrl;e.style.display='block';}}
   sv('c-cookie',cfg.site.cookieBannerText);sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);
   sv('c-gdpr-text',cfg.site.gdprText||'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.');
@@ -998,6 +1035,12 @@ function populateControls(){
   const fbg=cfg.design.fieldBg||'#fafafa';
   const fbc=document.getElementById('c-field-bg');if(fbc)fbc.value=fbg;
   const fbch=document.getElementById('c-field-bg-hex');if(fbch)fbch.value=fbg;
+  const ftc=cfg.design.fieldTextColor||'#1a1a1a';
+  const ftcc=document.getElementById('c-field-text');if(ftcc)ftcc.value=ftc;
+  const ftch=document.getElementById('c-field-text-hex');if(ftch)ftch.value=ftc;
+  const flc=cfg.design.fieldLabelColor||'#666666';
+  const flcc=document.getElementById('c-field-label');if(flcc)flcc.value=flc;
+  const flch=document.getElementById('c-field-label-hex');if(flch)flch.value=flc;
   const fbo=cfg.design.fieldBorderColor||'#e0e0e0';
   const fboc=document.getElementById('c-field-border');if(fboc)fboc.value=fbo;
   const fboh=document.getElementById('c-field-border-hex');if(fboh)fboh.value=fbo;
@@ -1005,6 +1048,11 @@ function populateControls(){
   const fbw=cfg.design.fieldBorderWidth??2;
   const fbwr=document.getElementById('c-field-border-w-range');if(fbwr)fbwr.value=fbw;
   const fbwp=document.getElementById('c-field-border-w-px');if(fbwp)fbwp.value=fbw;
+  // Privacy content
+  const pp=document.getElementById('privacy-preview');
+  if(pp&&cfg.site.privacyContent)pp.innerHTML=cfg.site.privacyContent;
+  // Brand colours
+  renderBrandColorList();
   const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
   sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
   toggleCaptchaFields();
@@ -1246,10 +1294,20 @@ function heroBkBody(s){
 }
 
 function formBkBody(){
+  const form=cfg.sections.find(s=>s.id==='form')||{};
+  const btnText=(cfg.design.buttonText||'Subscribe').replace(/"/g,'&quot;');
+  const errHtml=form.submitErrorMessage||'';
   return `
-    <p style="font-size:0.78rem;color:var(--ink3);margin-bottom:8px;line-height:1.5">Email is always required. Drag to reorder. Use conditions to show/hide fields dynamically.</p>
+    <div class="cg"><label class="cl">Button label</label>
+      <input type="text" value="${btnText}" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
+    <div class="cg"><label class="cl">Error message</label>
+      <div class="wysi-preview" onclick="openFormErrorWysiwyg()">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
+    </div>
+    <div class="modal-section" style="margin-top:12px"><div class="modal-section-title">Fields</div>
+    <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:7px;line-height:1.5">Email always required. Drag to reorder. Use conditions for dynamic visibility.</p>
     <div class="field-list" id="field-list"></div>
-    <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>`;
+    <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>
+    </div>`;
 }
 
 function footerBkBody(s){
@@ -1782,20 +1840,102 @@ function saveTextEdit(){
 }
 
 // WYSIWYG visual editor modal
-function openWysiwygModal(html){
+let _wysiwygSaveFn=null;
+function openWysiwygModal(html,title,saveFn){
+  _wysiwygSaveFn=saveFn||null;
+  document.getElementById('wysiwyg-modal-title').textContent=title||'Edit rich text';
   document.getElementById('wysiwyg-area').innerHTML=html||'';
   document.getElementById('wysiwyg-modal').classList.add('open');
   setTimeout(()=>document.getElementById('wysiwyg-area').focus(),100);
 }
-function closeWysiwygModal(){document.getElementById('wysiwyg-modal').classList.remove('open');_editCntBlock=null;_editCntIdx=null;}
+function closeWysiwygModal(){document.getElementById('wysiwyg-modal').classList.remove('open');_editCntBlock=null;_editCntIdx=null;_wysiwygSaveFn=null;}
 function saveWysiwyg(){
+  const html=document.getElementById('wysiwyg-area').innerHTML;
+  if(_wysiwygSaveFn){_wysiwygSaveFn(html);closeWysiwygModal();return;}
   const found=_blockArray(_editCntBlock);
-  if(found&&found.block.items&&_editCntIdx!==null){found.block.items[_editCntIdx].html=document.getElementById('wysiwyg-area').innerHTML;updateCntBody(_editCntBlock);schedulePreview();}
+  if(found&&found.block.items&&_editCntIdx!==null){found.block.items[_editCntIdx].html=html;updateCntBody(_editCntBlock);schedulePreview();}
   closeWysiwygModal();
+}
+function openFormErrorWysiwyg(){
+  const form=cfg.sections.find(s=>s.id==='form');
+  openWysiwygModal(form?.submitErrorMessage||'','Error message',html=>{
+    if(form){form.submitErrorMessage=html;updateBkBody('form');schedulePreview();}
+  });
+}
+function openPrivacyWysiwyg(){
+  openWysiwygModal(cfg.site.privacyContent||'','Privacy page content',html=>{
+    cfg.site.privacyContent=html;
+    const pp=document.getElementById('privacy-preview');
+    if(pp)pp.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit privacy page content…</span>';
+  });
 }
 function wysiFmt(cmd,val){document.getElementById('wysiwyg-area').focus();document.execCommand(cmd,false,val||null);}
 function wysiLink(){const url=prompt('Enter URL:');if(url)wysiFmt('createLink',url);}
 function wysiLivePreview(){}
+
+// ── Brand colours ──
+function getBrandColors(){return cfg&&cfg.design&&Array.isArray(cfg.design.brandColors)?cfg.design.brandColors:[];}
+
+function renderBrandColorList(){
+  if(!cfg)return;
+  if(!cfg.design.brandColors)cfg.design.brandColors=[];
+  const list=document.getElementById('brand-color-list');if(!list)return;
+  list.innerHTML='';
+  cfg.design.brandColors.forEach((c,i)=>{
+    const item=document.createElement('div');item.className='bc-item';
+    item.innerHTML=`<input type="color" value="${c||'#cccccc'}" oninput="cfg.design.brandColors[${i}]=this.value;refreshBrandSwatches();schedulePreview()">
+      <input type="text" value="${c||''}" placeholder="#rrggbb" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){cfg.design.brandColors[${i}]=this.value;document.querySelector('.bc-item:nth-child(${i+1}) input[type=color]').value=this.value;refreshBrandSwatches();schedulePreview();}">
+      <button class="ibtn danger" onclick="removeBrandColor(${i})"><span class="material-icons-round mi">close</span></button>`;
+    list.appendChild(item);
+  });
+  refreshBrandSwatches();
+}
+function addBrandColor(){
+  if(!cfg.design.brandColors)cfg.design.brandColors=[];
+  if(cfg.design.brandColors.length>=8){toast('Max 8 brand colours','error');return;}
+  cfg.design.brandColors.push('#cccccc');
+  renderBrandColorList();
+}
+function removeBrandColor(i){
+  cfg.design.brandColors.splice(i,1);
+  renderBrandColorList();schedulePreview();
+}
+let _lastColorInputId=null;
+function trackColorFocus(inputId){_lastColorInputId=inputId;}
+// Auto-track focus on any color input that has an id
+document.addEventListener('focus',e=>{
+  if(e.target&&e.target.type==='color'&&e.target.id)_lastColorInputId=e.target.id;
+  // Also track hex text inputs adjacent to color inputs
+  if(e.target&&e.target.type!=='color'&&e.target.id&&e.target.id.endsWith('-hex')){
+    _lastColorInputId=e.target.id.replace(/-hex$/,'');
+  }
+},true);
+
+function refreshBrandSwatches(){
+  const colors=getBrandColors();
+  document.querySelectorAll('.brand-swatch-row').forEach(row=>{
+    if(!row.id)return;
+    row.innerHTML=colors.length
+      ?colors.map(c=>`<div class="bc-swatch" style="background:${c}" title="${c}" onclick="applyBrandSwatch('${c}')"></div>`).join('')
+      :'<span style="font-size:0.72rem;color:var(--ink3)">No brand colours defined yet</span>';
+  });
+}
+function applyBrandSwatch(color){
+  // Apply to last focused colour input pair (color + hex)
+  if(_lastColorInputId){
+    const cEl=document.getElementById(_lastColorInputId);
+    const hEl=document.getElementById(_lastColorInputId+'-hex');
+    if(cEl){cEl.value=color;cEl.dispatchEvent(new Event('input',{bubbles:true}));}
+    if(hEl){hEl.value=color;hEl.dispatchEvent(new Event('input',{bubbles:true}));}
+    return;
+  }
+  // Fallback: copy to clipboard
+  try{navigator.clipboard.writeText(color);toast('Copied '+color,'success');}catch(e){toast(color,'');}
+}
+
+// Field modal style sync helpers
+function syncModalStyleHex(key,val){const el=document.getElementById('modal-style-'+key+'-hex');if(el)el.value=val;}
+function syncModalStyleColor(key,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||val===''){const el=document.getElementById('modal-style-'+key);if(el)el.value=val||'#000000';}}
 
 // ── Fields ──
 function renderFieldList(){
@@ -1853,8 +1993,17 @@ function openFieldModal(fieldId){
       document.getElementById('modal-slider-showval').checked=f.showValue!==false;
     }
     renderConditions(f.conditions||[]);
+    const st=f.style||{};
+    sv('modal-style-label-color',st.labelColor||'#666666');sv('modal-style-label-color-hex',st.labelColor||'');
+    sv('modal-style-text-color',st.textColor||'#1a1a1a');sv('modal-style-text-color-hex',st.textColor||'');
+    sv('modal-style-bg',st.bg||'#ffffff');sv('modal-style-bg-hex',st.bg||'');
+    sv('modal-style-font-size',st.fontSize||'');sv('modal-style-font',st.fontFamily||'');
   }else{
     ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon','modal-slider-min-label','modal-slider-max-label'].forEach(id=>sv(id,''));
+    sv('modal-style-label-color','#666666');sv('modal-style-label-color-hex','');
+    sv('modal-style-text-color','#1a1a1a');sv('modal-style-text-color-hex','');
+    sv('modal-style-bg','#ffffff');sv('modal-style-bg-hex','');
+    sv('modal-style-font-size','');sv('modal-style-font','');
     sv('modal-type','text');sv('modal-date-mode','free');sv('modal-slider-min','0');sv('modal-slider-max','100');sv('modal-slider-step','1');sv('modal-slider-default','50');sv('modal-slider-track','linear');sv('modal-slider-mode','smooth');sv('modal-slider-icon','●');sv('modal-slider-knob-size','32');sv('modal-slider-track-size','6');sv('modal-slider-val-size','14');
     document.getElementById('modal-required').checked=false;
     document.getElementById('modal-id').disabled=false;document.getElementById('modal-type').disabled=false;
@@ -1862,6 +2011,9 @@ function openFieldModal(fieldId){
     renderConditions([]);
   }
   onModalTypeChange();
+  // Populate brand swatches in appearance section
+  const bsf=document.getElementById('brand-swatches-field');
+  if(bsf){const colors=getBrandColors();bsf.innerHTML=colors.length?colors.map(c=>`<div class="bc-swatch" style="background:${c}" title="${c}" onclick="applyBrandSwatch('${c}')"></div>`).join(''):'';}
   document.getElementById('field-modal').classList.add('open');
 }
 function closeFieldModal(){document.getElementById('field-modal').classList.remove('open');}
@@ -1914,6 +2066,13 @@ function saveField(){
     field.valueSize=parseInt(document.getElementById('modal-slider-val-size').value)||14;
   }
   field.conditions=collectConditions();
+  const st={};
+  const lch=document.getElementById('modal-style-label-color-hex').value.trim();if(lch)st.labelColor=lch;
+  const tch=document.getElementById('modal-style-text-color-hex').value.trim();if(tch)st.textColor=tch;
+  const bgh=document.getElementById('modal-style-bg-hex').value.trim();if(bgh)st.bg=bgh;
+  const fsz=document.getElementById('modal-style-font-size').value.trim();if(fsz)st.fontSize=parseInt(fsz);
+  const ffm=document.getElementById('modal-style-font').value;if(ffm)st.fontFamily=ffm;
+  if(Object.keys(st).length)field.style=st;
   if(editingFieldId){const idx=cfg.fields.findIndex(f=>f.id===editingFieldId);cfg.fields[idx]={...cfg.fields[idx],...field};}
   else cfg.fields.push(field);
   renderFieldList();schedulePreview();closeFieldModal();
