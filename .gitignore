@@ -4,7 +4,14 @@ node_modules/
 .env
 
 # Runtime data — keep on server, not in git
+# Single-form (legacy)
 data/subscribers.json
+data/config.json
+# Multi-form
+data/forms/
+data/forms-index.json
+data/subscribers-*.json
+data/design-templates.json
 public/uploads/
 
 *.log

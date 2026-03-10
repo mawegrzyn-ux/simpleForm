@@ -1640,7 +1640,7 @@ function renderEmbedScript(origin, cfg) {
     var minH   = parseInt(container.getAttribute('data-min-height') || '400', 10);
 
     var iframe = d.createElement('iframe');
-    iframe.src = ORIGIN + '/embed';
+    iframe.src = ORIGIN + '/' + cfg.slug + '/embed';
     iframe.title = 'Newsletter Signup';
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('scrolling', 'no');
