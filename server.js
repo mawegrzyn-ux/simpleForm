@@ -393,6 +393,22 @@ app.get('/admin', adminAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'index.html'));
 });
 
+// Recursively collect all /uploads/ URLs from a config object and return total file size
+function getFormMediaSize(obj) {
+  const urls = new Set();
+  const collect = (v) => {
+    if (!v || typeof v !== 'object') { if (typeof v === 'string' && v.startsWith('/uploads/')) urls.add(v); return; }
+    if (Array.isArray(v)) { v.forEach(collect); return; }
+    Object.values(v).forEach(collect);
+  };
+  collect(obj);
+  let total = 0;
+  for (const url of urls) {
+    try { total += fs.statSync(path.join(__dirname, 'public', url)).size; } catch(_) {}
+  }
+  return total;
+}
+
 // List all forms (with subscriber counts)
 app.get('/api/admin/forms', adminAuth, (req, res) => {
   try {
@@ -403,12 +419,14 @@ app.get('/api/admin/forms', adminAuth, (req, res) => {
         ...f,
         subscriberCount: readFormSubscribers(f.slug).filter(s => s.status === 'active').length,
         embedPageSize: null,
-        embedJsSize: null
+        embedJsSize: null,
+        mediaSize: null
       };
       try {
         const cfg = readFormConfig(f.slug);
         entry.embedPageSize = Buffer.byteLength(renderEmbedPage(cfg), 'utf8');
         entry.embedJsSize   = Buffer.byteLength(renderEmbedScript(origin, cfg), 'utf8');
+        entry.mediaSize     = getFormMediaSize(cfg);
       } catch(_) { /* skip if config unreadable */ }
       return entry;
     });
@@ -671,9 +689,12 @@ const NON_GF_FONTS = new Set(['Roc Grotesk']);
 
 function googleFontTag(cfg) {
   const customFontNames = new Set((cfg.design.customFonts || []).map(f => f.name));
-  const fonts = [cfg.design.googleFont, cfg.design.bodyFont]
+  const d = cfg.design;
+  const seen = new Set();
+  const fonts = [d.h1Font||d.googleFont, d.h2Font||d.googleFont, d.h3Font||d.googleFont, d.h4Font||d.googleFont, d.bodyFont]
     .filter(Boolean)
-    .filter(f => !NON_GF_FONTS.has(f) && !customFontNames.has(f)); // skip non-GF and already-uploaded custom fonts
+    .filter(f => !NON_GF_FONTS.has(f) && !customFontNames.has(f))
+    .filter(f => { if(seen.has(f)) return false; seen.add(f); return true; });
   if (!fonts.length) return '';
   const query = fonts.map(f => f.replace(/ /g, '+')).join('&family=');
   return `<link href="https://fonts.googleapis.com/css2?family=${query}:wght@300;400;600;700&display=swap" rel="stylesheet">`;
@@ -1131,14 +1152,15 @@ function renderBlockElement(el, cfg) {
       if (!el.url) return '';
       const [rw, rh] = (el.aspectRatio || '16:9').split(':').map(Number);
       const pb = ((rh / rw) * 100).toFixed(2) + '%';
+      const ap = el.autoplay;
       let emb = '';
       const yt = el.url.match(/(?:v=|youtu\.be\/|embed\/)([^&?#]+)/);
       const vi = el.url.match(/vimeo\.com\/(\d+)/);
-      if (yt) emb = `https://www.youtube.com/embed/${yt[1]}`;
-      else if (vi) emb = `https://player.vimeo.com/video/${vi[1]}`;
+      if (yt) emb = `https://www.youtube.com/embed/${yt[1]}${ap ? '?autoplay=1&mute=1&playsinline=1' : ''}`;
+      else if (vi) emb = `https://player.vimeo.com/video/${vi[1]}${ap ? '?autoplay=1&muted=1' : ''}`;
       const inner = emb
-        ? `<iframe src="${emb}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen></iframe>`
-        : `<video src="${el.url}" controls style="position:absolute;inset:0;width:100%;height:100%"></video>`;
+        ? `<iframe src="${emb}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
+        : `<video src="${el.url}" ${ap ? 'autoplay muted playsinline loop ' : ''}controls style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>`;
       return `<div style="margin:8px 0"><div style="position:relative;padding-bottom:${pb};height:0;overflow:hidden;border-radius:8px">${inner}</div>${el.caption ? `<p style="text-align:center;font-size:0.82rem;color:#999;margin-top:6px">${el.caption}</p>` : ''}</div>`;
     }
     default:
@@ -1194,14 +1216,15 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
     if (!url) return '';
     const [rw, rh] = (section.aspectRatio || '16:9').split(':').map(Number);
     const pb = ((rh / rw) * 100).toFixed(2) + '%';
+    const ap = section.autoplay;
     let embedUrl = '';
     const ytMatch = url.match(/(?:v=|youtu\.be\/|embed\/)([^&?#]+)/);
     const viMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (ytMatch) embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}`;
-    else if (viMatch) embedUrl = `https://player.vimeo.com/video/${viMatch[1]}`;
+    if (ytMatch) embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}${ap ? '?autoplay=1&mute=1&playsinline=1' : ''}`;
+    else if (viMatch) embedUrl = `https://player.vimeo.com/video/${viMatch[1]}${ap ? '?autoplay=1&muted=1' : ''}`;
     const inner = embedUrl
-      ? `<iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allowfullscreen></iframe>`
-      : `<video src="${url}" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>`;
+      ? `<iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
+      : `<video src="${url}" ${ap ? 'autoplay muted playsinline loop ' : ''}controls style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"></video>`;
     return `<div style="margin:20px 0">
     <div style="position:relative;padding-bottom:${pb};height:0;overflow:hidden;border-radius:8px">${inner}</div>
     ${section.caption ? `<p style="text-align:center;font-size:0.82rem;color:#999;margin-top:8px">${section.caption}</p>` : ''}
@@ -1338,7 +1361,11 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
     --text: ${d.textColor};
     --radius: ${d.buttonRadius};
     --container: ${d.containerWidth};
-    --font-heading: '${d.googleFont}', serif;
+    --font-h1: '${d.h1Font||d.googleFont}', serif;
+    --font-h2: '${d.h2Font||d.googleFont}', serif;
+    --font-h3: '${d.h3Font||d.googleFont}', serif;
+    --font-h4: '${d.h4Font||d.googleFont}', serif;
+    --font-heading: var(--font-h1);
     --font-body: '${d.bodyFont}', sans-serif;
   }
   body { font-family: var(--font-body); ${bgStyle} min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
@@ -1347,7 +1374,10 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   .sf-logo img { width: ${d.logoWidth}; max-width: 100%; }
   .sf-hero-img { width: 100%; border-radius: 8px; margin-bottom: 28px; object-fit: cover; max-height: 280px; }
   .sf-hero-img.below { margin-top: 28px; margin-bottom: 0; }
-  h1 { font-family: var(--font-heading); color: var(--primary); font-size: clamp(1.6rem, 4vw, 2.4rem); line-height: 1.2; margin-bottom: 12px; text-align: center; }
+  h1 { font-family: var(--font-h1); color: var(--primary); font-size: clamp(1.6rem, 4vw, 2.4rem); line-height: 1.2; margin-bottom: 12px; text-align: center; }
+  h2 { font-family: var(--font-h2); color: var(--primary); font-size: clamp(1.2rem, 3vw, 1.7rem); line-height: 1.3; margin-bottom: 10px; }
+  h3 { font-family: var(--font-h3); color: var(--primary); font-size: clamp(1rem, 2.5vw, 1.3rem); line-height: 1.35; margin-bottom: 8px; }
+  h4 { font-family: var(--font-h4); color: var(--primary); font-size: 1.05rem; line-height: 1.4; margin-bottom: 6px; }
   .sf-sub { color: #666; font-size: 1.05rem; text-align: center; margin-bottom: 32px; line-height: 1.6; }
   .sf-field { margin-bottom: 16px; }
   .sf-field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
