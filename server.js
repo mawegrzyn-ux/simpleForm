@@ -175,7 +175,8 @@ function defaultFormConfig(slug, name) {
       { id: 'footer', type: 'footer', visible: true, text: '', colors: {} }
     ],
     fields: [{ id: 'email', label: 'Email Address', type: 'email', required: true, placeholder: 'your@email.com', system: true, conditions: [] }],
-    confirmation: []
+    confirmation: [],
+    designTemplateId: null
   };
 }
 
@@ -650,7 +651,16 @@ app.put('/api/admin/design-templates/:id', adminAuth, (req, res) => {
 app.get('/:slug', (req, res) => {
   const { slug } = req.params;
   if (RESERVED_SLUGS.has(slug)) return res.status(404).send('Not found');
-  try { res.send(renderPublicPage(readFormConfig(slug))); }
+  try {
+    let formCfg = readFormConfig(slug);
+    const tplPreviewId = req.query._tplPreview;
+    if (tplPreviewId) {
+      const tmpls = readDesignTemplates();
+      const tpl = tmpls.find(t => t.id === tplPreviewId);
+      if (tpl && tpl.design) formCfg = { ...formCfg, design: { ...tpl.design, customFonts: (formCfg.design || {}).customFonts } };
+    }
+    res.send(renderPublicPage(formCfg));
+  }
   catch(e) { res.status(404).send('<p>Form not found. <a href="/">Home</a></p>'); }
 });
 
@@ -1394,7 +1404,12 @@ function hexToRgb(hex) {
 }
 
 function renderPublicPage(cfg) {
-  const d = cfg.design;
+  let d = cfg.design || {};
+  if (cfg.designTemplateId) {
+    const tmpls = readDesignTemplates();
+    const tpl = tmpls.find(t => t.id === cfg.designTemplateId);
+    if (tpl && tpl.design) d = { ...tpl.design, customFonts: (cfg.design || {}).customFonts };
+  }
   const s = cfg.site;
   const formSection = cfg.sections.find(sec => sec.id === 'form');
 
@@ -1619,7 +1634,12 @@ ${customFontFaceCSS(cfg)}
 }
 
 function renderEmbedPage(cfg) {
-  const d = cfg.design;
+  let d = cfg.design || {};
+  if (cfg.designTemplateId) {
+    const tmpls = readDesignTemplates();
+    const tpl = tmpls.find(t => t.id === cfg.designTemplateId);
+    if (tpl && tpl.design) d = { ...tpl.design, customFonts: (cfg.design || {}).customFonts };
+  }
   const s = cfg.site;
   const formSection = cfg.sections.find(sec => sec.id === 'form');
 

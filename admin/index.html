@@ -35,7 +35,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:13.
 .t-tab{padding:6px 13px;border-radius:6px;color:var(--ink3);cursor:pointer;font-size:0.875rem;font-weight:400;transition:all 120ms var(--ease);border:none;background:none;font-family:var(--font);}
 .t-tab:hover{color:var(--ink);background:var(--bg);}
 .t-tab.active{color:var(--ink);font-weight:500;background:var(--bg2);}
+.t-form-chip{display:inline-flex;align-items:center;margin-left:7px;padding:1px 8px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-size:0.72rem;font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .t-spacer{flex:1;}
+/* Form sub-nav */
+.f-nav{display:flex;align-items:center;gap:2px;padding:3px 14px;background:var(--panel);border-bottom:1px solid var(--border2);}
+.f-nav-label{font-size:0.7rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;padding-right:6px;flex-shrink:0;}
+.f-tab{padding:4px 11px;border-radius:5px;color:var(--ink3);cursor:pointer;font-size:0.82rem;font-weight:400;transition:all 120ms;border:none;background:none;font-family:var(--font);display:inline-flex;align-items:center;gap:4px;}
+.f-tab .mi{font-size:15px!important;}
+.f-tab:hover{color:var(--ink);background:var(--bg);}
+.f-tab.active{color:var(--ink);font-weight:500;background:var(--bg2);}
 .t-actions{display:flex;align-items:center;gap:8px;}
 .save-ind{font-size:0.78rem;color:var(--ink3);padding:0 2px;}
 .save-ind.saved{color:var(--success);}
@@ -264,6 +272,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .dtmpl-item{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:7px 10px;}
 .dtmpl-name{flex:1;font-size:0.84rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dtmpl-acts{display:flex;gap:4px;flex-shrink:0;}
+.design-tpl-bar{display:flex;align-items:center;gap:6px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border2);}
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
@@ -341,10 +350,6 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 ::-webkit-scrollbar-thumb:hover{background:var(--ink3);}
-/* Breadcrumb */
-.t-breadcrumb{display:flex;align-items:center;gap:4px;font-size:0.83rem;color:var(--ink3);margin-left:4px;flex-shrink:0;}
-.t-breadcrumb-sep{font-size:0.75rem;color:var(--border);}
-.t-breadcrumb-name{color:var(--ink2);font-weight:500;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* Forms list tab */
 .forms-list{display:flex;flex-direction:column;gap:8px;}
 .form-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;display:flex;align-items:center;gap:14px;transition:box-shadow 120ms;}
@@ -397,17 +402,10 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 <div id="topbar">
   <div class="t-logo">Wing<em style="color:#7ab648;font-style:italic">Vibes</em></div>
   <nav class="t-nav">
-    <button class="t-tab active" onclick="switchTab('forms',this)">Forms</button>
-    <button class="t-tab" onclick="switchTab('build',this)">Build</button>
+    <button class="t-tab active" id="tab-forms-btn" onclick="switchTab('forms',this)">Forms<span id="t-form-name-chip" class="t-form-chip" style="display:none"></span></button>
     <button class="t-tab" onclick="switchTab('design',this)">Design</button>
-    <button class="t-tab" onclick="switchTab('settings',this)">Settings</button>
-    <button class="t-tab" onclick="switchTab('subscribers',this)">Subscribers</button>
-    <button class="t-tab" onclick="switchTab('embed',this)">Embed</button>
+    <button class="t-tab" onclick="switchTab('system',this)">System</button>
   </nav>
-  <div id="form-breadcrumb" class="t-breadcrumb" style="display:none">
-    <span class="t-breadcrumb-sep">›</span>
-    <span class="t-breadcrumb-name" id="form-breadcrumb-name"></span>
-  </div>
   <div class="t-spacer"></div>
   <div class="t-actions">
     <span class="save-ind" id="save-ind">Saved</span>
@@ -420,6 +418,18 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     </div>
   </div>
 </div>
+<nav id="form-subnav" class="f-nav" style="display:none">
+  <span class="f-nav-label">Form:</span>
+  <button class="f-tab" onclick="switchTab('build',this)">
+    <span class="material-icons-round mi">edit</span> Build
+  </button>
+  <button class="f-tab" onclick="switchTab('subscribers',this)">
+    <span class="material-icons-round mi">people</span> Subscribers
+  </button>
+  <button class="f-tab" onclick="switchTab('embed',this)">
+    <span class="material-icons-round mi">code</span> Embed
+  </button>
+</nav>
 
 <div id="app">
 
@@ -455,6 +465,18 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="field-list" id="field-list-panel"></div>
     </div>
     <div id="pfsettings-scroll" style="display:none;flex-direction:column;gap:10px;overflow-y:auto;padding:10px">
+      <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">style</span> Design Template</div>
+        <div class="cg">
+          <label class="cl">Assigned template</label>
+          <div class="cr" style="gap:8px">
+            <select id="pf-design-tpl-sel" style="flex:1" onchange="cfg.designTemplateId=this.value||null;schedulePreview()">
+              <option value="">None (use form's own design)</option>
+            </select>
+          </div>
+          <p style="font-size:0.73rem;color:var(--ink3);margin-top:3px">When a template is assigned, the live form uses that template's design. Save the form to persist the assignment.</p>
+        </div>
+      </div>
       <div class="card" style="padding:16px">
         <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">manage_accounts</span> Form identity</div>
         <div class="cg"><label class="cl">Site title (browser tab)</label><input type="text" id="c-sitetitle" oninput="cfg.site.title=this.value;schedulePreview()"></div>
@@ -502,7 +524,17 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 <div id="tab-design" class="page">
   <div id="design-panel">
   <div class="page-body">
-    <div class="page-head"><h2>Design</h2><p>Typography, colours, and layout settings.</p></div>
+    <div class="page-head" style="margin-bottom:0"><h2>Design</h2><p>Manage design templates. Assign a template to a form in its settings.</p></div>
+    <div class="design-tpl-bar" id="design-tpl-bar">
+      <select id="design-tpl-sel" style="flex:1" onchange="onDesignTplSelChange(this.value)">
+        <option value="">— Select template to edit —</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="createNewTpl()"><span class="material-icons-round mi">add</span> New</button>
+      <button class="btn btn-primary btn-sm" id="dtpl-save-btn" style="display:none" onclick="saveTplFromDesignTab()"><span class="material-icons-round mi">save</span> Save template</button>
+      <button class="btn btn-outline btn-sm" id="dtpl-done-btn" style="display:none" onclick="exitTplEdit()">Done</button>
+    </div>
+    <div id="dtpl-empty" style="padding:40px 20px;text-align:center;color:var(--ink3);font-size:0.84rem">No templates yet — click <strong>New</strong> to create one.</div>
+    <div id="design-cards-wrap" style="display:none">
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">text_fields</span> Typography</div>
       <div class="cg"><label class="cl">H1 font</label><div class="font-picker" id="h1-font-picker"></div></div>
@@ -621,15 +653,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
       <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
     </div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">style</span> Design Templates</div>
-      <p class="card-desc">Save the current design as a reusable template and apply it to any form.</p>
-      <div id="dtmpl-list" class="dtmpl-list" style="margin-bottom:10px"></div>
-      <div style="display:flex;gap:6px">
-        <input type="text" id="dtmpl-name-input" placeholder="Template name…" style="flex:1">
-        <button class="btn btn-primary btn-sm" onclick="saveDesignTemplate()"><span class="material-icons-round mi">save</span> Save current</button>
-      </div>
-    </div>
+    </div><!-- /design-cards-wrap -->
   </div>
   </div><!-- /design-panel -->
   <div id="design-preview">
@@ -640,10 +664,10 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   </div>
 </div>
 
-<!-- SETTINGS TAB -->
-<div id="tab-settings" class="page">
+<!-- SYSTEM TAB -->
+<div id="tab-system" class="page">
   <div class="page-body narrow">
-    <div class="page-head"><h2>Settings</h2><p>Global platform settings — authentication, compliance, and deployment info.</p></div>
+    <div class="page-head"><h2>System</h2><p>Platform-wide settings — authentication, compliance and deployment.</p></div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">shield</span> Authentication</div>
       <p class="card-desc">Admin access is protected by Auth0. Only users with the <code>signflow-admin</code> role can log in.</p>
@@ -1124,9 +1148,11 @@ async function openFormEditor(slug){
   cfg=await r.json();
   if(!cfg.design.customFonts)cfg.design.customFonts=[];
   if(!cfg.confirmation)cfg.confirmation=[];
-  // Update breadcrumb
-  const bc=document.getElementById('form-breadcrumb');if(bc)bc.style.display='flex';
-  const bn=document.getElementById('form-breadcrumb-name');if(bn)bn.textContent=cfg.name||slug;
+  // Update form name chip in nav
+  const chip=document.getElementById('t-form-name-chip');
+  if(chip){chip.textContent=cfg.name||slug;chip.style.display='inline-flex';}
+  // Show form sub-nav
+  const fsn=document.getElementById('form-subnav');if(fsn)fsn.style.display='flex';
   // Show Save / View site buttons
   const sb=document.getElementById('save-btn');if(sb)sb.style.display='';
   const vs=document.getElementById('view-site-btn');if(vs){vs.style.display='';vs.onclick=()=>window.open('/'+slug,'_blank');}
@@ -1138,6 +1164,12 @@ async function openFormEditor(slug){
   switchPanelTab('form');
   populateControls();buildFontPickers();buildPalettes();refreshPreview();
   switchTab('build');
+  // Open builder at 50/50 split
+  const bldPanel=document.getElementById('bl-panel');
+  const bldWrap=document.getElementById('tab-build');
+  if(bldPanel&&bldWrap){
+    setTimeout(()=>{bldPanel.style.width=Math.floor(bldWrap.offsetWidth/2)+'px';},0);
+  }
 }
 
 // ── Config (kept for compatibility) ──
@@ -1191,6 +1223,7 @@ function populateControls(){
   toggleCaptchaFields();
   renderFieldList();renderCustomFontList();
   rebuildDesignColorPickers();
+  populatePfDesignTplSelect();
 }
 
 function sv(id,val){const e=document.getElementById(id);if(e)e.value=val||'';}
@@ -1206,6 +1239,7 @@ function updateSectionColorHex(id,key,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||val
 
 // ── Save ──
 async function saveConfig(){
+  if(_editingTpl){toast('Editing template — click "Save template"','');return;}
   if(!currentFormSlug){toast('No form selected','error');return;}
   setSaveInd('saving');
   try{
@@ -1219,6 +1253,7 @@ function setSaveInd(s){const e=document.getElementById('save-ind');e.className='
 // ── Preview ──
 function schedulePreview(){setSaveInd('');clearTimeout(previewTimer);previewTimer=setTimeout(refreshPreview,600);}
 async function refreshPreview(){
+  if(_editingTpl){scheduleDesignTplPreview();return;}
   if(!currentFormSlug||!cfg)return;
   await fetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
   const f=document.getElementById('preview-frame');
@@ -1763,9 +1798,10 @@ function buildBrandColorPicker(containerId,currentColor,onChange){
   const cur=brands.find(b=>b.color===currentColor);
   const label=cur?(cur.name||cur.color):(currentColor||'Choose colour…');
   const swatchStyle=currentColor?`background:${currentColor}`:'background:transparent;border:1.5px dashed var(--border)';
-  const items=brands.length
+  const clearItem=`<div class="bcp-item${!currentColor?' active':''}" onclick="bcpPick('${containerId}','')"><span class="bcp-item-sw" style="background:transparent;border:1.5px dashed var(--border)"></span><span class="bcp-item-name" style="color:var(--ink3)">None / clear</span></div>`;
+  const items=clearItem+(brands.length
     ?brands.map(b=>`<div class="bcp-item${b.color===currentColor?' active':''}" onclick="bcpPick('${containerId}','${b.color.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')"><span class="bcp-item-sw" style="background:${b.color}"></span><span class="bcp-item-name">${escHtml(b.name||b.color)}</span><span class="bcp-item-hex">${b.color}</span></div>`).join('')
-    :'<p style="font-size:0.75rem;color:var(--ink3);padding:4px 2px">No brand colours defined yet.</p>';
+    :'<p style="font-size:0.75rem;color:var(--ink3);padding:4px 2px">No brand colours defined yet.</p>');
   c.innerHTML=`<div class="bcp-wrap" id="bcpw-${containerId}">
     <button type="button" class="bcp-trigger" onclick="event.stopPropagation();bcpToggle('${containerId}')">
       <span class="bcp-swatch-pill" style="${swatchStyle}"></span>
@@ -2006,7 +2042,7 @@ function containerBkBody(b){
       <div class="cg"><label class="cl">Border colour</label>
         <div class="cr" style="gap:6px">
           <div id="bcp-cnt-bc-${b.id}" style="flex:1"></div>
-          <input type="number" value="${style.borderWidth||1}" min="0" max="16" style="width:50px;flex-shrink:0" title="Thickness (px)" oninput="updateCntStyle('${b.id}','borderWidth',+this.value)"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span>
+          <input type="range" min="0" max="16" step="1" value="${style.borderWidth||1}" oninput="updateCntStyle('${b.id}','borderWidth',+this.value);this.nextElementSibling.value=this.value" style="width:70px;flex-shrink:0"><input type="text" value="${style.borderWidth||1}" style="width:40px;flex-shrink:0" oninput="updateCntStyle('${b.id}','borderWidth',+this.value);this.previousElementSibling.value=this.value"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span>
         </div>
       </div>
       <div class="cg"><label class="cl">Corner radius</label>
@@ -2596,7 +2632,7 @@ function removeCondition(i){_conditions.splice(i,1);renderConditions(_conditions
 function collectConditions(){return _conditions.filter(c=>c.fieldId);}
 
 // ── Tabs ──
-const FORM_REQUIRED_TABS=new Set(['build','design','settings','subscribers','embed']);
+const FORM_REQUIRED_TABS=new Set(['build','subscribers','embed']);
 function switchTab(tab,btn){
   // Guard: form-dependent tabs require a form selected
   if(FORM_REQUIRED_TABS.has(tab)&&!currentFormSlug){
@@ -2605,10 +2641,18 @@ function switchTab(tab,btn){
   }
   currentTab=tab;
   document.querySelectorAll('.t-tab').forEach(t=>t.classList.remove('active'));
-  if(btn){btn.classList.add('active');}
-  else{
+  if(btn&&btn.classList.contains('t-tab')){btn.classList.add('active');}
+  else if(!btn||!btn.classList.contains('f-tab')){
     // Highlight correct nav button when switching programmatically
     document.querySelectorAll('.t-tab').forEach(t=>{
+      if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes("'"+tab+"'"))t.classList.add('active');
+    });
+  }
+  // Sync f-tab active state
+  document.querySelectorAll('.f-tab').forEach(t=>t.classList.remove('active'));
+  if(btn&&btn.classList.contains('f-tab')){btn.classList.add('active');}
+  else{
+    document.querySelectorAll('.f-tab').forEach(t=>{
       if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes("'"+tab+"'"))t.classList.add('active');
     });
   }
@@ -2616,7 +2660,13 @@ function switchTab(tab,btn){
   const p=document.getElementById('tab-'+tab);if(p)p.classList.add('active');
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
-  if(tab==='design')renderDesignTemplates();
+  if(tab==='design'){
+    loadDesignTemplates().then(()=>{
+      populateDesignTplSelect();
+      const empty=document.getElementById('dtpl-empty');
+      if(empty)empty.style.display=designTemplates.length?'none':'';
+    });
+  }
 }
 
 // ── Subscribers ──
@@ -2699,23 +2749,137 @@ function toast(msg,type=''){
 
 // ── Design templates ──
 let designTemplates=[];
+let _editingTpl=null;        // { id, name, design } currently being edited
+let _cfgDesignBackup=null;   // snapshot of cfg.design before borrow
+
 async function loadDesignTemplates(){
   try{const r=await fetch('/api/admin/design-templates');if(r.ok)designTemplates=await r.json();}catch(e){}
   renderDesignTemplates();
 }
 function renderDesignTemplates(){
-  const el=document.getElementById('dtmpl-list');if(!el)return;
-  if(!designTemplates.length){el.innerHTML='<p style="font-size:0.78rem;color:var(--ink3);padding:4px 0">No saved templates yet.</p>';return;}
-  el.innerHTML='';
+  populateDesignTplSelect();
+  const empty=document.getElementById('dtpl-empty');
+  if(empty)empty.style.display=designTemplates.length?'none':'';
+}
+
+function populateDesignTplSelect(){
+  const sel=document.getElementById('design-tpl-sel');if(!sel)return;
+  sel.innerHTML='<option value="">— Select template to edit —</option>';
   designTemplates.forEach(t=>{
-    const row=document.createElement('div');row.className='dtmpl-item';
-    row.innerHTML=`<span class="dtmpl-name">${escHtml(t.name)}</span>
-      <div class="dtmpl-acts">
-        <button class="btn btn-outline btn-sm" onclick="applyDesignTemplate('${t.id}')"><span class="material-icons-round mi">check_circle</span> Apply</button>
-        <button class="btn btn-outline btn-sm" onclick="updateDesignTemplate('${t.id}')" title="Overwrite with current design"><span class="material-icons-round mi">upload</span> Update</button>
-        <button class="ibtn danger" onclick="deleteDesignTemplate('${t.id}')"><span class="material-icons-round mi">delete</span></button>
-      </div>`;
-    el.appendChild(row);
+    const o=document.createElement('option');
+    o.value=t.id;o.textContent=t.name;
+    if(_editingTpl&&_editingTpl.id===t.id)o.selected=true;
+    sel.appendChild(o);
+  });
+}
+
+function onDesignTplSelChange(id){
+  if(!id){exitTplEdit();return;}
+  const tpl=designTemplates.find(t=>t.id===id);
+  if(tpl)enterTplEdit(tpl);
+}
+
+function enterTplEdit(tpl){
+  if(_editingTpl)exitTplEdit();
+  _editingTpl=tpl;
+  if(!cfg){
+    cfg={design:JSON.parse(JSON.stringify(tpl.design)),site:{},sections:[],fields:[],confirmation:[]};
+  }else{
+    _cfgDesignBackup=JSON.parse(JSON.stringify(cfg.design));
+    cfg.design=JSON.parse(JSON.stringify(tpl.design));
+  }
+  if(!cfg.design.customFonts)cfg.design.customFonts=[];
+  document.getElementById('design-cards-wrap').style.display='';
+  const empty=document.getElementById('dtpl-empty');if(empty)empty.style.display='none';
+  const saveBtn=document.getElementById('dtpl-save-btn');if(saveBtn)saveBtn.style.display='';
+  const doneBtn=document.getElementById('dtpl-done-btn');if(doneBtn)doneBtn.style.display='';
+  buildFontPickers();buildPalettes();rebuildDesignColorPickers();renderBrandColorList();
+  _populateDesignNonColorControls();
+  if(currentFormSlug)scheduleDesignTplPreview();
+}
+
+function exitTplEdit(){
+  if(_cfgDesignBackup&&cfg){cfg.design=_cfgDesignBackup;}
+  else if(cfg&&!currentFormSlug){cfg=null;}
+  _cfgDesignBackup=null;_editingTpl=null;
+  document.getElementById('design-cards-wrap').style.display='none';
+  const saveBtn=document.getElementById('dtpl-save-btn');if(saveBtn)saveBtn.style.display='none';
+  const doneBtn=document.getElementById('dtpl-done-btn');if(doneBtn)doneBtn.style.display='none';
+  const sel=document.getElementById('design-tpl-sel');if(sel)sel.value='';
+  const empty=document.getElementById('dtpl-empty');
+  if(empty)empty.style.display=designTemplates.length?'none':'';
+  if(currentFormSlug){const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/'+currentFormSlug;}
+}
+
+async function saveTplFromDesignTab(){
+  if(!_editingTpl||!cfg)return;
+  _editingTpl.design=JSON.parse(JSON.stringify(cfg.design));
+  const r=await fetch(`/api/admin/design-templates/${_editingTpl.id}`,{
+    method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({design:_editingTpl.design})
+  });
+  if(r.ok)toast('Template saved','success');else toast('Save failed','error');
+}
+
+async function createNewTpl(){
+  const name=prompt('Template name:');if(!name)return;
+  const design=cfg?JSON.parse(JSON.stringify(cfg.design)):{};
+  const r=await fetch('/api/admin/design-templates',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name,design})
+  });
+  if(r.ok){
+    const t=await r.json();designTemplates.push(t);
+    populateDesignTplSelect();enterTplEdit(t);
+    toast('Template created','success');
+  }else toast('Create failed','error');
+}
+
+let _tplPreviewTimer=null;
+function scheduleDesignTplPreview(){
+  clearTimeout(_tplPreviewTimer);
+  _tplPreviewTimer=setTimeout(()=>{
+    const f2=document.getElementById('design-preview-frame');
+    if(f2&&currentFormSlug&&_editingTpl)
+      f2.src='/'+currentFormSlug+'?_tplPreview='+_editingTpl.id+'&_t='+Date.now();
+  },600);
+}
+
+function _populateDesignNonColorControls(){
+  if(!cfg)return;
+  const d=cfg.design;
+  sv('c-width',d.containerWidth);sv('c-radius',d.buttonRadius);
+  const pad=d.cardPadding||'48px 40px';const pp=pad.split(' ');
+  sv('c-card-pad-v',pp[0]||'48px');sv('c-card-pad-h',pp[1]||'40px');
+  const cr=parseInt(d.cardRadius)||12;
+  const crr=document.getElementById('c-card-radius-range');if(crr)crr.value=cr;
+  const crp=document.getElementById('c-card-radius-px');if(crp)crp.value=d.cardRadius||'12px';
+  const fr=parseInt(d.fieldRadius)||6;
+  const frr=document.getElementById('c-field-radius-range');if(frr)frr.value=fr;
+  const frp=document.getElementById('c-field-radius-px');if(frp)frp.value=d.fieldRadius||'6px';
+  const fbs=document.getElementById('c-field-border-style');if(fbs)fbs.value=d.fieldBorderStyle||'solid';
+  const fbw=d.fieldBorderWidth??2;
+  const fbwr=document.getElementById('c-field-border-w-range');if(fbwr)fbwr.value=fbw;
+  const fbwp=document.getElementById('c-field-border-w-px');if(fbwp)fbwp.value=fbw;
+  const btnBsEl=document.getElementById('c-btn-border-style');if(btnBsEl)btnBsEl.value=d.btnBorderStyle||'solid';
+  const bw=d.btnBorderWidth??0;
+  const bwr=document.getElementById('c-btn-border-w-range');if(bwr)bwr.value=bw;
+  const bwp=document.getElementById('c-btn-border-w-px');if(bwp)bwp.value=bw;
+  const ov=document.getElementById('c-overlay');if(ov)ov.value=d.backgroundOverlay;
+  const ovv=document.getElementById('overlay-val');if(ovv)ovv.textContent=d.backgroundOverlay;
+  sv('c-logowidth',d.logoWidth);
+  if(d.logoUrl){const e=document.getElementById('preview-logo');if(e){e.src=d.logoUrl;e.style.display='block';}}
+  if(d.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=d.backgroundImage;e.style.display='block';}}
+}
+
+function populatePfDesignTplSelect(){
+  const sel=document.getElementById('pf-design-tpl-sel');if(!sel||!cfg)return;
+  sel.innerHTML='<option value="">None (use form\'s own design)</option>';
+  designTemplates.forEach(t=>{
+    const o=document.createElement('option');
+    o.value=t.id;o.textContent=t.name;
+    if(cfg.designTemplateId===t.id)o.selected=true;
+    sel.appendChild(o);
   });
 }
 async function saveDesignTemplate(){
@@ -2810,7 +2974,8 @@ async function deleteForm(slug,name){
     if(currentFormSlug===slug){
       currentFormSlug=null;
       cfg=null;
-      document.getElementById('form-breadcrumb').style.display='none';
+      const chip2=document.getElementById('t-form-name-chip');if(chip2)chip2.style.display='none';
+      const fsn2=document.getElementById('form-subnav');if(fsn2)fsn2.style.display='none';
       document.getElementById('save-btn').style.display='none';
       document.getElementById('view-site-btn').style.display='none';
       switchTab('forms');
