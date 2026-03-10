@@ -1496,16 +1496,16 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
           if(fc) fc.style.display = 'none';
           conf.style.display = 'block';
         } else {
-          if(msg){msg.className='sf-msg success'; msg.textContent='${(formSection && formSection.submitSuccessMessage) || 'Thank you! You\'re subscribed.'}';msg.style.display='block';}
+          if(msg){msg.className='sf-msg success'; msg.textContent=${JSON.stringify((formSection && formSection.submitSuccessMessage) || "Thank you! You're subscribed.")};msg.style.display='block';}
           form.reset();
         }
       } else {
-        if(msg){msg.className='sf-msg error'; msg.textContent=j.error||'${(formSection && formSection.submitErrorMessage) || 'Something went wrong. Please try again.'}';msg.style.display='block';}
-        if(btn){btn.disabled=false; btn.textContent='${d.buttonText}';}
+        if(msg){msg.className='sf-msg error'; msg.textContent=j.error||${JSON.stringify((formSection && formSection.submitErrorMessage) || 'Something went wrong. Please try again.')};msg.style.display='block';}
+        if(btn){btn.disabled=false; btn.textContent=${JSON.stringify(d.buttonText||'Subscribe')};}
       }
     } catch(err){
       if(msg){msg.className='sf-msg error'; msg.textContent='Network error. Please try again.';msg.style.display='block';}
-      if(btn){btn.disabled=false; btn.textContent='${d.buttonText}';}
+      if(btn){btn.disabled=false; btn.textContent=${JSON.stringify(d.buttonText||'Subscribe')};}
     }
   });
 })();
@@ -1686,19 +1686,19 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
           window.parent.postMessage({ type: 'sf-success' }, '*');
           reportHeight();
         } else {
-          if(msg){msg.className='sf-msg success'; msg.textContent='${(formSection && formSection.submitSuccessMessage) || 'Thank you! You\'re subscribed.'}';msg.style.display='block';}
+          if(msg){msg.className='sf-msg success'; msg.textContent=${JSON.stringify((formSection && formSection.submitSuccessMessage) || "Thank you! You're subscribed.")};msg.style.display='block';}
           form.reset();
           window.parent.postMessage({ type: 'sf-success' }, '*');
           reportHeight();
         }
       } else {
-        if(msg){msg.className='sf-msg error'; msg.textContent=j.error||'${(formSection && formSection.submitErrorMessage) || 'Something went wrong. Please try again.'}';msg.style.display='block';}
-        if(btn){btn.disabled=false; btn.textContent='${d.buttonText}';}
+        if(msg){msg.className='sf-msg error'; msg.textContent=j.error||${JSON.stringify((formSection && formSection.submitErrorMessage) || 'Something went wrong. Please try again.')};msg.style.display='block';}
+        if(btn){btn.disabled=false; btn.textContent=${JSON.stringify(d.buttonText||'Subscribe')};}
         reportHeight();
       }
     } catch(err){
       if(msg){msg.className='sf-msg error'; msg.textContent='Network error. Please try again.';msg.style.display='block';}
-      if(btn){btn.disabled=false; btn.textContent='${d.buttonText}';}
+      if(btn){btn.disabled=false; btn.textContent=${JSON.stringify(d.buttonText||'Subscribe')};}
       reportHeight();
     }
   });
