@@ -109,6 +109,8 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 #fields-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:none;flex-direction:column;gap:5px;}
 #bl-scroll::-webkit-scrollbar,#response-scroll::-webkit-scrollbar,#fields-scroll::-webkit-scrollbar{width:3px;}
 #bl-scroll::-webkit-scrollbar-thumb,#response-scroll::-webkit-scrollbar-thumb,#fields-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#bl-resize-handle{width:4px;background:var(--border);cursor:col-resize;flex-shrink:0;transition:background 120ms;}
+#bl-resize-handle:hover,#bl-resize-handle.dragging{background:var(--accent);}
 #bl-preview{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;}
 .prev-toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:5px;flex-shrink:0;}
 .psz{background:none;border:1.5px solid var(--border);border-radius:6px;color:var(--ink3);padding:5px 11px;cursor:pointer;font-size:0.78rem;font-family:var(--font);font-weight:500;display:flex;align-items:center;gap:4px;transition:all 120ms;}
@@ -379,6 +381,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="field-list" id="field-list-panel"></div>
     </div>
   </div>
+  <div id="bl-resize-handle"></div>
   <div id="bl-preview">
     <div class="prev-toolbar">
       <button class="psz active" onclick="setPreviewSize('desktop',this)"><span class="material-icons-round mi">desktop_mac</span> Desktop</button>
@@ -1469,7 +1472,7 @@ function switchPanelTab(tab){
     tabFormBtn.classList.add('active');
   }else if(tab==='response'){
     responseScroll.style.display='flex';
-    addLabel.textContent='Add block';
+    addLabel.textContent='Add container';
     tabResponseBtn.classList.add('active');
     renderResponsePanel();
   }else{
@@ -1480,8 +1483,7 @@ function switchPanelTab(tab){
   }
 }
 function panelAddAction(){
-  if(_panelTab==='form')addContainer();
-  else if(_panelTab==='response')openBlockPicker();
+  if(_panelTab==='form'||_panelTab==='response')addContainer();
   else openFieldModal();
 }
 
@@ -2341,6 +2343,21 @@ document.getElementById('cnt-modal').addEventListener('click',e=>{if(e.target===
 document.getElementById('wysiwyg-modal').addEventListener('click',e=>{if(e.target===document.getElementById('wysiwyg-modal'))closeWysiwygModal();});
 document.getElementById('text-edit-modal').addEventListener('click',e=>{if(e.target===document.getElementById('text-edit-modal'))closeTextEditModal();});
 document.getElementById('item-edit-modal').addEventListener('click',e=>{if(e.target===document.getElementById('item-edit-modal'))closeItemEdit();});
+// ── Panel resize ──
+(function(){
+  const handle=document.getElementById('bl-resize-handle');
+  const panel=document.getElementById('bl-panel');
+  let startX,startW;
+  handle.addEventListener('mousedown',e=>{
+    startX=e.clientX;startW=panel.offsetWidth;
+    handle.classList.add('dragging');
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+    e.preventDefault();
+  });
+  function onMove(e){panel.style.width=Math.max(220,Math.min(700,startW+(e.clientX-startX)))+'px';}
+  function onUp(){handle.classList.remove('dragging');document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
+})();
 checkSession();
 </script>
 </body>
