@@ -2080,7 +2080,6 @@ function openItemEdit(blockId,idx){
       </div>`;
     const bsf=document.getElementById('ie-brand-swatches');
     if(bsf){const colors=getBrandColors();bsf.innerHTML=colors.length?colors.map(c=>`<div class="bc-swatch" style="background:${c}" title="${c}" onclick="applyBrandSwatch('${c}')"></div>`).join(''):'';}
-  }
   } else if(item.type==='submit'){
     title.textContent='Edit submit button';
     const errHtml=item.errorHtml||'';
