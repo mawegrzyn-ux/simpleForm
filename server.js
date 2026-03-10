@@ -1232,6 +1232,9 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
 
   // Footer
   if (section.id === 'footer' || section.type === 'footer') {
+    if (section.items && section.items.length > 0) {
+      return `<div class="sf-footer">${section.items.map(item => renderBlockElement(item, cfg)).join('')}</div>`;
+    }
     return `<p class="sf-footer">${section.text || ''}</p>`;
   }
 
@@ -1323,9 +1326,10 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
         return f ? renderFormField(f, cfg) : '';
       }
       if (item.type === 'submit') {
+        const btnLabel = item.buttonText || d.buttonText || 'Subscribe';
         return `<div class="sf-gdpr">${gdprHtml(s)}</div>
         ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
-        <button type="submit" class="sf-btn">${d.buttonText||'Subscribe'}</button>
+        <button type="submit" class="sf-btn">${btnLabel}</button>
         <div id="sf-msg" class="sf-msg"></div>`;
       }
       return renderBlockElement(item, cfg);
@@ -1462,8 +1466,8 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
 
 <script>
 (function(){
-  // Cookie banner
-  if(!localStorage.getItem('sf_cookie_ok')){
+  // Cookie banner — only on direct page loads (not in iframes/embeds)
+  if(window.self === window.top && !localStorage.getItem('sf_cookie_ok')){
     document.getElementById('sf-cookie').style.display='flex';
   }
   document.getElementById('sf-cookie-accept').addEventListener('click',function(){

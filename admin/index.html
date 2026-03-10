@@ -140,6 +140,18 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .bk-container>.bk-head .bk-title{color:#fff;}
 .bk-container>.bk-head .bk-col-btn{color:rgba(255,255,255,.6);}
 .bk-container>.bk-head .bk-col-btn.active{background:rgba(255,255,255,.18);color:#fff;}
+/* Hero / Form / Footer section headers */
+.bk-hero>.bk-head{background:#1b4f6b;}.bk-hero>.bk-head:hover{background:#225d7b;}
+.bk-form>.bk-head{background:#6b2216;}.bk-form>.bk-head:hover{background:#7e2a1c;}
+.bk-footer>.bk-head{background:#3a4553;}.bk-footer>.bk-head:hover{background:#465061;}
+.bk-hero>.bk-head .bk-dh,.bk-hero>.bk-head .bk-icon,.bk-hero>.bk-head .bk-chevron,.bk-hero>.bk-head .bk-vis,.bk-hero>.bk-head .bk-del,.bk-hero>.bk-head .bk-lock,
+.bk-form>.bk-head .bk-dh,.bk-form>.bk-head .bk-icon,.bk-form>.bk-head .bk-chevron,.bk-form>.bk-head .bk-vis,.bk-form>.bk-head .bk-del,.bk-form>.bk-head .bk-lock,
+.bk-footer>.bk-head .bk-dh,.bk-footer>.bk-head .bk-icon,.bk-footer>.bk-head .bk-chevron,.bk-footer>.bk-head .bk-vis,.bk-footer>.bk-head .bk-del,.bk-footer>.bk-head .bk-lock{color:rgba(255,255,255,.6);}
+.bk-hero>.bk-head .bk-vis.on,.bk-hero>.bk-head .bk-vis:hover,
+.bk-form>.bk-head .bk-vis.on,.bk-form>.bk-head .bk-vis:hover,
+.bk-footer>.bk-head .bk-vis.on,.bk-footer>.bk-head .bk-vis:hover{color:#fff;}
+.bk-hero>.bk-head .bk-del:hover,.bk-form>.bk-head .bk-del:hover,.bk-footer>.bk-head .bk-del:hover{color:#ff8a8a;background:rgba(255,255,255,.08);}
+.bk-hero>.bk-head .bk-title,.bk-form>.bk-head .bk-title,.bk-footer>.bk-head .bk-title{color:#fff;}
 .bk-dh{color:var(--border);cursor:grab;font-size:18px!important;flex-shrink:0;transition:color 120ms;}
 .bk-dh:hover{color:var(--ink3);}
 .bk-lock{color:var(--border2);font-size:16px!important;flex-shrink:0;}
@@ -412,6 +424,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <button id="tab-form-btn" class="bl-tab active" onclick="switchPanelTab('form')">Form</button>
         <button id="tab-response-btn" class="bl-tab" onclick="switchPanelTab('response')">Response</button>
         <button id="tab-fields-btn" class="bl-tab" onclick="switchPanelTab('fields')">Fields</button>
+        <button id="tab-pfsettings-btn" class="bl-tab" onclick="switchPanelTab('pfsettings')">Settings</button>
       </div>
       <button id="bl-add-btn" class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem;flex-shrink:0" onclick="panelAddAction()"><span class="material-icons-round mi">add</span> <span id="bl-add-label">Add container</span></button>
     </div>
@@ -419,6 +432,38 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div id="response-scroll"><!-- populated by renderResponsePanel() --></div>
     <div id="fields-scroll">
       <div class="field-list" id="field-list-panel"></div>
+    </div>
+    <div id="pfsettings-scroll" style="display:none;flex-direction:column;gap:10px;overflow-y:auto;padding:10px">
+      <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">manage_accounts</span> Form identity</div>
+        <div class="cg"><label class="cl">Site title (browser tab)</label><input type="text" id="c-sitetitle" oninput="cfg.site.title=this.value;schedulePreview()"></div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">cookie</span> Cookie & Legal</div>
+        <div class="cg"><label class="cl">Cookie banner text</label><textarea id="c-cookie" rows="2" oninput="cfg.site.cookieBannerText=this.value;schedulePreview()"></textarea></div>
+        <div class="cg"><label class="cl">Privacy policy URL</label><input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()"></div>
+        <div class="cg">
+          <label class="cl">Submit disclaimer text</label>
+          <textarea id="c-gdpr-text" rows="3" oninput="cfg.site.gdprText=this.value;schedulePreview()"></textarea>
+          <div class="info-box" style="margin-top:5px;font-size:0.73rem">Use <code>{privacyUrl}</code> as placeholder. HTML allowed.</div>
+        </div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">privacy_tip</span> Privacy Page</div>
+        <div class="wysi-preview" id="privacy-preview" onclick="openPrivacyWysiwyg()" style="min-height:48px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit privacy page content…</span></div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">smart_toy</span> hCaptcha</div>
+        <div class="setting-row" style="padding-top:0">
+          <div class="setting-info"><div class="setting-title">Enable CAPTCHA on signup</div></div>
+          <label class="tgl"><input type="checkbox" id="captcha-enabled" onchange="cfg.site.captchaEnabled=this.checked;toggleCaptchaFields()"><span class="tgl-s"></span></label>
+        </div>
+        <div id="captcha-fields" style="display:none;margin-top:10px">
+          <div class="cg"><label class="cl">Site key (public)</label><input type="text" id="hcaptcha-site-key" placeholder="10000000-ffff-…" oninput="cfg.site.hcaptchaSiteKey=this.value"></div>
+          <div class="cg"><label class="cl">Secret key (private)</label><input type="password" id="hcaptcha-secret-key" placeholder="0x000…" oninput="cfg.site.hcaptchaSecretKey=this.value"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="saveCaptchaSettings()">Save CAPTCHA settings</button>
+      </div>
     </div>
   </div>
   <div id="bl-resize-handle"></div>
@@ -448,17 +493,8 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <div class="cg"><label class="cl">H4 font</label><div class="font-picker" id="h4-font-picker"></div></div>
       <div class="cg"><label class="cl">Body font</label><div class="font-picker" id="body-font-picker"></div></div>
       <div class="cg"><label class="cl">Submit button font</label><div class="font-picker" id="btn-font-picker"></div></div>
-      <div class="cg">
-        <label class="cl">Custom fonts</label>
-        <div id="custom-font-list"></div>
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <input type="text" id="custom-font-name" placeholder="Font name (e.g. Futura)" style="flex:1">
-          <label class="up-btn" style="width:auto;white-space:nowrap;cursor:pointer">
-            <span class="material-icons-round mi">upload</span> Upload .woff2
-            <input type="file" id="upload-font-file" accept=".woff,.woff2,.ttf,.otf" style="display:none" onchange="handleFontUpload(this)">
-          </label>
-        </div>
-        <div class="info-box" style="margin-top:6px;font-size:0.75rem">Upload a .woff2 file, enter a name, then click a font chip to select it.</div>
+      <div class="cg" style="margin-top:4px">
+        <button class="up-btn" onclick="openCustomFontsModal()"><span class="material-icons-round mi">font_download</span> Manage custom fonts</button>
       </div>
     </div>
     <div class="card">
@@ -571,37 +607,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 <!-- SETTINGS TAB -->
 <div id="tab-settings" class="page">
   <div class="page-body narrow">
-    <div class="page-head"><h2>Settings</h2><p>Form details, integrations, and technical settings.</p></div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">cookie</span> Cookie & Legal</div>
-      <div class="cg"><label class="cl">Cookie banner text</label><textarea id="c-cookie" rows="2" oninput="cfg.site.cookieBannerText=this.value;schedulePreview()"></textarea></div>
-      <div class="cg"><label class="cl">Privacy policy URL</label><input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()"></div>
-      <div class="cg">
-        <label class="cl">Submit disclaimer text</label>
-        <textarea id="c-gdpr-text" rows="3" oninput="cfg.site.gdprText=this.value;schedulePreview()"></textarea>
-        <div class="info-box" style="margin-top:5px;font-size:0.75rem">Use <code>{privacyUrl}</code> as placeholder for the Privacy Policy URL. HTML allowed (e.g. <code>&lt;strong&gt;</code>, <code>&lt;a&gt;</code>).</div>
-      </div>
-      <div class="cg"><label class="cl">Site title (browser tab)</label><input type="text" id="c-sitetitle" oninput="cfg.site.title=this.value;schedulePreview()"></div>
-    </div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">privacy_tip</span> Privacy Page</div>
-      <p class="card-desc">Content shown at <code>/privacy</code>. Edit below to replace the default policy template.</p>
-      <div class="wysi-preview" id="privacy-preview" onclick="openPrivacyWysiwyg()" style="min-height:60px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit privacy page content…</span></div>
-    </div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">smart_toy</span> hCaptcha</div>
-      <p class="card-desc">Privacy-friendly, GDPR-compliant. Free keys at <a href="https://www.hcaptcha.com" target="_blank" style="color:var(--accent)">hcaptcha.com</a>.</p>
-      <div class="setting-row" style="padding-top:0">
-        <div class="setting-info"><div class="setting-title">Enable CAPTCHA on signup form</div></div>
-        <label class="tgl"><input type="checkbox" id="captcha-enabled" onchange="cfg.site.captchaEnabled=this.checked;toggleCaptchaFields()"><span class="tgl-s"></span></label>
-      </div>
-      <div id="captcha-fields" style="display:none;margin-top:10px">
-        <div class="cg"><label class="cl">Site key (public)</label><input type="text" id="hcaptcha-site-key" placeholder="10000000-ffff-…" oninput="cfg.site.hcaptchaSiteKey=this.value"></div>
-        <div class="cg"><label class="cl">Secret key (private)</label><input type="password" id="hcaptcha-secret-key" placeholder="0x000…" oninput="cfg.site.hcaptchaSecretKey=this.value"></div>
-        <div class="info-box warn-box" style="margin-bottom:12px">⚠ Secret key stored in <code>config.json</code> — never commit to a public repo.</div>
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="saveCaptchaSettings()">Save CAPTCHA settings</button>
-    </div>
+    <div class="page-head"><h2>Settings</h2><p>Global platform settings — authentication, compliance, and deployment info.</p></div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">shield</span> Authentication</div>
       <p class="card-desc">Admin access is protected by Auth0. Only users with the <code>signflow-admin</code> role can log in.</p>
@@ -707,6 +713,29 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeNewFormModal()">Cancel</button>
       <button class="btn btn-primary" id="create-form-btn" onclick="createForm()"><span class="material-icons-round mi">add</span> Create form</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Fonts Modal -->
+<div id="custom-fonts-modal" class="modal-overlay">
+  <div class="modal-box" style="width:460px">
+    <div class="modal-head">
+      <h2>Custom fonts</h2>
+      <button class="modal-close" onclick="closeCustomFontsModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <p style="font-size:0.83rem;color:var(--ink3);margin-bottom:14px">Upload .woff / .woff2 / .ttf / .otf files. Uploaded fonts appear in all font pickers.</p>
+    <div id="custom-font-list" style="margin-bottom:10px"></div>
+    <div style="display:flex;gap:6px">
+      <input type="text" id="custom-font-name" placeholder="Font name (e.g. Futura)" style="flex:1">
+      <label class="up-btn" style="width:auto;white-space:nowrap;cursor:pointer;flex-shrink:0">
+        <span class="material-icons-round mi">upload</span> Upload
+        <input type="file" id="upload-font-file" accept=".woff,.woff2,.ttf,.otf" style="display:none" onchange="handleFontUpload(this)">
+      </label>
+    </div>
+    <div class="info-box" style="margin-top:8px;font-size:0.75rem">Enter the font name first, then click Upload to select a file.</div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeCustomFontsModal()">Done</button>
     </div>
   </div>
 </div>
@@ -862,11 +891,13 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="block-type-btn" onclick="addContainerItem('wysiwyg')"><span class="material-icons-round mi">edit_note</span><span class="block-type-label">Rich Text</span></button>
       <button class="block-type-btn" onclick="addContainerItem('video')"><span class="material-icons-round mi">play_circle</span><span class="block-type-label">Video</span></button>
     </div>
-    <div style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;margin:14px 0 8px">Form elements</div>
-    <div id="cnt-field-list" style="display:flex;flex-direction:column;gap:4px"></div>
-    <button class="block-type-btn" style="width:100%;margin-top:6px;display:flex;gap:8px;justify-content:center" onclick="addContainerItem('submit')">
-      <span class="material-icons-round mi">send</span><span class="block-type-label">Submit Button + GDPR</span>
-    </button>
+    <div id="cnt-form-section">
+      <div style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;margin:14px 0 8px">Form elements</div>
+      <div id="cnt-field-list" style="display:flex;flex-direction:column;gap:4px"></div>
+      <button class="block-type-btn" style="width:100%;margin-top:6px;display:flex;gap:8px;justify-content:center" onclick="addContainerItem('submit')">
+        <span class="material-icons-round mi">send</span><span class="block-type-label">Submit Button + GDPR</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -1298,13 +1329,21 @@ async function handleFontUpload(input){
 }
 function removeCustomFont(name){cfg.design.customFonts=cfg.design.customFonts.filter(f=>f.name!==name);renderCustomFontList();buildFontPickers();schedulePreview();}
 function renderCustomFontList(){
-  const list=document.getElementById('custom-font-list');if(!list)return;list.innerHTML='';
-  (cfg.design.customFonts||[]).forEach(f=>{
+  const list=document.getElementById('custom-font-list');if(!list)return;
+  const fonts=cfg.design.customFonts||[];
+  if(!fonts.length){list.innerHTML='<p style="font-size:0.8rem;color:var(--ink3);margin-bottom:4px">No custom fonts uploaded yet.</p>';return;}
+  list.innerHTML='';
+  fonts.forEach(f=>{
     const item=document.createElement('div');item.className='custom-font-item';
     item.innerHTML=`<span class="custom-font-name" style="font-family:'${f.name}'">${f.name}</span><button class="ibtn danger" onclick="removeCustomFont('${f.name}')"><span class="material-icons-round mi">delete</span></button>`;
     list.appendChild(item);
   });
 }
+function openCustomFontsModal(){
+  renderCustomFontList();
+  document.getElementById('custom-fonts-modal').classList.add('open');
+}
+function closeCustomFontsModal(){document.getElementById('custom-fonts-modal').classList.remove('open');}
 
 // ── Fonts ──
 function injectCustomFontFaces(){
@@ -1421,7 +1460,8 @@ function makeBkCard(s,isConfirmation){
   const cols=s.columns||1;
   const showCols=s.type==='container';
   const card=document.createElement('div');
-  card.className='bk open'+(s.type==='container'?' bk-container':'');card.id='bk-'+s.id;card.dataset.id=s.id;
+  const _bkCls=s.type==='container'?' bk-container':s.id==='hero'?' bk-hero':(s.id==='form'||s.type==='form')?' bk-form':s.id==='footer'?' bk-footer':'';
+  card.className='bk open'+_bkCls;card.id='bk-'+s.id;card.dataset.id=s.id;
   card.innerHTML=`
     <div class="bk-head" onclick="toggleBk('bk-${s.id}')">
       <span class="material-icons-round ${fixed?'bk-lock':'bk-dh'}">${fixed?'lock':'drag_indicator'}</span>
@@ -1497,7 +1537,24 @@ function formBkBody(){
 }
 
 function footerBkBody(s){
-  return `<div class="cg"><label class="cl">Footer text</label><textarea id="c-footer" rows="2" oninput="updateSection('footer','text',this.value)">${(s.text||'').replace(/</g,'&lt;')}</textarea></div>`;
+  if(!s.items)s.items=[];
+  const items=s.items;
+  const itemCards=items.map((item,i)=>{
+    const icon=CNT_ICONS[item.type]||'widgets';
+    const lbl=CNT_LABELS[item.type]||item.type;
+    let preview='';
+    if(item.text)preview=' — '+item.text.substring(0,24)+(item.text.length>24?'…':'');
+    else if(item.type==='wysiwyg'&&item.html){const t=item.html.replace(/<[^>]*>/g,'').trim();preview=t?' — '+t.substring(0,22)+(t.length>22?'…':''):'';}
+    return `<div class="el-item" draggable="true" data-cnt-id="${item.id||i}" ondragstart="cntDragStart(event,'footer','${item.id||i}')" ondragend="cntDragEnd()">
+      <span class="material-icons-round dh" style="font-size:16px!important">drag_indicator</span>
+      <span class="material-icons-round" style="font-size:14px!important;color:var(--ink3)">${icon}</span>
+      <span style="flex:1;font-size:0.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}${preview}</span>
+      <button class="ibtn" onclick="editCntItem('footer',${i})" title="Edit"><span class="material-icons-round mi">edit</span></button>
+      <button class="ibtn danger" onclick="deleteCntItem('footer',${i})"><span class="material-icons-round mi">delete</span></button>
+    </div>`;
+  }).join('');
+  return `<div class="el-list" id="cnt-footer" ondragover="cntDragOver(event)" ondrop="cntDrop(event,'footer')">${itemCards}</div>
+    <button class="add-field-btn" onclick="openCntPicker('footer')"><span class="material-icons-round mi">add</span> Add item</button>`;
 }
 
 function dividerBkBody(b){
@@ -1642,32 +1699,44 @@ function switchPanelTab(tab){
   const formScroll=document.getElementById('bl-scroll');
   const responseScroll=document.getElementById('response-scroll');
   const fieldsScroll=document.getElementById('fields-scroll');
+  const settingsScroll=document.getElementById('pfsettings-scroll');
+  const addBtn=document.getElementById('bl-add-btn');
   const addLabel=document.getElementById('bl-add-label');
   const tabFormBtn=document.getElementById('tab-form-btn');
   const tabResponseBtn=document.getElementById('tab-response-btn');
   const tabFieldsBtn=document.getElementById('tab-fields-btn');
+  const tabPfsettingsBtn=document.getElementById('tab-pfsettings-btn');
   // hide all scrolls, deactivate all tabs
   formScroll.style.display='none';
   responseScroll.style.display='none';
   fieldsScroll.style.display='none';
+  if(settingsScroll)settingsScroll.style.display='none';
   tabFormBtn.classList.remove('active');
   tabResponseBtn.classList.remove('active');
   tabFieldsBtn.classList.remove('active');
+  if(tabPfsettingsBtn)tabPfsettingsBtn.classList.remove('active');
   if(tab==='form'){
     formScroll.style.display='flex';
     addLabel.textContent='Add container';
     tabFormBtn.classList.add('active');
+    if(addBtn)addBtn.style.display='';
     if(currentFormSlug){const pf=document.getElementById('preview-frame');if(pf&&pf.src.includes('confirmation-preview'))pf.src='/'+currentFormSlug;}
   }else if(tab==='response'){
     responseScroll.style.display='flex';
     addLabel.textContent='Add container';
     tabResponseBtn.classList.add('active');
+    if(addBtn)addBtn.style.display='';
     renderResponsePanel();
     if(currentFormSlug){const pf=document.getElementById('preview-frame');if(pf)pf.src='/'+currentFormSlug+'/confirmation-preview';}
+  }else if(tab==='pfsettings'){
+    if(settingsScroll)settingsScroll.style.display='flex';
+    if(tabPfsettingsBtn)tabPfsettingsBtn.classList.add('active');
+    if(addBtn)addBtn.style.display='none';
   }else{
     fieldsScroll.style.display='flex';
     addLabel.textContent='Add field';
     tabFieldsBtn.classList.add('active');
+    if(addBtn)addBtn.style.display='';
     renderFieldList();
   }
 }
@@ -1795,7 +1864,7 @@ function containerBkBody(b){
       <span class="material-icons-round dh" style="font-size:16px!important">drag_indicator</span>
       <span class="material-icons-round" style="font-size:14px!important;color:var(--ink3)">${icon}</span>
       <span style="flex:1;font-size:0.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}${preview}</span>
-      ${item.type!=='submit'?`<button class="ibtn" onclick="editCntItem('${b.id}',${i})" title="Edit"><span class="material-icons-round mi">edit</span></button>`:''}
+      <button class="ibtn" onclick="editCntItem('${b.id}',${i})" title="Edit"><span class="material-icons-round mi">edit</span></button>
       <button class="ibtn danger" onclick="deleteCntItem('${b.id}',${i})"><span class="material-icons-round mi">delete</span></button>
     </div>`;
   }).join('');
@@ -1847,8 +1916,11 @@ function cntDrop(e,blockId){
 let _cntBlockId=null;
 function openCntPicker(blockId){
   _cntBlockId=blockId;
+  const isFooter=blockId==='footer';
+  const fsSec=document.getElementById('cnt-form-section');
+  if(fsSec)fsSec.style.display=isFooter?'none':'';
   const list=document.getElementById('cnt-field-list');
-  if(list){
+  if(list&&!isFooter){
     list.innerHTML=(cfg.fields||[]).map(f=>`<button class="block-type-btn" style="display:flex;gap:8px;justify-content:flex-start;text-align:left" onclick="addContainerItem('field','${f.id}')">
       <span class="material-icons-round mi" style="font-size:16px!important;flex-shrink:0">input</span>
       <span class="block-type-label">${f.label} <span style="color:var(--ink3);font-size:0.7rem;font-weight:400">${f.type}</span></span>
@@ -2004,6 +2076,19 @@ function openItemEdit(blockId,idx){
     const bsf=document.getElementById('ie-brand-swatches');
     if(bsf){const colors=getBrandColors();bsf.innerHTML=colors.length?colors.map(c=>`<div class="bc-swatch" style="background:${c}" title="${c}" onclick="applyBrandSwatch('${c}')"></div>`).join(''):'';}
   }
+  } else if(item.type==='submit'){
+    title.textContent='Edit submit button';
+    const errHtml=item.errorHtml||'';
+    const btnLabel=(item.buttonText||'').replace(/"/g,'&quot;');
+    body.innerHTML=`
+      <div class="cg"><label class="cl">Button label</label>
+        <input type="text" id="ie-submit-label" value="${btnLabel}" placeholder="Uses form default if blank">
+        <p style="font-size:0.73rem;color:var(--ink3);margin-top:3px">Leave blank to use the form-wide button label.</p>
+      </div>
+      <div class="cg"><label class="cl">Error message</label>
+        <div class="wysi-preview" id="ie-submit-err-preview" onclick="openItemSubmitErrorWysiwyg()" style="min-height:36px">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
+      </div>`;
+  }
   document.getElementById('item-edit-modal').classList.add('open');
 }
 function closeItemEdit(){document.getElementById('item-edit-modal').classList.remove('open');_editCntBlock=null;_editCntIdx=null;}
@@ -2039,6 +2124,10 @@ function saveItemEdit(){
     item.aspectRatio=getVal('ie-video-ratio')||'16:9';
     item.caption=getVal('ie-video-caption');
     const apEl=body.querySelector('#ie-video-autoplay');item.autoplay=apEl?apEl.checked:false;
+  } else if(item.type==='submit'){
+    const lbl=getVal('ie-submit-label').trim();
+    item.buttonText=lbl||null;
+    // errorHtml is saved inline by the WYSIWYG callback
   } else if(item.type==='field'){
     const st={};
     const lch=getVal('ie-style-label-hex');if(lch)st.labelColor=lch;
@@ -2097,6 +2186,15 @@ function saveWysiwyg(){
   const found=_blockArray(_editCntBlock);
   if(found&&found.block.items&&_editCntIdx!==null){found.block.items[_editCntIdx].html=html;updateCntBody(_editCntBlock);schedulePreview();}
   closeWysiwygModal();
+}
+function openItemSubmitErrorWysiwyg(){
+  const found=_blockArray(_editCntBlock);if(!found||!found.block.items)return;
+  const item=found.block.items[_editCntIdx];if(!item)return;
+  openWysiwygModal(item.errorHtml||'','Error message',html=>{
+    item.errorHtml=html;
+    const prev=document.getElementById('ie-submit-err-preview');
+    if(prev)prev.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>';
+  });
 }
 function openFormErrorWysiwyg(){
   const form=cfg.sections.find(s=>s.id==='form');
@@ -2554,6 +2652,7 @@ async function deleteForm(slug,name){
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveConfig();}});
 document.getElementById('new-form-modal').addEventListener('click',e=>{if(e.target===document.getElementById('new-form-modal'))closeNewFormModal();});
 document.getElementById('field-modal').addEventListener('click',e=>{if(e.target===document.getElementById('field-modal'))closeFieldModal();});
+document.getElementById('custom-fonts-modal').addEventListener('click',e=>{if(e.target===document.getElementById('custom-fonts-modal'))closeCustomFontsModal();});
 document.getElementById('block-modal').addEventListener('click',e=>{if(e.target===document.getElementById('block-modal'))closeBlockPicker();});
 document.getElementById('el-modal').addEventListener('click',e=>{if(e.target===document.getElementById('el-modal'))closeElPicker();});
 document.getElementById('cnt-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cnt-modal'))closeCntPicker();});
