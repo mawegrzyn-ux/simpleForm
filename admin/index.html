@@ -458,6 +458,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <button id="tab-pfsettings-btn" class="bl-tab" onclick="switchPanelTab('pfsettings')">Settings</button>
       </div>
       <button id="bl-add-btn" class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem;flex-shrink:0" onclick="panelAddAction()"><span class="material-icons-round mi">add</span> <span id="bl-add-label">Add container</span></button>
+      <button class="tbtn tbtn-ghost" id="bl-media-btn" style="padding:5px 8px;flex-shrink:0;display:none" onclick="openMediaPicker('manage')" title="Media library"><span class="material-icons-round mi">photo_library</span></button>
     </div>
     <div id="bl-scroll"><!-- populated by renderBuildPanel() --></div>
     <div id="response-scroll"><!-- populated by renderResponsePanel() --></div>
@@ -483,7 +484,10 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </div>
       <div class="card" style="padding:16px">
         <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">cookie</span> Cookie & Legal</div>
-        <div class="cg"><label class="cl">Cookie banner text</label><textarea id="c-cookie" rows="2" oninput="cfg.site.cookieBannerText=this.value;schedulePreview()"></textarea></div>
+        <div class="cg">
+          <label class="cl">Cookie banner text</label>
+          <div class="wysi-preview" id="c-cookie-preview" onclick="openCookieBannerWysiwyg()" style="min-height:42px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit cookie banner text…</span></div>
+        </div>
         <div class="cg"><label class="cl">Privacy policy URL</label><input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()">
           <div class="info-box" style="margin-top:5px;font-size:0.73rem">Leave as <code>/privacy</code> to use the built-in form privacy page (editable in the Privacy Page section below).</div>
         </div>
@@ -993,6 +997,8 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       oninput="wysiLivePreview()"></div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeWysiwygModal()">Cancel</button>
+      <span id="wysi-draft-ind" style="flex:1;font-size:0.75rem;color:var(--ink3);display:none">Draft saved ✓</span>
+      <button class="btn btn-outline" onclick="saveDraftWysiwyg()">Save draft</button>
       <button class="btn btn-primary" onclick="saveWysiwyg()">Save</button>
     </div>
   </div>
@@ -1153,6 +1159,7 @@ async function openFormEditor(slug){
   if(chip){chip.textContent=cfg.name||slug;chip.style.display='inline-flex';}
   // Show form sub-nav
   const fsn=document.getElementById('form-subnav');if(fsn)fsn.style.display='flex';
+  const mb=document.getElementById('bl-media-btn');if(mb)mb.style.display='';
   // Show Save / View site buttons
   const sb=document.getElementById('save-btn');if(sb)sb.style.display='';
   const vs=document.getElementById('view-site-btn');if(vs){vs.style.display='';vs.onclick=()=>window.open('/'+slug,'_blank');}
@@ -1190,7 +1197,9 @@ function populateControls(){
   if(footer)sv('c-footer',footer.text);
   sv('c-logowidth',cfg.design.logoWidth);
   if(cfg.design.logoUrl){const e=document.getElementById('preview-logo');if(e){e.src=cfg.design.logoUrl;e.style.display='block';}}
-  sv('c-cookie',cfg.site.cookieBannerText);sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);
+  const cookiePrev=document.getElementById('c-cookie-preview');
+  if(cookiePrev)cookiePrev.innerHTML=cfg.site.cookieBannerText||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit cookie banner text…</span>';
+  sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);
   if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=cfg.design.backgroundImage;e.style.display='block';}}
   const ov=document.getElementById('c-overlay');if(ov)ov.value=cfg.design.backgroundOverlay;
   const ovv=document.getElementById('overlay-val');if(ovv)ovv.textContent=cfg.design.backgroundOverlay;
@@ -1289,13 +1298,15 @@ let _mediaItems=[],_mediaFiltered=[],_mediaSelected=null,_mediaCallback=null,_me
 async function openMediaPicker(callbackOrType){
   _mediaCallback=typeof callbackOrType==='function'?callbackOrType:null;
   _mediaType=typeof callbackOrType==='string'?callbackOrType:null;
+  const insertBtn=document.getElementById('media-insert-btn');
+  if(insertBtn)insertBtn.style.display=(_mediaCallback||(_mediaType&&_mediaType!=='manage'))?'':'none';
   _mediaSelected=null;
   document.getElementById('media-search').value='';
   document.getElementById('media-detail-img').style.display='none';
   document.getElementById('media-detail-none').style.display='block';
   document.getElementById('media-detail-info').innerHTML='';
   document.getElementById('media-del-btn').style.display='none';
-  document.getElementById('media-insert-btn').disabled=true;
+  if(insertBtn)insertBtn.disabled=true;
   document.getElementById('media-picker-overlay').classList.add('open');
   await loadMediaLibrary();
 }
@@ -2347,6 +2358,7 @@ function openWysiwygModal(html,title,saveFn){
   _wysiwygSaveFn=saveFn||null;
   document.getElementById('wysiwyg-modal-title').textContent=title||'Edit rich text';
   document.getElementById('wysiwyg-area').innerHTML=html||'';
+  const ind=document.getElementById('wysi-draft-ind');if(ind)ind.style.display='none';
   document.getElementById('wysiwyg-modal').classList.add('open');
   setTimeout(()=>document.getElementById('wysiwyg-area').focus(),100);
 }
@@ -2361,6 +2373,17 @@ function saveWysiwyg(){
   const found=_blockArray(_editCntBlock);
   if(found&&found.block.items&&_editCntIdx!==null){found.block.items[_editCntIdx].html=html;updateCntBody(_editCntBlock);schedulePreview();}
   closeWysiwygModal();
+}
+function saveDraftWysiwyg(){
+  const html=document.getElementById('wysiwyg-area').innerHTML;
+  if(_wysiwygSaveFn){_wysiwygSaveFn(html);}
+  else{
+    const found=_blockArray(_editCntBlock);
+    if(found&&found.block.items&&_editCntIdx!==null){found.block.items[_editCntIdx].html=html;updateCntBody(_editCntBlock);}
+  }
+  schedulePreview();
+  const ind=document.getElementById('wysi-draft-ind');
+  if(ind){ind.style.display='';setTimeout(()=>ind.style.display='none',2000);}
 }
 function openSubmitDisclaimerWysiwyg(){
   const current=cfg.site.gdprText||'';
@@ -2391,6 +2414,14 @@ function openPrivacyWysiwyg(){
     cfg.site.privacyContent=html;
     const pp=document.getElementById('privacy-preview');
     if(pp)pp.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit privacy page content…</span>';
+  });
+}
+function openCookieBannerWysiwyg(){
+  openWysiwygModal(cfg.site.cookieBannerText||'','Cookie banner text',html=>{
+    cfg.site.cookieBannerText=html;
+    const prev=document.getElementById('c-cookie-preview');
+    if(prev)prev.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit cookie banner text…</span>';
+    schedulePreview();
   });
 }
 function wysiFmt(cmd,val){document.getElementById('wysiwyg-area').focus();document.execCommand(cmd,false,val||null);}
@@ -2976,6 +3007,7 @@ async function deleteForm(slug,name){
       cfg=null;
       const chip2=document.getElementById('t-form-name-chip');if(chip2)chip2.style.display='none';
       const fsn2=document.getElementById('form-subnav');if(fsn2)fsn2.style.display='none';
+      const mb2=document.getElementById('bl-media-btn');if(mb2)mb2.style.display='none';
       document.getElementById('save-btn').style.display='none';
       document.getElementById('view-site-btn').style.display='none';
       switchTab('forms');
