@@ -286,6 +286,27 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .embed-prev-wrap iframe{width:100%;height:100%;border:none;}
 .embed-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
 .embed-opts .cg{margin:0;}
+/* Help tab */
+.help-group{border:1px solid var(--border2);border-radius:var(--rlg);margin-bottom:10px;overflow:hidden;}
+.help-group-head{display:flex;align-items:center;gap:9px;padding:13px 16px;font-weight:500;font-size:0.9rem;cursor:pointer;background:var(--panel);user-select:none;transition:background 120ms;}
+.help-group-head:hover{background:var(--bg);}
+.help-group-head .mi:first-child{color:var(--accent);font-size:18px!important;}
+.help-chevron{margin-left:auto;color:var(--ink3);transition:transform 220ms;font-size:18px!important;}
+.help-group.open .help-chevron{transform:rotate(180deg);}
+.help-group-body{display:none;padding:0 18px 18px;font-size:0.86rem;line-height:1.75;color:var(--ink2);}
+.help-group.open .help-group-body{display:block;}
+.help-group-body h3{font-size:0.82rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink3);margin:16px 0 6px;}
+.help-group-body h3:first-child{margin-top:14px;}
+.help-group-body p,.help-group-body li{color:var(--ink2);}
+.help-group-body ul,.help-group-body ol{padding-left:18px;margin:4px 0 8px;}
+.help-group-body li{margin-bottom:3px;}
+.help-group-body code{background:var(--bg2);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;font-size:0.82em;font-family:monospace;color:var(--ink);}
+.help-table{width:100%;border-collapse:collapse;margin:8px 0 12px;font-size:0.83rem;}
+.help-table th,.help-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border2);}
+.help-table th{background:var(--bg2);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink3);}
+.help-table tr:last-child td{border-bottom:none;}
+kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:0.8em;font-family:monospace;box-shadow:0 1px 0 var(--border);}
+.help-group.help-hidden{display:none;}
 /* Design tab */
 #tab-design{flex-direction:row;overflow:hidden;}
 #design-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
@@ -447,6 +468,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <button class="t-tab active" id="tab-forms-btn" onclick="switchTab('forms',this)">Forms<span id="t-form-name-chip" class="t-form-chip" style="display:none"></span></button>
     <button class="t-tab" onclick="switchTab('design',this)">Design</button>
     <button class="t-tab" onclick="switchTab('system',this)">System</button>
+    <button class="t-tab" onclick="switchTab('help',this)"><span class="material-icons-round mi" style="font-size:15px">help_outline</span> Help</button>
   </nav>
   <div class="t-spacer"></div>
   <div class="t-actions">
@@ -474,6 +496,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   <button class="f-tab" onclick="switchTab('pfsettings',this)">
     <span class="material-icons-round mi">settings</span> Settings
   </button>
+  <button class="f-tab" onclick="openMediaPicker('manage')" id="subnav-media-btn">Media</button>
 </nav>
 
 <div id="app">
@@ -502,7 +525,6 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <button id="tab-fields-btn" class="bl-tab" onclick="switchPanelTab('fields')">Fields</button>
       </div>
       <button id="bl-add-btn" class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem;flex-shrink:0" onclick="panelAddAction()"><span class="material-icons-round mi">add</span> <span id="bl-add-label">Add container</span></button>
-      <button class="tbtn tbtn-ghost" id="bl-media-btn" style="padding:5px 8px;flex-shrink:0;display:none" onclick="openMediaPicker('manage')" title="Media library"><span class="material-icons-round mi">photo_library</span></button>
     </div>
     <div id="bl-scroll"><!-- populated by renderBuildPanel() --></div>
     <div id="response-scroll"><!-- populated by renderResponsePanel() --></div>
@@ -852,6 +874,351 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="btn btn-outline" onclick="closeNewFormModal()">Cancel</button>
       <button class="btn btn-primary" id="create-form-btn" onclick="createForm()"><span class="material-icons-round mi">add</span> Create form</button>
     </div>
+  </div>
+</div>
+
+<!-- HELP TAB -->
+<div id="tab-help" class="page">
+  <div class="page-body" style="max-width:900px">
+    <div class="page-head">
+      <h2>Help &amp; Documentation</h2>
+      <p>Everything you need to build, design, and grow with SignFlow.</p>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <input type="search" id="help-search" placeholder="Search help…" style="flex:1;max-width:340px" oninput="filterHelp(this.value)">
+    </div>
+    <div id="help-sections">
+
+    <!-- GETTING STARTED -->
+    <div class="help-group" data-tags="start create form publish embed overview">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">rocket_launch</span> Getting Started
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>What is SignFlow?</h3>
+        <p>SignFlow is a self-hosted, white-label newsletter signup platform. You host it on your own infrastructure, own your subscriber data, and brand it however you like. There are no third-party fees, no data sharing, and no vendor lock-in.</p>
+        <h3>Creating your first form</h3>
+        <ol>
+          <li>On the <strong>Forms</strong> tab, click <strong>+ New form</strong> and give it a name.</li>
+          <li>Click the form card to open it — you land on the <strong>Build</strong> tab.</li>
+          <li>Edit the <strong>Hero</strong> section to set your heading and subheading.</li>
+          <li>Add or rearrange fields using the <strong>Fields</strong> panel tab.</li>
+          <li>Style it in the <strong>Design</strong> tab — colours, fonts, layout.</li>
+          <li>Click <strong>Save</strong> and visit your live URL (<code>/your-form-slug</code>).</li>
+        </ol>
+        <h3>Form URL structure</h3>
+        <ul>
+          <li><code>/your-slug</code> — public signup page</li>
+          <li><code>/your-slug/embed</code> — embeddable iframe page</li>
+          <li><code>/your-slug/embed.js</code> — JS widget script</li>
+          <li><code>/your-slug/unsubscribe/:token</code> — self-service unsubscribe</li>
+          <li><code>/preferences/:token</code> — subscriber preference centre</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- FORM BUILDER -->
+    <div class="help-group" data-tags="build section hero form container content block field wysiwyg divider spacer video spin wheel confirmation">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">edit</span> Form Builder
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Section types</h3>
+        <p>A form is made up of <em>sections</em> stacked vertically inside the card. Each section type serves a different purpose:</p>
+        <table class="help-table">
+          <tr><th>Type</th><th>Description</th></tr>
+          <tr><td><strong>Hero</strong></td><td>Heading, subheading and optional hero image. Supports per-section background and text colour overrides.</td></tr>
+          <tr><td><strong>Form</strong></td><td>The actual input fields and submit button. Always required.</td></tr>
+          <tr><td><strong>Container</strong></td><td>A free-layout block holding mixed items: fields, submit button, headings, images, dividers, spacers, videos and WYSIWYG text. Supports 1- or 2-column layout.</td></tr>
+          <tr><td><strong>Content</strong></td><td>A display-only block (headings, paragraphs, images). Useful for intro copy or disclaimers.</td></tr>
+          <tr><td><strong>Divider</strong></td><td>Visual separator — line, dots, wave or space-only. Configurable colour and thickness.</td></tr>
+          <tr><td><strong>Spacer</strong></td><td>Fixed-height empty space (px). Use between sections for breathing room.</td></tr>
+          <tr><td><strong>Video</strong></td><td>Embedded YouTube, Vimeo or direct .mp4 video with configurable aspect ratio and autoplay.</td></tr>
+          <tr><td><strong>Spin Wheel</strong></td><td>Interactive prize wheel. Configure rewards, probabilities and button label. Subscribers are shown their result before signing up.</td></tr>
+          <tr><td><strong>Confirmation</strong></td><td>Shown in place of the form after a successful submission. Add any content blocks here — thank-you messages, downloadable offers, social links etc.</td></tr>
+          <tr><td><strong>Footer</strong></td><td>Small text or links shown beneath the form — privacy policy, powered-by, etc.</td></tr>
+        </table>
+        <h3>Field types</h3>
+        <ul>
+          <li><strong>Text, Email, Phone, Number</strong> — standard single-line inputs</li>
+          <li><strong>Textarea</strong> — multi-line text</li>
+          <li><strong>Select, Checkbox, Radio</strong> — choice inputs</li>
+          <li><strong>Date, Year, Year+Month</strong> — date / partial-date pickers</li>
+          <li><strong>Age</strong> — age input with min/max validation</li>
+          <li><strong>Slider</strong> — linear, angled or arc style numeric slider</li>
+          <li><strong>Hidden</strong> — pre-filled value not shown to the user</li>
+        </ul>
+        <p>All non-system fields support: label, placeholder, required toggle, conditional visibility (show/hide based on another field's value).</p>
+        <h3>Container items</h3>
+        <p>Inside a Container block you can drag-and-drop items. Click any item's <strong>edit pencil</strong> to open the item editor modal and customise appearance — colour overrides, font, size, alignment. The <strong>Submit</strong> item inside a container respects custom button background and text colour.</p>
+        <h3>Section colours</h3>
+        <p>Hero and Container sections have independent background and text colour pickers. These override the global design without affecting other sections.</p>
+      </div>
+    </div>
+
+    <!-- DESIGN -->
+    <div class="help-group" data-tags="design colour font typography palette brand template logo background">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">palette</span> Design &amp; Theming
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Colour system</h3>
+        <ul>
+          <li><strong>Primary</strong> — heading text and labels</li>
+          <li><strong>Accent</strong> — links, focus rings, required asterisks</li>
+          <li><strong>Background</strong> — page behind the card</li>
+          <li><strong>Text</strong> — body text inside the card</li>
+          <li><strong>Field colours</strong> — border, background per field type</li>
+          <li><strong>Button colours</strong> — background, text, border</li>
+        </ul>
+        <p>Colour pickers show your <strong>Brand Palette</strong> swatches first, followed by a hex input for custom colours.</p>
+        <h3>Typography</h3>
+        <p>Each heading level (H1–H4), body text, button and field text can have its own font. Fonts come from Google Fonts (loaded at render time) or your own <strong>Custom Fonts</strong> library (.woff2 / .woff / .ttf / .otf). Custom fonts uploaded as <em>Shared</em> are available in all forms; <em>This form</em> fonts are local only.</p>
+        <h3>Design templates</h3>
+        <p>A design template captures all visual settings (colours, fonts, spacing, background) as a reusable preset. On the <strong>Design</strong> tab:</p>
+        <ul>
+          <li><strong>New</strong> — create a blank template (optionally seeded from the current form's design)</li>
+          <li><strong>Select template</strong> — edit any template live with a preview</li>
+          <li><strong>Save template</strong> — persist changes to the template</li>
+          <li><strong>Save as…</strong> — fork the current template under a new name</li>
+          <li><strong>Done</strong> — exit template editing, return to form design</li>
+        </ul>
+        <p>Assign a template to a form via <strong>Settings → Design Template</strong>. The live form uses the template's design without overwriting the form's own settings.</p>
+        <h3>Brand palette</h3>
+        <p>Define a set of named brand colours on the Design tab. Every colour picker across the admin shows your palette swatches for one-click access. Palette colours are stored per-template or per-form design.</p>
+      </div>
+    </div>
+
+    <!-- MEDIA LIBRARY -->
+    <div class="help-group" data-tags="media image upload library folder shared photo">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">photo_library</span> Media Library
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Opening the library</h3>
+        <p>Click <strong>Media</strong> in the form sub-navigation. You can also access it from any image picker button inside the builder (logo, background, hero image, container image items).</p>
+        <h3>Shared vs. Form media</h3>
+        <ul>
+          <li><strong>Shared</strong> — images available in all forms. Good for logos, brand assets, hero photos.</li>
+          <li><strong>This form</strong> — images scoped to the current form only.</li>
+        </ul>
+        <p>Use the scope buttons at the top of the sidebar to filter the view. Change an item's scope using the <em>Move to shared / Move to form</em> action.</p>
+        <h3>Folders</h3>
+        <p>Click <strong>+ New folder</strong> in the sidebar to create a folder. Select an item and use the folder dropdown to move it. Folders are scoped — shared folders and form folders are separate.</p>
+        <h3>Uploading</h3>
+        <p>Select the destination scope and folder before uploading. Accepted formats: JPEG, PNG, GIF, WebP, SVG. Max file size: 10 MB.</p>
+        <h3>Inserting media</h3>
+        <p>When opened from an image picker (e.g. hero image), select an image and click <strong>Insert selected</strong>. When opened from the Media menu item, you are in manage-only mode (no insert button).</p>
+      </div>
+    </div>
+
+    <!-- SUBSCRIBERS -->
+    <div class="help-group" data-tags="subscriber list export csv delete gdpr unsubscribe filter search">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">people</span> Subscribers
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Viewing subscribers</h3>
+        <p>Open the <strong>Subscribers</strong> tab for the current form. The table is paginated (50 per page). Use the status filter to view <em>All / Active / Unsubscribed</em>.</p>
+        <h3>Exporting</h3>
+        <p>Click <strong>Export CSV</strong> or <strong>Export JSON</strong> to download all subscribers for the current form. The export includes email, name (if collected), custom field values, consent timestamp, IP address and status.</p>
+        <h3>GDPR deletion</h3>
+        <p>Each row has a <strong>Delete</strong> button. This permanently removes the subscriber record from the JSON store — it cannot be undone. Use this to honour right-to-erasure requests under GDPR / UK GDPR.</p>
+        <h3>Unsubscribe flow</h3>
+        <p>Each subscriber receives a unique token. The welcome email (if configured) includes an unsubscribe link pointing to <code>/your-slug/unsubscribe/:token</code>. On visit, the subscriber's status is set to <code>unsubscribed</code> and <code>unsubscribedAt</code> is recorded.</p>
+        <h3>Preference centre</h3>
+        <p>Subscribers can update their data at <code>/preferences/:token</code>. The preference page is a separate, lightly styled form that lets subscribers update their name, custom fields and resubscribe or unsubscribe.</p>
+      </div>
+    </div>
+
+    <!-- EMBED -->
+    <div class="help-group" data-tags="embed iframe widget code snippet javascript">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">code</span> Embed &amp; Share
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Embedding options</h3>
+        <p>Every form has two embed methods. Open the <strong>Embed</strong> tab to see the generated code.</p>
+        <table class="help-table">
+          <tr><th>Method</th><th>How it works</th></tr>
+          <tr><td><strong>iFrame</strong></td><td>A standard <code>&lt;iframe&gt;</code> pointing to <code>/slug/embed</code>. Specify a fixed height or enable auto-resize. No JavaScript required on the host page.</td></tr>
+          <tr><td><strong>JS Widget</strong></td><td>A single <code>&lt;script&gt;</code> tag that loads <code>/slug/embed.js</code>. The script injects a self-resizing iframe into a target <code>&lt;div data-signflow="slug"&gt;</code> element. The iframe auto-resizes as content changes.</td></tr>
+        </table>
+        <h3>Embed page styling</h3>
+        <p>The embed page (<code>/slug/embed</code>) renders without the outer page chrome (no background, no cookie banner). It uses the same design settings as the main form but with slightly smaller typography and tighter padding for compact integration.</p>
+        <h3>Auto-resize</h3>
+        <p>The JS widget communicates iframe height via <code>postMessage</code>, so the host page never shows a scrollbar inside the embed — the iframe grows to fit its content.</p>
+      </div>
+    </div>
+
+    <!-- EMAIL -->
+    <div class="help-group" data-tags="email welcome template smtp transactional unsubscribe confirmation">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">mail</span> Email
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Welcome email</h3>
+        <p>Configure a transactional welcome email sent immediately after a successful signup. The email template editor is accessible from the <strong>Build → Response</strong> panel tab.</p>
+        <h3>Template editor</h3>
+        <p>The rich email template editor provides a visual canvas with drag-and-drop blocks: heading, paragraph, image, button, divider, spacer. The template is stored as HTML and sent via your configured SMTP server.</p>
+        <h3>SMTP configuration</h3>
+        <p>Enter your SMTP credentials on the <strong>System</strong> tab (<em>SMTP host, port, username, password, from address</em>). SignFlow uses Nodemailer and is compatible with any SMTP provider (SendGrid, Mailgun, Amazon SES, Gmail, Fastmail, etc.).</p>
+        <h3>Placeholder variables</h3>
+        <p>Use these in email templates and the submit disclaimer:</p>
+        <ul>
+          <li><code>{firstName}</code>, <code>{lastName}</code>, <code>{email}</code> — subscriber fields</li>
+          <li><code>{unsubscribeUrl}</code> — one-click unsubscribe link</li>
+          <li><code>{preferencesUrl}</code> — preference centre link</li>
+          <li><code>{privacyUrl}</code> — privacy policy URL from Site Settings</li>
+          <li><code>{formName}</code> — name of the signup form</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="help-group" data-tags="settings site captcha privacy hcaptcha cookie domain slug">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">settings</span> Form Settings
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Site settings</h3>
+        <ul>
+          <li><strong>Form title</strong> — shown in browser tab and email subject line</li>
+          <li><strong>Slug</strong> — URL path segment (e.g. <code>my-newsletter</code> → <code>/my-newsletter</code>). Must be unique and URL-safe. Reserved slugs: <code>admin, auth, api, embed, preferences</code>.</li>
+          <li><strong>Privacy policy URL</strong> — used in the GDPR disclaimer and cookie banner links</li>
+          <li><strong>Cookie banner text</strong> — shown to first-time visitors on the direct page load (not in embeds)</li>
+        </ul>
+        <h3>hCaptcha</h3>
+        <p>Enable bot protection per-form. Enter your <strong>hCaptcha site key</strong> and <strong>secret key</strong> (from hcaptcha.com). When enabled, a CAPTCHA challenge appears above the submit button.</p>
+        <h3>Design template assignment</h3>
+        <p>Link a design template to a form here. The live form will use the template's visual design while keeping form-specific settings (slug, fields, sections) intact.</p>
+      </div>
+    </div>
+
+    <!-- SYSTEM -->
+    <div class="help-group" data-tags="system smtp auth0 authentication sso env deployment server">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">admin_panel_settings</span> System &amp; Authentication
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Admin authentication</h3>
+        <p>SignFlow uses <strong>Auth0 OIDC</strong> for admin access. Only users with the <code>signflow-admin</code> role (configured in your Auth0 namespace <code>https://signflow/roles</code>) can access the admin panel. Visit <code>/auth/login</code> to sign in.</p>
+        <h3>Required environment variables</h3>
+        <table class="help-table">
+          <tr><th>Variable</th><th>Description</th></tr>
+          <tr><td><code>AUTH0_DOMAIN</code></td><td>Your Auth0 tenant domain</td></tr>
+          <tr><td><code>AUTH0_CLIENT_ID</code></td><td>Auth0 application client ID</td></tr>
+          <tr><td><code>AUTH0_CLIENT_SECRET</code></td><td>Auth0 application client secret</td></tr>
+          <tr><td><code>AUTH0_CALLBACK_URL</code></td><td>Callback URL registered in Auth0 (e.g. <code>https://yourdomain.com/auth/callback</code>)</td></tr>
+          <tr><td><code>SESSION_SECRET</code></td><td>Random string for signing session cookies</td></tr>
+          <tr><td><code>BASE_URL</code></td><td>Your public URL (used for OIDC redirect)</td></tr>
+          <tr><td><code>SMTP_HOST, PORT, USER, PASS, FROM</code></td><td>Outbound email relay settings</td></tr>
+        </table>
+        <h3>Data storage</h3>
+        <p>All data is stored as JSON flat files under <code>data/</code>. No database setup required. For high-traffic use, see the Enterprise Roadmap section for database migration plans.</p>
+      </div>
+    </div>
+
+    <!-- KEYBOARD SHORTCUTS -->
+    <div class="help-group" data-tags="keyboard shortcut hotkey ctrl save">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">keyboard</span> Keyboard Shortcuts
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <table class="help-table">
+          <tr><th>Shortcut</th><th>Action</th></tr>
+          <tr><td><kbd>Ctrl / ⌘ + S</kbd></td><td>Save current form config</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close any open modal or picker</td></tr>
+        </table>
+        <p style="margin-top:10px;font-size:0.8rem;color:var(--ink3)">More shortcuts can be added via <code>~/.claude/keybindings.json</code> if you are using the Claude Code assistant.</p>
+      </div>
+    </div>
+
+    <!-- ENTERPRISE ROADMAP -->
+    <div class="help-group" data-tags="roadmap enterprise security database sso performance api gdpr future plan">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">map</span> Enterprise Roadmap
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <p>The following capabilities are planned for the enterprise edition of SignFlow. They are designed to meet the requirements of large organisations, regulated industries and high-traffic deployments.</p>
+        <h3>🔐 Authentication &amp; Access Control</h3>
+        <ul>
+          <li><strong>SSO / SAML 2.0</strong> — Okta, Azure AD, Google Workspace, any SAML IdP</li>
+          <li><strong>SCIM provisioning</strong> — automatic user creation / deactivation from IdP</li>
+          <li><strong>Role-based access control (RBAC)</strong> — Admin, Editor, Viewer, Forms-only roles</li>
+          <li><strong>Multi-tenant workspaces</strong> — separate orgs, each with their own forms, subscribers and billing</li>
+          <li><strong>MFA enforcement</strong> — TOTP / WebAuthn at the application layer</li>
+          <li><strong>Audit log</strong> — timestamped record of all admin actions (who changed what, when)</li>
+        </ul>
+        <h3>🗄️ Database &amp; Infrastructure</h3>
+        <ul>
+          <li><strong>PostgreSQL / MySQL backend</strong> — replace flat-file JSON with a proper relational store; connection pooling via pg-pool</li>
+          <li><strong>Redis caching</strong> — rendered page cache, session store, rate-limit counters</li>
+          <li><strong>S3-compatible object storage</strong> — media uploads to AWS S3, Cloudflare R2 or Backblaze B2 instead of local disk</li>
+          <li><strong>Multi-region deployment</strong> — read replicas, geo-routed CDN for form pages</li>
+          <li><strong>Zero-downtime deploys</strong> — blue/green or rolling deployments via PM2 cluster mode or Kubernetes</li>
+          <li><strong>Automated backups</strong> — scheduled DB dumps + media snapshots to cold storage</li>
+        </ul>
+        <h3>🛡️ Security</h3>
+        <ul>
+          <li><strong>Input sanitisation</strong> — DOMPurify on all WYSIWYG output; Joi schema validation on all API inputs</li>
+          <li><strong>SQL injection prevention</strong> — parameterised queries via pg / knex; no string concatenation in DB calls</li>
+          <li><strong>XSS &amp; CSRF protection</strong> — strict CSP headers, SameSite=Strict cookies, csurf token on all state-mutating endpoints</li>
+          <li><strong>Rate limiting</strong> — per-IP limits on /subscribe (100/hr), admin login (10/15min) via express-rate-limit + Redis</li>
+          <li><strong>Phishing / injection defence</strong> — custom domain verification, Subresource Integrity (SRI) on CDN assets, DNS-based domain allowlist</li>
+          <li><strong>Penetration testing</strong> — scheduled automated scans (OWASP ZAP), plus annual manual pentest</li>
+          <li><strong>Secret management</strong> — Vault / AWS Secrets Manager instead of plain .env</li>
+          <li><strong>TLS enforcement</strong> — HSTS with 1-year max-age + preload; automatic cert renewal via certbot</li>
+        </ul>
+        <h3>📋 GDPR &amp; Data Protection</h3>
+        <ul>
+          <li><strong>Consent audit trail</strong> — immutable log of each consent event (timestamp, IP, form version, text shown)</li>
+          <li><strong>Data Processing Agreements (DPAs)</strong> — downloadable DPA template, sub-processor register</li>
+          <li><strong>Right to access</strong> — API endpoint returning full subscriber data as structured JSON</li>
+          <li><strong>Right to erasure</strong> — cryptographic erasure token; cascades across all forms when subscriber requests deletion</li>
+          <li><strong>Data retention policies</strong> — configurable auto-purge of inactive subscribers after N months</li>
+          <li><strong>Privacy-by-design</strong> — IP hashing / anonymisation option, configurable consent text per jurisdiction (EU, UK, CA, US)</li>
+          <li><strong>Cookie-free analytics</strong> — lightweight signup funnel stats (views → starts → completions) with no PII storage</li>
+        </ul>
+        <h3>⚡ Performance &amp; Scalability</h3>
+        <ul>
+          <li><strong>Edge rendering</strong> — Cloudflare Workers or Fastly for form pages served at &lt;50ms globally</li>
+          <li><strong>Subscriber write queue</strong> — BullMQ / SQS queue for signup processing to handle traffic spikes without dropped submissions</li>
+          <li><strong>Email sending queue</strong> — async welcome email dispatch with retry, dead-letter queue and delivery tracking</li>
+          <li><strong>Read-through cache</strong> — form config cached in Redis with cache-busting on save</li>
+          <li><strong>Load testing</strong> — k6 benchmarks; target: 5 000 concurrent form submits without degradation</li>
+        </ul>
+        <h3>🔌 Export API &amp; Integrations</h3>
+        <ul>
+          <li><strong>REST API</strong> — authenticated API for external tools to read subscribers, create/update forms, trigger exports</li>
+          <li><strong>Webhook outbound</strong> — POST to any URL on new subscriber, unsubscribe, or form update events</li>
+          <li><strong>Zapier / Make connectors</strong> — no-code integration with 5 000+ apps</li>
+          <li><strong>Mailchimp / Klaviyo / ActiveCampaign sync</strong> — bi-directional subscriber sync via ESP APIs</li>
+          <li><strong>HubSpot / Salesforce CRM push</strong> — new signups automatically create CRM contacts</li>
+          <li><strong>Segment CDP integration</strong> — signup events forwarded as <code>identify</code> and <code>track</code> calls</li>
+        </ul>
+        <h3>📊 Analytics &amp; Reporting</h3>
+        <ul>
+          <li><strong>Form funnel dashboard</strong> — views, starts, completions, drop-off points per field</li>
+          <li><strong>A/B testing</strong> — split traffic between form variants, auto-select winner by conversion rate</li>
+          <li><strong>Email metrics</strong> — open rate, click rate, bounce, unsubscribe per campaign</li>
+          <li><strong>Scheduled reports</strong> — weekly subscriber growth digest emailed to admin</li>
+        </ul>
+      </div>
+    </div>
+
+    </div><!-- /help-sections -->
   </div>
 </div>
 
@@ -1408,7 +1775,6 @@ async function openFormEditor(slug){
   if(chip){chip.textContent=cfg.name||slug;chip.style.display='inline-flex';}
   // Show form sub-nav
   const fsn=document.getElementById('form-subnav');if(fsn)fsn.style.display='flex';
-  const mb=document.getElementById('bl-media-btn');if(mb)mb.style.display='';
   // Show Save / View site buttons
   const sb=document.getElementById('save-btn');if(sb)sb.style.display='';
   const vs=document.getElementById('view-site-btn');if(vs){vs.style.display='';vs.onclick=()=>window.open('/'+slug,'_blank');}
@@ -3077,6 +3443,25 @@ function addCondition(){_conditions.push({fieldId:'',operator:'eq',value:'',acti
 function removeCondition(i){_conditions.splice(i,1);renderConditions(_conditions);}
 function collectConditions(){return _conditions.filter(c=>c.fieldId);}
 
+// ── Help ──
+function toggleHelp(head){
+  const g=head.closest('.help-group');if(g)g.classList.toggle('open');
+}
+function filterHelp(q){
+  const term=(q||'').toLowerCase().trim();
+  document.querySelectorAll('#help-sections .help-group').forEach(g=>{
+    if(!term){g.classList.remove('help-hidden');return;}
+    const tags=(g.dataset.tags||'').toLowerCase();
+    const text=(g.textContent||'').toLowerCase();
+    g.classList.toggle('help-hidden',!tags.includes(term)&&!text.includes(term));
+  });
+}
+// Open the first section by default when the help tab is visited
+function _initHelp(){
+  const first=document.querySelector('#help-sections .help-group');
+  if(first&&!first.classList.contains('open'))first.classList.add('open');
+}
+
 // ── Tabs ──
 const FORM_REQUIRED_TABS=new Set(['build','subscribers','embed','pfsettings']);
 function switchTab(tab,btn){
@@ -3108,6 +3493,7 @@ function switchTab(tab,btn){
   const p=document.getElementById('tab-'+tab);if(p)p.classList.add('active');
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
+  if(tab==='help')_initHelp();
   if(tab==='design'){
     loadDesignTemplates().then(()=>{
       populateDesignTplSelect();
@@ -3621,7 +4007,6 @@ async function deleteForm(slug,name){
       cfg=null;
       const chip2=document.getElementById('t-form-name-chip');if(chip2)chip2.style.display='none';
       const fsn2=document.getElementById('form-subnav');if(fsn2)fsn2.style.display='none';
-      const mb2=document.getElementById('bl-media-btn');if(mb2)mb2.style.display='none';
       document.getElementById('save-btn').style.display='none';
       document.getElementById('view-site-btn').style.display='none';
       switchTab('forms');
