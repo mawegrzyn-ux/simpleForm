@@ -119,6 +119,14 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .bl-tab{background:none;border:none;cursor:pointer;font-size:0.82rem;font-weight:500;color:var(--ink3);padding:4px 0;border-radius:4px;font-family:var(--font);flex:1;transition:all 120ms;text-align:center;}
 .bl-tab.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-sm);}
 .bl-tab:hover:not(.active){color:var(--ink);}
+.pc-add-item{display:flex;align-items:center;gap:7px;width:100%;padding:7px 14px;background:none;border:none;cursor:pointer;font-size:0.83rem;font-family:var(--font);color:var(--ink2);text-align:left;transition:background 100ms;}
+.pc-add-item:hover{background:var(--bg2);}
+.pc-add-item .mi{font-size:15px!important;color:var(--ink3);}
+.pc-block-item{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:0.8rem;color:var(--ink2);}
+.pc-block-item .pc-bk-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pc-block-item .pc-bk-type{font-size:0.7rem;color:var(--ink3);background:var(--bg2);border-radius:3px;padding:1px 5px;flex-shrink:0;}
+.pc-block-item .pc-bk-btn{background:none;border:none;cursor:pointer;color:var(--ink3);padding:2px;border-radius:3px;display:flex;align-items:center;transition:color 120ms;}
+.pc-block-item .pc-bk-btn:hover{color:var(--ink);}
 #bl-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:flex;flex-direction:column;}
 #response-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:none;flex-direction:column;}
 #fields-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:none;flex-direction:column;gap:5px;}
@@ -523,6 +531,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <button id="tab-form-btn" class="bl-tab active" onclick="switchPanelTab('form')">Form</button>
         <button id="tab-response-btn" class="bl-tab" onclick="switchPanelTab('response')">Response</button>
         <button id="tab-fields-btn" class="bl-tab" onclick="switchPanelTab('fields')">Fields</button>
+        <button id="tab-prefcenter-btn" class="bl-tab" onclick="switchPanelTab('prefcenter')">Pref</button>
       </div>
       <button id="bl-add-btn" class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem;flex-shrink:0" onclick="panelAddAction()"><span class="material-icons-round mi">add</span> <span id="bl-add-label">Add container</span></button>
     </div>
@@ -530,6 +539,96 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     <div id="response-scroll"><!-- populated by renderResponsePanel() --></div>
     <div id="fields-scroll">
       <div class="field-list" id="field-list-panel"></div>
+    </div>
+    <div id="pref-scroll" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px">
+      <!-- Design settings -->
+      <div class="cg" style="margin-top:4px">
+        <div class="bk-section-label" style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Design</div>
+        <div class="cg-row">
+          <label class="cl">Logo</label>
+          <button class="btn btn-outline btn-sm" style="width:100%" onclick="openPrefCenterImagePicker('logoUrl')"><span class="material-icons-round mi">image</span> <span id="pc-logo-label">Choose logo…</span></button>
+        </div>
+        <div class="cg-row" style="margin-top:6px">
+          <label class="cl">Logo width (px)</label>
+          <input type="number" id="pc-logo-width" min="40" max="500" placeholder="160" oninput="setPcDesign('logoWidth',this.value+'px')">
+        </div>
+        <div class="cg-row" style="margin-top:6px">
+          <label class="cl">Background image</label>
+          <button class="btn btn-outline btn-sm" style="width:100%" onclick="openPrefCenterImagePicker('bgImage')"><span class="material-icons-round mi">wallpaper</span> <span id="pc-bg-label">Choose image…</span></button>
+        </div>
+        <div id="pc-overlay-row" class="cg-row" style="margin-top:6px;display:none">
+          <label class="cl">Overlay opacity</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="range" id="pc-overlay-range" min="0" max="1" step="0.05" style="flex:1" oninput="setPcDesign('bgOverlay',parseFloat(this.value));document.getElementById('pc-overlay-val').textContent=Math.round(this.value*100)+'%'">
+            <span id="pc-overlay-val" style="font-size:0.78rem;color:var(--ink3);width:32px">40%</span>
+          </div>
+        </div>
+        <div id="pc-color-rows" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+          <!-- colour rows injected by buildPcColorPickers() -->
+        </div>
+        <div class="cg-row" style="margin-top:6px">
+          <label class="cl">Card max width</label>
+          <input type="text" id="pc-card-maxwidth" placeholder="480px" oninput="setPcDesign('cardMaxWidth',this.value)">
+        </div>
+        <div class="cg-row" style="margin-top:6px">
+          <label class="cl">Card padding</label>
+          <input type="text" id="pc-card-padding" placeholder="40px" oninput="setPcDesign('cardPadding',this.value)">
+        </div>
+        <div class="cg-row" style="margin-top:6px">
+          <label class="cl">Card border radius</label>
+          <input type="text" id="pc-card-radius" placeholder="12px" oninput="setPcDesign('cardRadius',this.value)">
+        </div>
+        <div class="cg-row" style="margin-top:6px">
+          <label class="cl">Heading font</label>
+          <select id="pc-heading-font" onchange="setPcDesign('headingFont',this.value)">
+            <option value="">Same as form</option>
+          </select>
+        </div>
+        <div class="cg-row" style="margin-top:6px">
+          <label class="cl">Body font</label>
+          <select id="pc-body-font" onchange="setPcDesign('bodyFont',this.value)">
+            <option value="">Same as form</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Text -->
+      <div class="cg" style="margin-top:12px">
+        <div class="bk-section-label" style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Page Text</div>
+        <label class="cl">Heading</label>
+        <input type="text" id="pc-heading" placeholder="Email Preferences" oninput="setPcDesign('pageHeading',this.value)">
+        <label class="cl" style="margin-top:6px">Subtext</label>
+        <textarea id="pc-subtext" rows="2" placeholder="Manage your subscription preferences below." oninput="setPcDesign('subText',this.value)" style="resize:vertical"></textarea>
+      </div>
+
+      <!-- Content blocks above actions -->
+      <div class="cg" style="margin-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="bk-section-label" style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em">Content blocks</div>
+          <div style="position:relative">
+            <button class="btn btn-outline btn-sm" onclick="togglePcAddMenu(this)"><span class="material-icons-round mi">add</span> Add block</button>
+            <div id="pc-add-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:200;min-width:160px;padding:4px 0">
+              <button class="pc-add-item" onclick="addPcBlock('heading')"><span class="material-icons-round mi">title</span> Heading</button>
+              <button class="pc-add-item" onclick="addPcBlock('paragraph')"><span class="material-icons-round mi">notes</span> Paragraph</button>
+              <button class="pc-add-item" onclick="addPcBlock('image')"><span class="material-icons-round mi">image</span> Image</button>
+              <button class="pc-add-item" onclick="addPcBlock('button')"><span class="material-icons-round mi">smart_button</span> Button</button>
+              <button class="pc-add-item" onclick="addPcBlock('wysiwyg')"><span class="material-icons-round mi">format_color_text</span> Rich text</button>
+              <button class="pc-add-item" onclick="addPcBlock('spacer')"><span class="material-icons-round mi">space_bar</span> Spacer</button>
+              <button class="pc-add-item" onclick="addPcBlock('divider')"><span class="material-icons-round mi">horizontal_rule</span> Divider</button>
+            </div>
+          </div>
+        </div>
+        <div id="pc-block-list" style="display:flex;flex-direction:column;gap:6px">
+          <!-- rendered by renderPcBlockList() -->
+        </div>
+        <div id="pc-block-empty" style="font-size:0.8rem;color:var(--ink3);text-align:center;padding:14px 0;display:none">No blocks yet. Add content above the preference actions.</div>
+      </div>
+
+      <!-- locked actions indicator -->
+      <div style="margin-top:10px;border:1.5px dashed var(--border2);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px;color:var(--ink3);font-size:0.8rem">
+        <span class="material-icons-round mi" style="font-size:16px!important">lock</span>
+        <span><strong style="color:var(--ink2)">Actions block</strong> — unsubscribe / delete buttons (always present, not editable)</span>
+      </div>
     </div>
   </div>
   <div id="bl-resize-handle"></div>
@@ -693,31 +792,310 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 
 <!-- SYSTEM TAB -->
 <div id="tab-system" class="page">
-  <div class="page-body narrow">
-    <div class="page-head"><h2>System</h2><p>Platform-wide settings — authentication, compliance and deployment.</p></div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">shield</span> Authentication</div>
-      <p class="card-desc">Admin access is protected by Auth0. Only users with the <code>signflow-admin</code> role can log in.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-outline btn-sm" onclick="window.open('https://manage.auth0.com','_blank')"><span class="material-icons-round mi">manage_accounts</span> Auth0 Dashboard</button>
-        <button class="btn btn-outline btn-sm" onclick="window.location='/auth/logout'"><span class="material-icons-round mi">logout</span> Sign out</button>
+  <div class="page-body" style="max-width:900px">
+    <div class="page-head">
+      <h2>System</h2>
+      <p>Platform info, tech stack, architecture, security, GDPR, and roadmap.</p>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <input type="search" id="system-search" placeholder="Search system docs…" style="flex:1;max-width:340px" oninput="filterSystem(this.value)">
+    </div>
+    <div id="system-sections">
+
+    <!-- AUTHENTICATION -->
+    <div class="help-group" data-tags="auth auth0 oidc login sso session role admin">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">shield</span> Authentication &amp; Access
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Auth0 OIDC</h3>
+        <p>Admin access is protected by <strong>Auth0 OIDC</strong> via <code>openid-client v5</code>. Only users with the <code>signflow-admin</code> role (namespace: <code>https://signflow/roles</code>) can access the admin panel.</p>
+        <h3>Auth flow</h3>
+        <ol>
+          <li>GET <code>/admin</code> → <code>requireAuth</code> middleware checks session</li>
+          <li>No session → redirect <code>/auth/login</code> → Auth0 authorize endpoint</li>
+          <li>Auth0 callback → POST <code>/auth/callback</code> → exchange code → verify role claim</li>
+          <li>Store user in session → redirect <code>/admin</code></li>
+          <li>All <code>/api/admin/*</code> routes protected by <code>adminAuth</code> middleware</li>
+        </ol>
+        <h3>Session security</h3>
+        <ul>
+          <li>Cookies: <code>httpOnly: true</code>, <code>secure: true</code>, <code>sameSite: lax</code></li>
+          <li><code>app.set('trust proxy', 1)</code> for HTTPS behind Nginx</li>
+          <li>Signed with <code>SESSION_SECRET</code> env variable</li>
+        </ul>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn btn-outline btn-sm" onclick="window.open('https://manage.auth0.com','_blank')"><span class="material-icons-round mi">manage_accounts</span> Auth0 Dashboard</button>
+          <button class="btn btn-outline btn-sm" onclick="window.location='/auth/logout'"><span class="material-icons-round mi">logout</span> Sign out</button>
+        </div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">verified_user</span> GDPR compliance</div>
-      <div class="gdpr-list">
-        <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> Consent recorded with timestamp + IP on every signup</div>
-        <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> Unique unsubscribe token per subscriber</div>
-        <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> Data deletion at <code>/delete-data</code></div>
-        <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> Cookie consent banner on public page</div>
-        <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> Admin can permanently delete individual records</div>
-        <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> Export to CSV / JSON for data portability</div>
+
+    <!-- TECH STACK -->
+    <div class="help-group" data-tags="stack node express pm2 nginx ubuntu aws lightsail tech version">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">layers</span> Tech Stack
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <table class="help-table">
+          <tr><th>Layer</th><th>Technology</th><th>Notes</th></tr>
+          <tr><td>Runtime</td><td>Node.js 20 LTS</td><td>Long-term support release</td></tr>
+          <tr><td>Web framework</td><td>Express 4</td><td>Single <code>server.js</code> (~1700 lines)</td></tr>
+          <tr><td>Auth</td><td>openid-client v5 (Auth0)</td><td>OIDC, role claim via Action</td></tr>
+          <tr><td>Email</td><td>Nodemailer</td><td>SMTP relay, HTML templates</td></tr>
+          <tr><td>File uploads</td><td>Multer</td><td>Images + fonts, 10 MB limit</td></tr>
+          <tr><td>Process manager</td><td>PM2</td><td><code>pm2 start server.js --name signflow</code></td></tr>
+          <tr><td>Reverse proxy</td><td>Nginx</td><td>TLS termination, proxy_pass :3000</td></tr>
+          <tr><td>TLS</td><td>Let's Encrypt (Certbot)</td><td>Auto-renewal via certbot timer</td></tr>
+          <tr><td>Hosting</td><td>AWS Lightsail</td><td>Ubuntu 24.04, $5–10/mo instance</td></tr>
+          <tr><td>Admin SPA</td><td>Vanilla JS</td><td>No build step, no framework</td></tr>
+          <tr><td>Icons</td><td>Google Material Icons Round</td><td>CDN loaded</td></tr>
+          <tr><td>Storage</td><td>JSON flat files</td><td><code>data/</code> directory</td></tr>
+        </table>
+        <h3>Architecture decisions</h3>
+        <ul>
+          <li><strong>Single <code>server.js</code></strong> — all business logic co-located; easy to navigate for a solo developer</li>
+          <li><strong>Single <code>admin/index.html</code></strong> — full SPA, no bundler, no npm; edit and deploy instantly</li>
+          <li><strong>JSON flat files</strong> — zero database setup, trivial backup (copy a folder), human-readable</li>
+        </ul>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title"><span class="material-icons-round mi">terminal</span> Deployment</div>
-      <div class="info-box">Data: <code>data/forms/{slug}.json</code> · <code>data/subscribers-{slug}.json</code><br>Uploads: <code>public/uploads/</code><br>Logs: <code>pm2 logs signflow</code> · Deploy: <code>~/deploy.sh</code></div>
+
+    <!-- ARCHITECTURE -->
+    <div class="help-group" data-tags="architecture routes request flow api structure diagram">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">account_tree</span> Architecture &amp; Routes
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Key server functions</h3>
+        <table class="help-table">
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>migrateIfNeeded()</code></td><td>On startup: converts legacy single-form data to multi-form layout</td></tr>
+          <tr><td><code>renderPublicPage(cfg)</code></td><td>Returns full HTML for the public-facing signup page</td></tr>
+          <tr><td><code>renderEmbedPage(cfg)</code></td><td>Returns HTML for the iframe embed version</td></tr>
+          <tr><td><code>renderBlockElement(el, cfg)</code></td><td>Renders a single top-level section block</td></tr>
+          <tr><td><code>renderCntItem(item, cfg, d)</code></td><td>Renders an item inside a container column</td></tr>
+          <tr><td><code>sendWelcomeEmail(cfg, sub)</code></td><td>Sends HTML welcome email via Nodemailer</td></tr>
+          <tr><td><code>customFontFaceCSS(cfg)</code></td><td>Generates <code>@font-face</code> CSS for shared + form fonts</td></tr>
+          <tr><td><code>googleFontTag(cfg, d)</code></td><td>Generates Google Fonts <code>&lt;link&gt;</code>, skipping custom font names</td></tr>
+          <tr><td><code>adminAuth</code></td><td>Middleware: verifies Auth0 session + <code>signflow-admin</code> role</td></tr>
+          <tr><td><code>submitLimiter</code></td><td>Rate limiter: 10 subs / 15 min / IP</td></tr>
+        </table>
+        <h3>Public routes</h3>
+        <table class="help-table">
+          <tr><th>Method + Path</th><th>Handler</th></tr>
+          <tr><td><code>GET /</code></td><td>Redirect to first form slug</td></tr>
+          <tr><td><code>GET /:slug</code></td><td>Render public form page</td></tr>
+          <tr><td><code>POST /:slug/subscribe</code></td><td>Validate → save → send email</td></tr>
+          <tr><td><code>GET /:slug/embed</code></td><td>Embeddable iframe page</td></tr>
+          <tr><td><code>GET /:slug/embed.js</code></td><td>Self-resizing embed script</td></tr>
+          <tr><td><code>GET /unsubscribe</code></td><td>Token-based unsubscribe</td></tr>
+          <tr><td><code>GET /delete-data</code></td><td>GDPR hard delete by token</td></tr>
+          <tr><td><code>GET /preferences/:token</code></td><td>Subscriber preference centre</td></tr>
+          <tr><td><code>GET /privacy</code></td><td>Auto-generated privacy policy</td></tr>
+        </table>
+      </div>
     </div>
+
+    <!-- DATA MODEL -->
+    <div class="help-group" data-tags="data model json files storage schema subscriber form config">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">storage</span> Data Model &amp; Storage
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>File layout</h3>
+        <table class="help-table">
+          <tr><th>File</th><th>Contents</th></tr>
+          <tr><td><code>data/forms-index.json</code></td><td>List of all forms <code>[{slug, name, createdAt}]</code></td></tr>
+          <tr><td><code>data/forms/{slug}.json</code></td><td>Per-form config: site settings, design tokens, fields, sections</td></tr>
+          <tr><td><code>data/subscribers-{slug}.json</code></td><td>Subscriber records array for each form</td></tr>
+          <tr><td><code>data/design-templates.json</code></td><td>Saved design templates</td></tr>
+          <tr><td><code>data/media-shared.json</code></td><td>Shared media library metadata</td></tr>
+          <tr><td><code>data/fonts-shared.json</code></td><td>Shared custom fonts library</td></tr>
+        </table>
+        <h3>Subscriber record fields</h3>
+        <table class="help-table">
+          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+          <tr><td><code>id</code></td><td>string</td><td>UUID, generated on signup</td></tr>
+          <tr><td><code>email</code></td><td>string</td><td>Subscriber email</td></tr>
+          <tr><td><code>fields</code></td><td>object</td><td>Custom field responses</td></tr>
+          <tr><td><code>status</code></td><td>enum</td><td><code>active</code> | <code>unsubscribed</code></td></tr>
+          <tr><td><code>consentAt</code></td><td>ISO 8601</td><td>Consent timestamp (GDPR evidence)</td></tr>
+          <tr><td><code>ip</code></td><td>string</td><td>IP at consent (GDPR evidence)</td></tr>
+          <tr><td><code>token</code></td><td>string</td><td>Unique unsubscribe / delete token</td></tr>
+          <tr><td><code>exported</code></td><td>boolean</td><td>True if included in a CSV/JSON export</td></tr>
+          <tr><td><code>unsubscribedAt</code></td><td>ISO 8601</td><td>Timestamp of unsubscribe action</td></tr>
+        </table>
+        <h3>Backups</h3>
+        <div class="info-box">Data: <code>data/forms/{slug}.json</code> · <code>data/subscribers-{slug}.json</code><br>Uploads: <code>public/uploads/</code><br>Logs: <code>pm2 logs signflow</code><br>Recommended cron: <code>0 2 * * * tar czf ~/backups/signflow-$(date +\%Y\%m\%d).tar.gz ~/signflow/data/</code></div>
+      </div>
+    </div>
+
+    <!-- SECURITY -->
+    <div class="help-group" data-tags="security rate limit xss csrf injection headers hashing threat">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">security</span> Security
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Current controls</h3>
+        <table class="help-table">
+          <tr><th>Control</th><th>Implementation</th></tr>
+          <tr><td>Authentication</td><td>Auth0 OIDC; role-checked on every admin request</td></tr>
+          <tr><td>Session signing</td><td><code>express-session</code> + <code>SESSION_SECRET</code>; <code>httpOnly</code>, <code>secure</code>, <code>sameSite:lax</code></td></tr>
+          <tr><td>Rate limiting</td><td><code>express-rate-limit</code>: 10 subs / 15 min / IP per form</td></tr>
+          <tr><td>Input sanitisation</td><td>HTML-encode all user values before page render</td></tr>
+          <tr><td>File upload</td><td>Multer: allowlist MIME types; 10 MB limit; no original filenames served</td></tr>
+          <tr><td>Unsubscribe tokens</td><td>UUID v4 per subscriber, validated server-side</td></tr>
+          <tr><td>HTTPS</td><td>Enforced via Nginx + Let's Encrypt, auto-renewed</td></tr>
+          <tr><td>Secrets</td><td><code>.env</code> excluded from git; SMTP passwords server-side only</td></tr>
+        </table>
+        <h3>Known gaps (see Roadmap)</h3>
+        <table class="help-table">
+          <tr><th>Threat</th><th>Gap</th></tr>
+          <tr><td>Brute-force signup</td><td>No CAPTCHA (hCaptcha planned)</td></tr>
+          <tr><td>CSRF on POST routes</td><td>No explicit CSRF token (csurf planned)</td></tr>
+          <tr><td>Upload path traversal</td><td>Filename sanitisation not explicit</td></tr>
+          <tr><td>Data breach</td><td>No encryption at rest</td></tr>
+          <tr><td>Dependency vulns</td><td>No automated scanning (Dependabot planned)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- GDPR -->
+    <div class="help-group" data-tags="gdpr privacy data protection consent erasure deletion rights compliance">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">verified_user</span> GDPR &amp; Data Protection
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Data collected</h3>
+        <table class="help-table">
+          <tr><th>Data</th><th>Purpose</th><th>Legal basis</th></tr>
+          <tr><td>Email address</td><td>Primary identifier, communication</td><td>Consent</td></tr>
+          <tr><td>Custom field values</td><td>Personalisation</td><td>Consent</td></tr>
+          <tr><td>Consent timestamp</td><td>Proof of consent</td><td>Legal obligation</td></tr>
+          <tr><td>IP address at signup</td><td>Proof of consent</td><td>Legitimate interest</td></tr>
+          <tr><td>Unsubscribe token</td><td>Enable self-service withdrawal</td><td>Legal obligation</td></tr>
+        </table>
+        <h3>Rights fulfilment</h3>
+        <div class="gdpr-list" style="margin:10px 0">
+          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Right to access</strong> — Export CSV/JSON contains all records</div>
+          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Right to erasure</strong> — DELETE subscriber hard-deletes from JSON store</div>
+          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Right to withdraw consent</strong> — <code>/unsubscribe?token=…</code> sets status to unsubscribed</div>
+          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Consent timestamp + IP</strong> — recorded on every signup as GDPR evidence</div>
+          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Data deletion</strong> — <code>/delete-data?token=…</code> hard-deletes on subscriber request</div>
+          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Cookie consent banner</strong> — shown on first visit with accept / reject</div>
+          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Export portability</strong> — CSV and JSON download available at any time</div>
+        </div>
+        <h3>Operator responsibilities</h3>
+        <p>As platform operator you are the <strong>data controller</strong>. You must: maintain a Record of Processing Activities (RoPA); ensure a DPA with your SMTP provider; respond to data subject requests within 30 days; not transfer data outside jurisdiction without safeguards.</p>
+      </div>
+    </div>
+
+    <!-- ENVIRONMENT & DEPLOYMENT -->
+    <div class="help-group" data-tags="env environment variable config deploy nginx pm2 certbot ssl">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">terminal</span> Environment &amp; Deployment
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Environment variables (.env)</h3>
+        <table class="help-table">
+          <tr><th>Variable</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>PORT</code></td><td>No (def: 3000)</td><td>Express listen port</td></tr>
+          <tr><td><code>SESSION_SECRET</code></td><td>Yes</td><td>Express session signing key</td></tr>
+          <tr><td><code>AUTH0_DOMAIN</code></td><td>Yes</td><td>Auth0 tenant domain</td></tr>
+          <tr><td><code>AUTH0_CLIENT_ID</code></td><td>Yes</td><td>Auth0 application client ID</td></tr>
+          <tr><td><code>AUTH0_CLIENT_SECRET</code></td><td>Yes</td><td>Auth0 application client secret</td></tr>
+          <tr><td><code>AUTH0_CALLBACK_URL</code></td><td>Yes</td><td>Full callback URL (registered in Auth0)</td></tr>
+        </table>
+        <h3>PM2 commands</h3>
+        <div class="info-box"><code>pm2 start server.js --name signflow</code> — start<br><code>pm2 restart signflow</code> — restart after deploy<br><code>pm2 logs signflow</code> — tail logs<br><code>pm2 save &amp;&amp; pm2 startup</code> — auto-start on reboot</div>
+        <h3>Nginx config (key directives)</h3>
+        <div class="info-box"><code>proxy_pass http://localhost:3000;</code><br><code>proxy_set_header X-Forwarded-Proto $scheme;</code><br><code>client_max_body_size 20M;</code></div>
+        <h3>Quick deploy script</h3>
+        <div class="info-box"><code>cd ~/signflow &amp;&amp; git pull &amp;&amp; npm install --production &amp;&amp; pm2 restart signflow</code></div>
+      </div>
+    </div>
+
+    <!-- ENTERPRISE ROADMAP -->
+    <div class="help-group" data-tags="roadmap enterprise future plan sso saml postgres redis s3 api webhooks gdpr">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">map</span> Enterprise Roadmap
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Phase 1 — Security Hardening</h3>
+        <ul>
+          <li>CSRF tokens (<code>csurf</code> middleware) on all state-mutating routes</li>
+          <li>Strict Content Security Policy via <code>helmet</code></li>
+          <li>hCaptcha / Cloudflare Turnstile on public subscribe route</li>
+          <li>File upload: buffer-based MIME validation; per-user disk quota</li>
+          <li>Dependabot + Snyk automated dependency scanning</li>
+          <li>AWS Secrets Manager / HashiCorp Vault for secret storage</li>
+          <li>Annual external pentest + automated OWASP ZAP scans in CI</li>
+        </ul>
+        <h3>Phase 2 — Database &amp; Storage</h3>
+        <ul>
+          <li><strong>PostgreSQL 16</strong> — replace JSON flat files; managed via AWS RDS</li>
+          <li><strong>Knex.js / Prisma</strong> — query builder with migrations</li>
+          <li><strong>Redis</strong> — page cache, rate-limit counters, session store</li>
+          <li><strong>S3 / Cloudflare R2</strong> — object storage for uploads; CDN delivery</li>
+          <li>PgBouncer for connection pooling at scale</li>
+        </ul>
+        <h3>Phase 3 — Authentication &amp; RBAC</h3>
+        <ul>
+          <li><strong>SSO / SAML 2.0</strong> — Okta, Azure AD, Google Workspace</li>
+          <li><strong>SCIM provisioning</strong> — auto-provision users from corporate IdP</li>
+          <li><strong>RBAC roles</strong> — super-admin, admin, editor, viewer; per-form scoping</li>
+          <li><strong>API keys</strong> — scoped machine-to-machine keys with expiry</li>
+          <li><strong>Audit log</strong> — immutable record of all admin actions in DB</li>
+        </ul>
+        <h3>Phase 4 — GDPR Tooling</h3>
+        <ul>
+          <li>Immutable consent audit trail with form-version snapshot</li>
+          <li>Double opt-in confirmation email flow</li>
+          <li>Configurable data retention policies + automated purge job</li>
+          <li>Subject access request (SAR) data-package generator</li>
+          <li>Bulk GDPR erasure across all forms by email</li>
+          <li>IAB TCF 2.2 compliant cookie consent</li>
+        </ul>
+        <h3>Phase 5 — Export API &amp; Integrations</h3>
+        <ul>
+          <li><strong>REST API</strong> — OpenAPI 3.0 spec; subscriber CRUD; API key auth</li>
+          <li><strong>Webhooks</strong> — POST on <code>subscriber.created</code>, <code>subscriber.unsubscribed</code>, <code>subscriber.deleted</code></li>
+          <li><strong>ESP sync</strong> — Mailchimp, Klaviyo, ConvertKit, Brevo bi-directional sync</li>
+          <li><strong>CRM push</strong> — HubSpot, Salesforce contact creation on signup</li>
+          <li><strong>Zapier / Make / n8n</strong> — no-code automation connectors</li>
+          <li><strong>Google Sheets</strong> — live subscriber append</li>
+        </ul>
+        <h3>Phase 6 — Analytics &amp; Performance</h3>
+        <ul>
+          <li>Form funnel dashboard: views → starts → completions → drop-off per field</li>
+          <li>A/B testing: split variants, auto-select winner by conversion rate</li>
+          <li>Email open / click tracking via pixel + link proxy</li>
+          <li>Edge rendering via Cloudflare Workers (&lt;50ms TTFB globally)</li>
+          <li>Horizontal scaling: stateless Express + shared PostgreSQL + Redis LB</li>
+          <li>Docker image + docker-compose for self-hosted deploys</li>
+        </ul>
+        <h3>Phase 7 — Multi-Tenant SaaS</h3>
+        <ul>
+          <li>Row-level tenancy in PostgreSQL; tenant isolation at query layer</li>
+          <li>Stripe billing with per-tenant subscriber-count tiers</li>
+          <li>Self-serve tenant onboarding and provisioning</li>
+          <li>Custom domain per tenant with automated Let's Encrypt</li>
+          <li>Admin super-console with cross-tenant oversight and audit-logged impersonation</li>
+          <li>99.9% SLA target; multi-AZ PostgreSQL; health dashboard</li>
+        </ul>
+      </div>
+    </div>
+
+    </div><!-- /system-sections -->
   </div>
 </div>
 
@@ -850,8 +1228,6 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
   </div>
 </div>
-
-</div><!-- /app -->
 
 <!-- New Form Modal -->
 <div id="new-form-modal" class="modal-overlay">
@@ -1219,6 +1595,23 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     </div><!-- /help-sections -->
+  </div>
+</div><!-- /tab-help -->
+
+</div><!-- /app -->
+
+<!-- Preference Centre Block Edit Modal -->
+<div id="pc-block-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="width:460px">
+    <div class="modal-head">
+      <h2>Edit block — <span id="pcm-type" style="font-weight:400;color:var(--ink3)"></span></h2>
+      <button class="modal-close" onclick="closePcBlockModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div id="pcm-fields" style="max-height:60vh;overflow-y:auto;padding-right:4px"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closePcBlockModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePcBlockModal()"><span class="material-icons-round mi">check</span> Apply</button>
+    </div>
   </div>
 </div>
 
@@ -1805,6 +2198,9 @@ async function loadConfig(){
 }
 
 function populateControls(){
+  // Ensure preferenceCenter exists on loaded config
+  if(!cfg.preferenceCenter)cfg.preferenceCenter={sections:[]};
+  if(!cfg.preferenceCenter.sections)cfg.preferenceCenter.sections=[];
   // Render build panel first (creates DOM elements with IDs we need to populate)
   renderBuildPanel();
   const hero=cfg.sections.find(s=>s.id==='hero'),form=cfg.sections.find(s=>s.id==='form'),footer=cfg.sections.find(s=>s.id==='footer');
@@ -2295,7 +2691,7 @@ function makeBkCard(s,isConfirmation){
   const showCols=s.type==='container';
   const card=document.createElement('div');
   const _bkCls=s.type==='container'?' bk-container':s.id==='hero'?' bk-hero':(s.id==='form'||s.type==='form')?' bk-form':s.id==='footer'?' bk-footer':'';
-  const _isOpen=_bkOpenMap[s.id]!==false;
+  const _isOpen=_bkOpenMap[s.id]===true;
   card.className='bk'+(_isOpen?' open':'')+_bkCls;card.id='bk-'+s.id;card.dataset.id=s.id;
   card.innerHTML=`
     <div class="bk-head" onclick="toggleBk('bk-${s.id}')">
@@ -2639,18 +3035,22 @@ function switchPanelTab(tab){
   const formScroll=document.getElementById('bl-scroll');
   const responseScroll=document.getElementById('response-scroll');
   const fieldsScroll=document.getElementById('fields-scroll');
+  const prefScroll=document.getElementById('pref-scroll');
   const addBtn=document.getElementById('bl-add-btn');
   const addLabel=document.getElementById('bl-add-label');
   const tabFormBtn=document.getElementById('tab-form-btn');
   const tabResponseBtn=document.getElementById('tab-response-btn');
   const tabFieldsBtn=document.getElementById('tab-fields-btn');
+  const tabPrefBtn=document.getElementById('tab-prefcenter-btn');
   // hide all scrolls, deactivate all tabs
   formScroll.style.display='none';
   responseScroll.style.display='none';
   fieldsScroll.style.display='none';
+  if(prefScroll)prefScroll.style.display='none';
   tabFormBtn.classList.remove('active');
   tabResponseBtn.classList.remove('active');
   tabFieldsBtn.classList.remove('active');
+  if(tabPrefBtn)tabPrefBtn.classList.remove('active');
   if(tab==='form'){
     formScroll.style.display='flex';
     addLabel.textContent='Add container';
@@ -2664,6 +3064,12 @@ function switchPanelTab(tab){
     if(addBtn)addBtn.style.display='';
     renderResponsePanel();
     if(currentFormSlug){const pf=document.getElementById('preview-frame');if(pf)pf.src='/'+currentFormSlug+'/confirmation-preview';}
+  }else if(tab==='prefcenter'){
+    if(prefScroll)prefScroll.style.display='flex';
+    if(tabPrefBtn)tabPrefBtn.classList.add('active');
+    if(addBtn)addBtn.style.display='none';
+    populatePrefCenterPanel();
+    if(currentFormSlug){const pf=document.getElementById('preview-frame');if(pf)pf.src='/preferences?token=preview&email=preview@example.com';}
   }else{
     fieldsScroll.style.display='flex';
     addLabel.textContent='Add field';
@@ -2674,7 +3080,235 @@ function switchPanelTab(tab){
 }
 function panelAddAction(){
   if(_panelTab==='form'||_panelTab==='response')addContainer();
-  else openFieldModal();
+  else if(_panelTab!=='prefcenter')openFieldModal();
+}
+
+// ── Preference Centre panel ──────────────────────────────────────────────────
+function _pc(){
+  if(!cfg)return null;
+  if(!cfg.preferenceCenter)cfg.preferenceCenter={sections:[]};
+  if(!cfg.preferenceCenter.sections)cfg.preferenceCenter.sections=[];
+  return cfg.preferenceCenter;
+}
+
+const PC_COLORS=[
+  {key:'bgColor',label:'Background'},
+  {key:'cardBg',label:'Card background'},
+  {key:'primaryColor',label:'Heading colour'},
+  {key:'textColor',label:'Text colour'},
+  {key:'accentColor',label:'Accent / links'},
+];
+
+function buildPcColorPickers(){
+  const pc=_pc();if(!pc)return;
+  const wrap=document.getElementById('pc-color-rows');if(!wrap)return;
+  wrap.innerHTML=PC_COLORS.map(({key,label})=>{
+    const val=pc[key]||'';
+    return `<div class="cg-row" style="display:flex;align-items:center;gap:8px">
+      <label class="cl" style="flex:1;margin:0">${label}</label>
+      <div style="display:flex;align-items:center;gap:5px">
+        <input type="color" value="${val||'#ffffff'}" style="width:28px;height:24px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none" oninput="setPcDesign('${key}',this.value);document.getElementById('pc-hex-${key}').value=this.value">
+        <input type="text" id="pc-hex-${key}" value="${val}" placeholder="inherit" style="width:80px;font-size:0.78rem;padding:4px 6px" oninput="setPcDesign('${key}',this.value)">
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function buildPcFontPickers(){
+  const pc=_pc();if(!pc)return;
+  const allFonts=[...(_allCustomFonts()||[]).map(f=>f.name),...(window.HEADING_FONTS||[]),...(window.BODY_FONTS||[])].filter((v,i,a)=>a.indexOf(v)===i);
+  ['pc-heading-font','pc-body-font'].forEach((id,i)=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    const curKey=i===0?'headingFont':'bodyFont';
+    const cur=pc[curKey]||'';
+    sel.innerHTML='<option value="">Same as form</option>'+allFonts.map(f=>`<option value="${f}"${f===cur?' selected':''}>${f}</option>`).join('');
+  });
+}
+
+function populatePrefCenterPanel(){
+  const pc=_pc();if(!pc)return;
+  // Logo
+  const logoLabel=document.getElementById('pc-logo-label');
+  if(logoLabel)logoLabel.textContent=pc.logoUrl?pc.logoUrl.split('/').pop():'Choose logo…';
+  // Logo width
+  const lw=document.getElementById('pc-logo-width');
+  if(lw)lw.value=parseInt(pc.logoWidth)||160;
+  // BG image label
+  const bgLabel=document.getElementById('pc-bg-label');
+  if(bgLabel)bgLabel.textContent=pc.bgImage?pc.bgImage.split('/').pop():'Choose image…';
+  // Overlay row
+  const ovRow=document.getElementById('pc-overlay-row');
+  if(ovRow)ovRow.style.display=pc.bgImage?'':'none';
+  const ovRange=document.getElementById('pc-overlay-range');
+  if(ovRange){ovRange.value=pc.bgOverlay!=null?pc.bgOverlay:0.4;}
+  const ovVal=document.getElementById('pc-overlay-val');
+  if(ovVal)ovVal.textContent=Math.round((pc.bgOverlay!=null?pc.bgOverlay:0.4)*100)+'%';
+  // Card settings
+  const cmw=document.getElementById('pc-card-maxwidth');if(cmw)cmw.value=pc.cardMaxWidth||'';
+  const cp=document.getElementById('pc-card-padding');if(cp)cp.value=pc.cardPadding||'';
+  const cr=document.getElementById('pc-card-radius');if(cr)cr.value=pc.cardRadius||'';
+  // Text
+  const ph=document.getElementById('pc-heading');if(ph)ph.value=pc.pageHeading||'';
+  const ps=document.getElementById('pc-subtext');if(ps)ps.value=pc.subText||'';
+  buildPcColorPickers();
+  buildPcFontPickers();
+  renderPcBlockList();
+}
+
+function setPcDesign(key,val){
+  const pc=_pc();if(!pc)return;
+  pc[key]=val;
+  if(key==='bgImage'){
+    const ovRow=document.getElementById('pc-overlay-row');
+    if(ovRow)ovRow.style.display=val?'':'none';
+  }
+  schedulePreview();
+}
+
+function openPrefCenterImagePicker(targetKey){
+  openMediaPicker(url=>{
+    const pc=_pc();if(!pc)return;
+    pc[targetKey]=url;
+    const labelId=targetKey==='logoUrl'?'pc-logo-label':'pc-bg-label';
+    const lbl=document.getElementById(labelId);
+    if(lbl)lbl.textContent=url.split('/').pop();
+    if(targetKey==='bgImage'){
+      const ovRow=document.getElementById('pc-overlay-row');
+      if(ovRow)ovRow.style.display=url?'':'none';
+    }
+    schedulePreview();
+  });
+}
+
+function togglePcAddMenu(btn){
+  const m=document.getElementById('pc-add-menu');if(!m)return;
+  m.style.display=m.style.display==='none'?'block':'none';
+  if(m.style.display==='block'){
+    const close=e=>{if(!m.contains(e.target)&&e.target!==btn){m.style.display='none';document.removeEventListener('click',close);}};
+    setTimeout(()=>document.addEventListener('click',close),10);
+  }
+}
+
+const PC_BLOCK_DEFAULTS={
+  heading:{type:'heading',text:'',level:'h2',align:'left',color:'',fontSize:''},
+  paragraph:{type:'paragraph',text:'',align:'left',color:'',fontSize:''},
+  image:{type:'image',url:'',alt:'',width:'',align:'left',radius:0},
+  button:{type:'button',label:'Click here',url:'#',align:'left',bgColor:'',textColor:'',radius:6},
+  wysiwyg:{type:'wysiwyg',html:''},
+  spacer:{type:'spacer',height:20},
+  divider:{type:'divider',color:'#e0e0e0',thickness:1,margin:16},
+};
+
+function addPcBlock(type){
+  const pc=_pc();if(!pc)return;
+  const block={...PC_BLOCK_DEFAULTS[type],id:'pcb-'+Date.now()};
+  pc.sections.push(block);
+  renderPcBlockList();
+  schedulePreview();
+  const m=document.getElementById('pc-add-menu');if(m)m.style.display='none';
+  // auto-open edit for text blocks
+  if(['heading','paragraph','wysiwyg','button'].includes(type))openPcBlockModal(block.id);
+}
+
+function deletePcBlock(id){
+  const pc=_pc();if(!pc)return;
+  pc.sections=pc.sections.filter(b=>b.id!==id);
+  renderPcBlockList();schedulePreview();
+}
+
+function movePcBlock(id,dir){
+  const pc=_pc();if(!pc)return;
+  const idx=pc.sections.findIndex(b=>b.id===id);if(idx<0)return;
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=pc.sections.length)return;
+  const tmp=pc.sections[newIdx];pc.sections[newIdx]=pc.sections[idx];pc.sections[idx]=tmp;
+  renderPcBlockList();schedulePreview();
+}
+
+const PC_BLOCK_ICONS={heading:'title',paragraph:'notes',image:'image',button:'smart_button',wysiwyg:'format_color_text',spacer:'space_bar',divider:'horizontal_rule'};
+
+function renderPcBlockList(){
+  const pc=_pc();if(!pc)return;
+  const list=document.getElementById('pc-block-list');
+  const empty=document.getElementById('pc-block-empty');
+  if(!list)return;
+  if(!pc.sections.length){list.innerHTML='';if(empty)empty.style.display='';return;}
+  if(empty)empty.style.display='none';
+  list.innerHTML=pc.sections.map((b,i)=>{
+    const icon=PC_BLOCK_ICONS[b.type]||'widgets';
+    const label=b.text||b.html||b.label||b.url||(b.type==='spacer'?b.height+'px':b.type==='divider'?'Divider':'');
+    return `<div class="pc-block-item">
+      <span class="material-icons-round mi" style="font-size:15px!important;color:var(--ink3)">${icon}</span>
+      <span class="pc-bk-label">${label||'(empty)'}</span>
+      <span class="pc-bk-type">${b.type}</span>
+      <button class="pc-bk-btn" onclick="openPcBlockModal('${b.id}')" title="Edit"><span class="material-icons-round mi" style="font-size:14px!important">edit</span></button>
+      <button class="pc-bk-btn" onclick="movePcBlock('${b.id}',-1)" ${i===0?'disabled':''} title="Up"><span class="material-icons-round mi" style="font-size:14px!important">arrow_upward</span></button>
+      <button class="pc-bk-btn" onclick="movePcBlock('${b.id}',1)" ${i===pc.sections.length-1?'disabled':''} title="Down"><span class="material-icons-round mi" style="font-size:14px!important">arrow_downward</span></button>
+      <button class="pc-bk-btn" onclick="deletePcBlock('${b.id}')" title="Delete" style="color:var(--danger)"><span class="material-icons-round mi" style="font-size:14px!important">delete</span></button>
+    </div>`;
+  }).join('');
+}
+
+// ── Preference Centre block edit modal ──────────────────────────────────────
+let _pcEditId=null;
+function openPcBlockModal(id){
+  const pc=_pc();if(!pc)return;
+  const block=pc.sections.find(b=>b.id===id);if(!block)return;
+  _pcEditId=id;
+  const m=document.getElementById('pc-block-modal');if(!m)return;
+  // Populate fields based on type
+  document.getElementById('pcm-type').textContent=block.type;
+  const fields=document.getElementById('pcm-fields');
+  fields.innerHTML=buildPcModalFields(block);
+  m.style.display='flex';
+}
+function closePcBlockModal(){
+  _pcEditId=null;
+  const m=document.getElementById('pc-block-modal');if(m)m.style.display='none';
+}
+function savePcBlockModal(){
+  const pc=_pc();if(!pc||!_pcEditId)return;
+  const block=pc.sections.find(b=>b.id===_pcEditId);if(!block)return;
+  // Read all inputs from modal
+  document.querySelectorAll('#pcm-fields [data-pckey]').forEach(el=>{
+    const key=el.dataset.pckey;
+    const val=el.type==='number'?Number(el.value):(el.type==='checkbox'?el.checked:el.value);
+    block[key]=val;
+  });
+  renderPcBlockList();schedulePreview();
+  closePcBlockModal();
+}
+function buildPcModalFields(block){
+  const t=block.type;
+  let html='';
+  if(t==='heading'){
+    html+=field('text','Text',block.text||'','text')+field('select','Level',block.level||'h2','level',['h1','h2','h3','h4'])+field('text','Colour',block.color||'','color')+field('text','Font size (px)',block.fontSize||'','fontSize')+field('select','Align',block.align||'left','align',['left','center','right']);
+  }else if(t==='paragraph'){
+    html+=`<div class="cg"><label class="cl">Text</label><textarea rows="4" data-pckey="text" style="resize:vertical">${block.text||''}</textarea></div>`+field('text','Colour',block.color||'','color')+field('text','Font size (px)',block.fontSize||'','fontSize')+field('select','Align',block.align||'left','align',['left','center','right']);
+  }else if(t==='image'){
+    html+=field('text','Image URL',block.url||'','url')+`<div class="cg" style="margin-top:6px"><button class="btn btn-outline btn-sm" onclick="pickPcBlockImage()"><span class="material-icons-round mi">image</span> Choose from library</button></div>`+field('text','Alt text',block.alt||'','alt')+field('number','Max width (px)',block.width||'','width')+field('select','Align',block.align||'left','align',['left','center','right'])+field('number','Border radius (px)',block.radius||0,'radius');
+  }else if(t==='button'){
+    html+=field('text','Label',block.label||'','label')+field('text','URL',block.url||'','url')+field('text','Background colour',block.bgColor||'','bgColor')+field('text','Text colour',block.textColor||'','textColor')+field('number','Border radius (px)',block.radius||6,'radius')+field('select','Align',block.align||'left','align',['left','center','right']);
+  }else if(t==='wysiwyg'){
+    html+=`<div class="cg"><label class="cl">HTML content</label><textarea rows="6" data-pckey="html" style="resize:vertical;font-family:monospace;font-size:0.8rem">${(block.html||'').replace(/</g,'&lt;')}</textarea></div>`;
+  }else if(t==='spacer'){
+    html+=field('number','Height (px)',block.height||20,'height');
+  }else if(t==='divider'){
+    html+=field('text','Colour',block.color||'#e0e0e0','color')+field('number','Thickness (px)',block.thickness||1,'thickness')+field('number','Margin (px)',block.margin||16,'margin');
+  }
+  return html;
+  function field(type,label,val,key,options){
+    if(type==='select'){
+      return `<div class="cg" style="margin-top:6px"><label class="cl">${label}</label><select data-pckey="${key}">${options.map(o=>`<option value="${o}"${o===val?' selected':''}>${o}</option>`).join('')}</select></div>`;
+    }
+    return `<div class="cg" style="margin-top:6px"><label class="cl">${label}</label><input type="${type}" data-pckey="${key}" value="${val}"></div>`;
+  }
+}
+function pickPcBlockImage(){
+  openMediaPicker(url=>{
+    const urlInput=document.querySelector('#pcm-fields [data-pckey="url"]');
+    if(urlInput)urlInput.value=url;
+  });
 }
 
 function addContainer(){
@@ -3450,6 +4084,15 @@ function toggleHelp(head){
 function filterHelp(q){
   const term=(q||'').toLowerCase().trim();
   document.querySelectorAll('#help-sections .help-group').forEach(g=>{
+    if(!term){g.classList.remove('help-hidden');return;}
+    const tags=(g.dataset.tags||'').toLowerCase();
+    const text=(g.textContent||'').toLowerCase();
+    g.classList.toggle('help-hidden',!tags.includes(term)&&!text.includes(term));
+  });
+}
+function filterSystem(q){
+  const term=(q||'').toLowerCase().trim();
+  document.querySelectorAll('#system-sections .help-group').forEach(g=>{
     if(!term){g.classList.remove('help-hidden');return;}
     const tags=(g.dataset.tags||'').toLowerCase();
     const text=(g.textContent||'').toLowerCase();

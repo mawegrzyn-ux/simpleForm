@@ -275,7 +275,17 @@ function defaultFormConfig(slug, name) {
     ],
     fields: [{ id: 'email', label: 'Email Address', type: 'email', required: true, placeholder: 'your@email.com', system: true, conditions: [] }],
     confirmation: [],
-    designTemplateId: null
+    designTemplateId: null,
+    preferenceCenter: {
+      bgColor: '', bgImage: '', bgOverlay: 0.4, bgOverlayColor: '#000000',
+      cardBg: '#ffffff', cardRadius: '12px', cardMaxWidth: '480px', cardPadding: '40px',
+      logoUrl: '', logoWidth: '160px',
+      accentColor: '', primaryColor: '', textColor: '',
+      headingFont: '', bodyFont: '',
+      pageHeading: 'Email Preferences',
+      subText: 'Manage your subscription preferences below.',
+      sections: []
+    }
   };
 }
 
@@ -1915,17 +1925,91 @@ ${customFontFaceCSS(cfg)}
 </div></body></html>`;
 }
 
-function renderPreferencePage(cfg, { token, email, found, message, success } = {}) {
-  const d = cfg.design || {};
-  const s = cfg.site || {};
-  const pageText = s.unsubscribePageText || 'Manage your subscription preferences below.';
-  // Build subscription list for this email (across all forms)
-  let allSubs = [];
-  if (email) {
-    try { allSubs = findAllSubscriptions(email); } catch(e) {}
+function renderPrefCenterBlock(block) {
+  if (!block || !block.type) return '';
+  switch (block.type) {
+    case 'heading': {
+      const tag = block.level || 'h2';
+      const st = [
+        block.color    ? `color:${block.color}` : '',
+        block.align    ? `text-align:${block.align}` : '',
+        block.fontSize ? `font-size:${block.fontSize}px` : '',
+        block.fontFamily ? `font-family:'${block.fontFamily}',sans-serif` : ''
+      ].filter(Boolean).join(';');
+      return `<${tag} class="pc-heading" style="${st}">${block.text||''}</${tag}>`;
+    }
+    case 'paragraph': {
+      const st = [
+        block.color    ? `color:${block.color}` : '',
+        block.align    ? `text-align:${block.align}` : '',
+        block.fontSize ? `font-size:${block.fontSize}px` : ''
+      ].filter(Boolean).join(';');
+      return `<p class="pc-para" style="${st}">${block.text||''}</p>`;
+    }
+    case 'image': {
+      if (!block.url) return '';
+      const w = block.width ? `max-width:${block.width}px;` : 'max-width:100%;';
+      const align = block.align === 'center' ? 'margin:0 auto;display:block;' : block.align === 'right' ? 'margin-left:auto;display:block;' : '';
+      return `<div class="pc-image-wrap" style="margin:12px 0"><img src="${block.url}" alt="${block.alt||''}" style="${w}${align}width:100%;border-radius:${block.radius||0}px"></div>`;
+    }
+    case 'spacer':
+      return `<div style="height:${block.height||20}px"></div>`;
+    case 'divider': {
+      const col = block.color || '#e0e0e0';
+      const th = block.thickness || 1;
+      return `<hr style="border:none;border-top:${th}px solid ${col};margin:${block.margin||16}px 0">`;
+    }
+    case 'wysiwyg':
+      return `<div class="pc-wysiwyg">${block.html||''}</div>`;
+    case 'button': {
+      const bg  = block.bgColor  || '#333333';
+      const tc  = block.textColor|| '#ffffff';
+      const r   = block.radius   || 6;
+      const url = block.url      || '#';
+      return `<div style="text-align:${block.align||'left'};margin:10px 0"><a href="${url}" style="display:inline-block;background:${bg};color:${tc};padding:11px 22px;border-radius:${r}px;text-decoration:none;font-size:0.9rem;font-weight:500">${block.label||'Click here'}</a></div>`;
+    }
+    default: return '';
   }
+}
+
+function renderPreferencePage(cfg, { token, email, found, message, success } = {}) {
+  const d  = cfg.design || {};
+  const s  = cfg.site   || {};
+  const pc = cfg.preferenceCenter || {};
+
+  // Design values — pc overrides, then fall back to form design
+  const bgColor    = pc.bgColor    || d.backgroundColor || '#f8f5f0';
+  const bgImage    = pc.bgImage    || '';
+  const bgOverlay  = pc.bgOverlay  != null ? pc.bgOverlay  : 0.4;
+  const bgOvCol    = pc.bgOverlayColor || '#000000';
+  const cardBg     = pc.cardBg     || '#ffffff';
+  const cardRadius = pc.cardRadius || '12px';
+  const cardMaxW   = pc.cardMaxWidth || '480px';
+  const cardPad    = pc.cardPadding  || '40px';
+  const logoUrl    = pc.logoUrl    || d.logoUrl    || '';
+  const logoWidth  = pc.logoWidth  || d.logoWidth  || '160px';
+  const accent     = pc.accentColor  || d.accentColor  || '#e94560';
+  const primary    = pc.primaryColor || d.primaryColor || '#1a1a2e';
+  const textCol    = pc.textColor    || d.textColor    || '#333333';
+  const hFont      = pc.headingFont  || d.googleFont   || 'serif';
+  const bFont      = pc.bodyFont     || d.bodyFont     || 'sans-serif';
+  const heading    = pc.pageHeading  || 'Email Preferences';
+  const subText    = pc.subText      || s.unsubscribePageText || 'Manage your subscription preferences below.';
+
+  // Background CSS
+  let bodyBg = bgColor;
+  let bodyBgExtra = '';
+  if (bgImage) {
+    bodyBgExtra = `background-image:url('${bgImage}');background-size:cover;background-position:center;`;
+    if (bgOverlay > 0) {
+      bodyBgExtra += `position:relative;`;
+    }
+  }
+
+  // Subscription list
+  let allSubs = [];
+  if (email) { try { allSubs = findAllSubscriptions(email); } catch(e) {} }
   const foundFormName = found ? (allSubs.find(x => x.slug === found.slug) || {}).formName || found.slug : '';
-  // Build subscription list HTML
   const subsListHtml = allSubs.length ? allSubs.map(({ formName, sub }) => `
     <div class="sub-item">
       <span class="sub-name">${formName}</span>
@@ -1933,7 +2017,6 @@ function renderPreferencePage(cfg, { token, email, found, message, success } = {
     </div>`).join('') : '';
 
   const formHidden = token && email ? `<input type="hidden" name="token" value="${token}"><input type="hidden" name="email" value="${email}">` : '';
-
   const actionsHtml = found && !success ? `
     <form method="POST" action="/preferences" class="pref-actions">
       ${formHidden}
@@ -1949,44 +2032,57 @@ function renderPreferencePage(cfg, { token, email, found, message, success } = {
       </button>
     </form>` : '';
 
+  // Custom content sections (rendered above actions)
+  const sectionsHtml = (pc.sections || []).map(b => renderPrefCenterBlock(b)).join('');
+
+  const overlayDiv = (bgImage && bgOverlay > 0)
+    ? `<div style="position:fixed;inset:0;background:${bgOvCol};opacity:${bgOverlay};pointer-events:none;z-index:0"></div>` : '';
+
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Email Preferences · ${s.title||'SignFlow'}</title>
+<title>${heading} · ${s.title||'SignFlow'}</title>
 ${googleFontTag(cfg)}
 ${customFontFaceCSS(cfg)}
 <style>
-  body { font-family:'${d.bodyFont||'sans-serif'}',sans-serif; background:${d.backgroundColor||'#f8f5f0'}; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 20px; }
-  .card { background:#fff; border-radius:12px; padding:40px; max-width:480px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.1); }
-  h1 { font-family:'${d.googleFont||'serif'}',serif; color:${d.primaryColor||'#1a1a2e'}; margin:0 0 8px; font-size:1.6rem; }
-  .page-text { color:#666; line-height:1.6; margin-bottom:24px; }
-  ${d.logoUrl ? '.logo{text-align:center;margin-bottom:20px;}.logo img{max-height:60px;max-width:200px;}' : ''}
-  .sub-list { margin-bottom:24px; border:1px solid #eee; border-radius:8px; overflow:hidden; }
-  .sub-item { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid #f0f0f0; font-size:0.9rem; }
-  .sub-item:last-child { border-bottom:none; }
-  .sub-name { font-weight:500; color:#333; }
-  .badge { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:0.7rem; font-weight:600; letter-spacing:.03em; }
-  .badge.active { background:#d4edda; color:#155724; }
-  .badge.unsubscribed { background:#f0f0f0; color:#888; }
-  .pref-actions { display:flex; flex-direction:column; gap:10px; }
-  .btn-pref { padding:12px 20px; border-radius:6px; border:none; font-size:0.9rem; cursor:pointer; text-align:left; transition:opacity .2s; }
-  .btn-pref:hover { opacity:.85; }
-  .btn-secondary { background:#f4f4f4; color:#333; }
-  .btn-danger { background:#fff0f0; color:#c0392b; border:1px solid #f5c6cb; }
-  .btn-pref em { font-style:normal; font-weight:600; }
-  .msg-success { color:#155724; background:#d4edda; padding:14px; border-radius:6px; margin-bottom:20px; }
-  .msg-error { color:#721c24; background:#f8d7da; padding:14px; border-radius:6px; margin-bottom:20px; }
-  .back { display:inline-block; margin-top:24px; font-size:0.85rem; color:${d.accentColor||'#e94560'}; text-decoration:none; }
+  *,*::before,*::after{box-sizing:border-box}
+  body{font-family:'${bFont}',sans-serif;background:${bodyBg};${bodyBgExtra}min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;color:${textCol}}
+  .pc-wrap{position:relative;z-index:1;width:100%;display:flex;align-items:center;justify-content:center}
+  .card{background:${cardBg};border-radius:${cardRadius};padding:${cardPad};max-width:${cardMaxW};width:100%;box-shadow:0 10px 40px rgba(0,0,0,.12)}
+  .pc-logo{text-align:center;margin-bottom:20px}.pc-logo img{max-height:70px;max-width:${logoWidth};width:auto}
+  h1.pc-title{font-family:'${hFont}',serif;color:${primary};margin:0 0 8px;font-size:1.6rem;font-weight:600}
+  .pc-subtext{color:${textCol};opacity:.75;line-height:1.6;margin-bottom:20px}
+  .pc-heading{font-family:'${hFont}',serif;color:${primary};margin:14px 0 8px}
+  .pc-para{line-height:1.65;margin-bottom:12px}
+  .pc-wysiwyg{line-height:1.65}
+  .sub-list{margin-bottom:24px;border:1px solid #eee;border-radius:8px;overflow:hidden}
+  .sub-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:0.9rem}
+  .sub-item:last-child{border-bottom:none}
+  .sub-name{font-weight:500}
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:600;letter-spacing:.03em}
+  .badge.active{background:#d4edda;color:#155724}
+  .badge.unsubscribed{background:#f0f0f0;color:#888}
+  .pref-actions{display:flex;flex-direction:column;gap:10px}
+  .btn-pref{padding:12px 20px;border-radius:6px;border:none;font-size:0.9rem;cursor:pointer;text-align:left;transition:opacity .2s;font-family:'${bFont}',sans-serif}
+  .btn-pref:hover{opacity:.85}
+  .btn-secondary{background:#f4f4f4;color:#333}
+  .btn-danger{background:#fff0f0;color:#c0392b;border:1px solid #f5c6cb}
+  .btn-pref em{font-style:normal;font-weight:600}
+  .msg-success{color:#155724;background:#d4edda;padding:14px;border-radius:6px;margin-bottom:20px}
+  .msg-error{color:#721c24;background:#f8d7da;padding:14px;border-radius:6px;margin-bottom:20px}
+  .back{display:inline-block;margin-top:24px;font-size:0.85rem;color:${accent};text-decoration:none}
 </style></head><body>
-<div class="card">
-  ${d.logoUrl ? `<div class="logo"><img src="${d.logoUrl}" alt="${s.title||''}"></div>` : ''}
-  <h1>Email Preferences</h1>
-  <p class="page-text">${pageText}</p>
+${overlayDiv}
+<div class="pc-wrap"><div class="card">
+  ${logoUrl ? `<div class="pc-logo"><img src="${logoUrl}" alt="${s.title||''}"></div>` : ''}
+  <h1 class="pc-title">${heading}</h1>
+  <p class="pc-subtext">${subText}</p>
   ${message ? `<p class="${success ? 'msg-success' : 'msg-error'}">${message}</p>` : ''}
-  ${email ? `<p style="font-size:0.85rem;color:#888;margin-bottom:16px">Managing preferences for: <strong>${email}</strong></p>` : ''}
+  ${email ? `<p style="font-size:0.85rem;opacity:.6;margin-bottom:16px">Managing preferences for: <strong>${email}</strong></p>` : ''}
+  ${sectionsHtml}
   ${subsListHtml ? `<div class="sub-list">${subsListHtml}</div>` : ''}
   ${actionsHtml}
   <a href="/" class="back">← Back to home</a>
-</div></body></html>`;
+</div></div></body></html>`;
 }
 
 function renderPrivacyPage(cfg) {
