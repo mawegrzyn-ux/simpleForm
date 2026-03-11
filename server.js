@@ -48,20 +48,53 @@ function getMailer() {
   return _mailer;
 }
 
+// Replace {{merge tags}} in email subject/body before sending
+function replaceMergeTags(text, cfg, subscriber, unsubUrl) {
+  const firstName = (subscriber.customFields && (subscriber.customFields.firstName || subscriber.customFields.first_name)) ||
+    subscriber.email.split('@')[0];
+  const map = {
+    '{{email}}':          subscriber.email,
+    '{{firstName}}':      firstName,
+    '{{formName}}':       (cfg.site && cfg.site.title) || 'SignFlow',
+    '{{unsubscribeUrl}}': unsubUrl,
+  };
+  // Strip editor merge-tag spans (keep inner text which is the {{tag}}) then replace
+  let out = text.replace(/<span[^>]*class="etpl-merge"[^>]*>([\s\S]*?)<\/span>/g, '$1');
+  return out.replace(/\{\{[a-zA-Z]+\}\}/g, t => (map[t] !== undefined ? map[t] : t));
+}
+
 async function sendWelcomeEmail(cfg, subscriber) {
   const mailer = getMailer();
   if (!mailer) return; // SMTP not configured — skip silently
   const s = cfg.site;
   if (!s.emailEnabled) return;
-  const unsubUrl = `${ORIGIN}/unsubscribe?token=${subscriber.unsubscribeToken}&email=${encodeURIComponent(subscriber.email)}`;
+  const prefUrl = `${ORIGIN}/preferences?token=${subscriber.unsubscribeToken}&email=${encodeURIComponent(subscriber.email)}`;
   const fromName  = s.emailFromName  || s.title || 'SignFlow';
-  const subject   = s.emailSubject   || `Thanks for subscribing to ${s.title}`;
-  const bodyHtml  = s.emailBodyHtml  || `<p>Hi!</p><p>Thanks for subscribing to <strong>${s.title}</strong>. We're excited to have you!</p>`;
-  const html = `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333">
+  const ed = s.emailDesign || {};
+  const bgColor    = ed.bgColor    || '#f4f4f4';
+  const cardBg     = ed.cardBg     || '#ffffff';
+  const textColor  = ed.textColor  || '#333333';
+  const bodyFont   = ed.bodyFont   || s.bodyFont || 'Lato';
+  const maxWidth   = ed.maxWidth   || '600px';
+  const padding    = ed.padding    || '40px';
+  const radius     = ed.borderRadius || '8px';
+  const rawSubject = s.emailSubject || `Thanks for subscribing to ${s.title}`;
+  const rawBody    = s.emailBodyHtml || `<p>Hi!</p><p>Thanks for subscribing to <strong>${s.title}</strong>. We're excited to have you!</p>`;
+  const subject    = replaceMergeTags(rawSubject, cfg, subscriber, prefUrl);
+  const bodyHtml   = replaceMergeTags(rawBody,    cfg, subscriber, prefUrl);
+  // Auto-append unsubscribe footer only if {{unsubscribeUrl}} not already used in body
+  const footer = rawBody.includes('{{unsubscribeUrl}}') ? '' :
+    `<p style="margin-top:32px;font-size:0.8rem;color:#aaa;border-top:1px solid #eee;padding-top:16px">Don't want these emails? <a href="${prefUrl}" style="color:#aaa">Manage preferences</a></p>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(bodyFont)}:wght@400;600&display=swap" rel="stylesheet">
+</head><body style="margin:0;padding:0;background:${bgColor}">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 16px">
+<table width="${maxWidth}" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}">
+<tr><td style="background:${cardBg};border-radius:${radius};padding:${padding};color:${textColor};font-family:'${bodyFont}',Helvetica,Arial,sans-serif;line-height:1.6">
 ${bodyHtml}
-<p style="margin-top:32px;font-size:0.8rem;color:#aaa;border-top:1px solid #eee;padding-top:16px">
-  Don't want these emails? <a href="${unsubUrl}" style="color:#aaa">Unsubscribe</a>
-</p></body></html>`;
+${footer}
+</td></tr></table></td></tr></table>
+</body></html>`;
   await mailer.sendMail({
     from: `"${fromName}" <${SMTP_FROM}>`,
     to: subscriber.email,
@@ -85,7 +118,7 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(FONTS_DIR))   fs.mkdirSync(FONTS_DIR,   { recursive: true });
 
 // Slugs that cannot be used as form slugs (they're real routes)
-const RESERVED_SLUGS = new Set(['admin','auth','api','privacy','unsubscribe','delete-data','embed','public','uploads','assets']);
+const RESERVED_SLUGS = new Set(['admin','auth','api','privacy','unsubscribe','delete-data','preferences','embed','public','uploads','assets']);
 
 // ── OIDC client (initialised async at startup) ────────────────────────────────
 let oidcClient = null;
@@ -206,7 +239,10 @@ function defaultFormConfig(slug, name) {
     site: { title: name, favicon: '', adminPassword: '', cookieBannerText: '', privacyPolicyUrl: '/privacy',
             gdprText: 'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.',
             unsubscribeEnabled: true, captchaEnabled: false, hcaptchaSiteKey: '', hcaptchaSecretKey: '',
-            emailEnabled: false, emailFromName: '', emailReplyTo: '', emailSubject: '', emailBodyHtml: '' },
+            emailEnabled: false, emailFromName: '', emailReplyTo: '', emailSubject: '', emailBodyHtml: '',
+            emailDesign: { bgColor: '#f4f4f4', cardBg: '#ffffff', textColor: '#333333', headingColor: '#1a1a2e',
+              bodyFont: 'Lato', headingFont: 'Playfair Display', maxWidth: '600px', padding: '40px', borderRadius: '8px' },
+            unsubscribePageText: 'Manage your subscription preferences below.' },
     design: { googleFont: 'Playfair Display', bodyFont: 'Lato', primaryColor: '#1a1a2e',
               accentColor: '#e94560', backgroundColor: '#f8f5f0', textColor: '#1a1a2e',
               buttonText: 'Subscribe Now', buttonRadius: '4px', containerWidth: '560px',
@@ -314,41 +350,101 @@ function findSubscriberByToken(email, token) {
   return null;
 }
 
-// Unsubscribe
-app.get('/unsubscribe', (req, res) => {
+// Helper: get all subscriptions for an email across all forms
+function findAllSubscriptions(email) {
+  const results = [];
+  try {
+    const idx = readFormsIndex();
+    for (const { slug } of idx) {
+      const subs = readFormSubscribers(slug);
+      const sub = subs.find(s => s.email === decodeURIComponent(email));
+      if (sub) {
+        let formName = slug;
+        try { formName = readFormConfig(slug).site.title || slug; } catch(e) {}
+        results.push({ slug, sub, formName });
+      }
+    }
+  } catch(e) {}
+  return results;
+}
+
+// Preference centre — GET: show page
+app.get('/preferences', (req, res) => {
   const { token, email } = req.query;
   let cfg;
-  try { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
-  catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
-  let message = '', success = false;
-  if (token && email) {
-    const found = findSubscriberByToken(email, token);
-    if (found) {
-      found.subs[found.i].status = 'unsubscribed';
-      found.subs[found.i].unsubscribedAt = new Date().toISOString();
-      writeFormSubscribers(found.slug, found.subs);
-      message = 'You have been successfully unsubscribed.'; success = true;
-    } else { message = 'Invalid or expired unsubscribe link.'; }
-  }
-  res.send(renderUnsubscribePage(cfg, message, success));
+  const found = token && email ? findSubscriberByToken(email, token) : null;
+  try {
+    if (found) cfg = readFormConfig(found.slug);
+    else { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+  } catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
+  res.send(renderPreferencePage(cfg, { token, email, found }));
 });
 
-// GDPR: Delete my data
-app.get('/delete-data', (req, res) => {
+// Preference centre — POST: perform action
+app.post('/preferences', (req, res) => {
+  const { token, email, action } = req.body;
+  let cfg;
+  const found = token && email ? findSubscriberByToken(email, token) : null;
+  try {
+    if (found) cfg = readFormConfig(found.slug);
+    else { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+  } catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
+
+  let message = '', success = false;
+  if (!found) {
+    message = 'Invalid or expired link. Please use the link from your email.';
+  } else if (action === 'unsub-one') {
+    found.subs[found.i].status = 'unsubscribed';
+    found.subs[found.i].unsubscribedAt = new Date().toISOString();
+    writeFormSubscribers(found.slug, found.subs);
+    message = 'You have been unsubscribed from this mailing.';
+    success = true;
+  } else if (action === 'unsub-all') {
+    const all = findAllSubscriptions(email);
+    all.forEach(({ slug, sub }) => {
+      const subs = readFormSubscribers(slug);
+      const idx2 = subs.findIndex(s => s.id === sub.id);
+      if (idx2 !== -1) {
+        subs[idx2].status = 'unsubscribed';
+        subs[idx2].unsubscribedAt = new Date().toISOString();
+        writeFormSubscribers(slug, subs);
+      }
+    });
+    message = 'You have been unsubscribed from all mailings.';
+    success = true;
+  } else if (action === 'delete-all') {
+    const all = findAllSubscriptions(email);
+    all.forEach(({ slug, sub }) => {
+      const subs = readFormSubscribers(slug);
+      const idx2 = subs.findIndex(s => s.id === sub.id);
+      if (idx2 !== -1) { subs.splice(idx2, 1); writeFormSubscribers(slug, subs); }
+    });
+    message = 'Your data has been permanently deleted from all our records.';
+    success = true;
+  } else {
+    message = 'Unknown action.';
+  }
+  res.send(renderPreferencePage(cfg, { token, email, found: success ? null : found, message, success }));
+});
+
+// Backward compat: /unsubscribe redirects to /preferences
+app.get('/unsubscribe', (req, res) => {
   const { token, email } = req.query;
+  if (token && email) return res.redirect(302, `/preferences?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`);
   let cfg;
   try { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
   catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
-  let message = '', success = false;
-  if (token && email) {
-    const found = findSubscriberByToken(email, token);
-    if (found) {
-      found.subs.splice(found.i, 1);
-      writeFormSubscribers(found.slug, found.subs);
-      message = 'Your data has been permanently deleted from our records.'; success = true;
-    } else { message = 'Invalid or expired link.'; }
-  }
-  res.send(renderUnsubscribePage(cfg, message, success, true));
+  res.send(renderPreferencePage(cfg, {}));
+});
+
+// Backward compat: /delete-data redirects to /preferences
+app.get('/delete-data', (req, res) => {
+  const { token, email } = req.query;
+  if (token && email) return res.redirect(302, `/preferences?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`);
+  let cfg;
+  try { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+  catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
+  res.send(renderPreferencePage(cfg, {}));
 });
 
 // ════════════════════════════════════════
@@ -627,19 +723,23 @@ app.delete('/api/admin/forms/:slug/subscribers/:id', adminAuth, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Export subscribers as CSV/JSON
+// Export subscribers as CSV/JSON — marks each exported record
 app.get('/api/admin/forms/:slug/export', adminAuth, (req, res) => {
   try {
     const cfg  = readFormConfig(req.params.slug);
-    const subs = readFormSubscribers(req.params.slug);
+    let subs = readFormSubscribers(req.params.slug);
     const fmt  = req.query.format || 'csv';
+    // Mark every record as exported
+    const now = new Date().toISOString();
+    subs = subs.map(s => ({ ...s, exported: true, exportedAt: now }));
+    writeFormSubscribers(req.params.slug, subs);
     if (fmt === 'json') {
       res.setHeader('Content-Disposition', `attachment; filename="subscribers-${req.params.slug}.json"`);
       res.setHeader('Content-Type', 'application/json');
       return res.send(JSON.stringify(subs, null, 2));
     }
     const customFieldIds = cfg.fields.filter(f => !f.system).map(f => f.id);
-    const headers = ['id','email','status','subscribedAt','unsubscribedAt','consentGiven','consentTimestamp','ipAddress',...customFieldIds];
+    const headers = ['id','email','status','subscribedAt','unsubscribedAt','exported','exportedAt','consentGiven','consentTimestamp','ipAddress',...customFieldIds];
     const rows = subs.map(s => headers.map(h => {
       if (customFieldIds.includes(h)) return `"${(s.customFields[h]||'').replace(/"/g,'""')}"`;
       return `"${(s[h]||'').toString().replace(/"/g,'""')}"`;
@@ -647,6 +747,55 @@ app.get('/api/admin/forms/:slug/export', adminAuth, (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="subscribers-${req.params.slug}.csv"`);
     res.setHeader('Content-Type', 'text/csv');
     res.send([headers.join(','), ...rows].join('\n'));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Clear export flag for one subscriber
+app.post('/api/admin/forms/:slug/subscribers/:id/clear-export', adminAuth, (req, res) => {
+  try {
+    const subs = readFormSubscribers(req.params.slug);
+    const idx = subs.findIndex(s => s.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    subs[idx].exported = false;
+    subs[idx].exportedAt = null;
+    writeFormSubscribers(req.params.slug, subs);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Clear export flag for all subscribers
+app.post('/api/admin/forms/:slug/subscribers/clear-all-exports', adminAuth, (req, res) => {
+  try {
+    let subs = readFormSubscribers(req.params.slug);
+    subs = subs.map(s => ({ ...s, exported: false, exportedAt: null }));
+    writeFormSubscribers(req.params.slug, subs);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: manually unsubscribe a subscriber (keeps record, sets status=unsubscribed)
+app.post('/api/admin/forms/:slug/subscribers/:id/unsubscribe', adminAuth, (req, res) => {
+  try {
+    const subs = readFormSubscribers(req.params.slug);
+    const idx = subs.findIndex(s => s.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    subs[idx].status = 'unsubscribed';
+    subs[idx].unsubscribedAt = new Date().toISOString();
+    writeFormSubscribers(req.params.slug, subs);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: reactivate a previously unsubscribed subscriber
+app.post('/api/admin/forms/:slug/subscribers/:id/reactivate', adminAuth, (req, res) => {
+  try {
+    const subs = readFormSubscribers(req.params.slug);
+    const idx = subs.findIndex(s => s.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    subs[idx].status = 'active';
+    subs[idx].unsubscribedAt = null;
+    writeFormSubscribers(req.params.slug, subs);
+    res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1631,6 +1780,80 @@ ${customFontFaceCSS(cfg)}
   <h1>${title}</h1>
   ${message ? `<p class="${success ? 'success' : 'error'}">${message}</p>` : '<p>Processing your request…</p>'}
   <p><a href="/">← Back to home</a></p>
+</div></body></html>`;
+}
+
+function renderPreferencePage(cfg, { token, email, found, message, success } = {}) {
+  const d = cfg.design || {};
+  const s = cfg.site || {};
+  const pageText = s.unsubscribePageText || 'Manage your subscription preferences below.';
+  // Build subscription list for this email (across all forms)
+  let allSubs = [];
+  if (email) {
+    try { allSubs = findAllSubscriptions(email); } catch(e) {}
+  }
+  const foundFormName = found ? (allSubs.find(x => x.slug === found.slug) || {}).formName || found.slug : '';
+  // Build subscription list HTML
+  const subsListHtml = allSubs.length ? allSubs.map(({ formName, sub }) => `
+    <div class="sub-item">
+      <span class="sub-name">${formName}</span>
+      <span class="badge ${sub.status}">${sub.status}</span>
+    </div>`).join('') : '';
+
+  const formHidden = token && email ? `<input type="hidden" name="token" value="${token}"><input type="hidden" name="email" value="${email}">` : '';
+
+  const actionsHtml = found && !success ? `
+    <form method="POST" action="/preferences" class="pref-actions">
+      ${formHidden}
+      <button type="submit" name="action" value="unsub-one" class="btn-pref btn-secondary">
+        Unsubscribe from <em>${foundFormName}</em>
+      </button>
+      <button type="submit" name="action" value="unsub-all" class="btn-pref btn-secondary">
+        Unsubscribe from all mailings
+      </button>
+      <button type="submit" name="action" value="delete-all" class="btn-pref btn-danger"
+        onclick="return confirm('Permanently delete all your data? This cannot be undone.')">
+        Delete all my data
+      </button>
+    </form>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email Preferences · ${s.title||'SignFlow'}</title>
+${googleFontTag(cfg)}
+${customFontFaceCSS(cfg)}
+<style>
+  body { font-family:'${d.bodyFont||'sans-serif'}',sans-serif; background:${d.backgroundColor||'#f8f5f0'}; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 20px; }
+  .card { background:#fff; border-radius:12px; padding:40px; max-width:480px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.1); }
+  h1 { font-family:'${d.googleFont||'serif'}',serif; color:${d.primaryColor||'#1a1a2e'}; margin:0 0 8px; font-size:1.6rem; }
+  .page-text { color:#666; line-height:1.6; margin-bottom:24px; }
+  ${d.logoUrl ? '.logo{text-align:center;margin-bottom:20px;}.logo img{max-height:60px;max-width:200px;}' : ''}
+  .sub-list { margin-bottom:24px; border:1px solid #eee; border-radius:8px; overflow:hidden; }
+  .sub-item { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid #f0f0f0; font-size:0.9rem; }
+  .sub-item:last-child { border-bottom:none; }
+  .sub-name { font-weight:500; color:#333; }
+  .badge { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:0.7rem; font-weight:600; letter-spacing:.03em; }
+  .badge.active { background:#d4edda; color:#155724; }
+  .badge.unsubscribed { background:#f0f0f0; color:#888; }
+  .pref-actions { display:flex; flex-direction:column; gap:10px; }
+  .btn-pref { padding:12px 20px; border-radius:6px; border:none; font-size:0.9rem; cursor:pointer; text-align:left; transition:opacity .2s; }
+  .btn-pref:hover { opacity:.85; }
+  .btn-secondary { background:#f4f4f4; color:#333; }
+  .btn-danger { background:#fff0f0; color:#c0392b; border:1px solid #f5c6cb; }
+  .btn-pref em { font-style:normal; font-weight:600; }
+  .msg-success { color:#155724; background:#d4edda; padding:14px; border-radius:6px; margin-bottom:20px; }
+  .msg-error { color:#721c24; background:#f8d7da; padding:14px; border-radius:6px; margin-bottom:20px; }
+  .back { display:inline-block; margin-top:24px; font-size:0.85rem; color:${d.accentColor||'#e94560'}; text-decoration:none; }
+</style></head><body>
+<div class="card">
+  ${d.logoUrl ? `<div class="logo"><img src="${d.logoUrl}" alt="${s.title||''}"></div>` : ''}
+  <h1>Email Preferences</h1>
+  <p class="page-text">${pageText}</p>
+  ${message ? `<p class="${success ? 'msg-success' : 'msg-error'}">${message}</p>` : ''}
+  ${email ? `<p style="font-size:0.85rem;color:#888;margin-bottom:16px">Managing preferences for: <strong>${email}</strong></p>` : ''}
+  ${subsListHtml ? `<div class="sub-list">${subsListHtml}</div>` : ''}
+  ${actionsHtml}
+  <a href="/" class="back">← Back to home</a>
 </div></body></html>`;
 }
 

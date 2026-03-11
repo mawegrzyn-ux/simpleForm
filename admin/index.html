@@ -207,6 +207,37 @@ tr:hover td{background:#FAFAF8;}
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:600;letter-spacing:0.03em;}
 .badge.active{background:var(--sbg);color:var(--success);}
 .badge.unsubscribed{background:var(--bg2);color:var(--ink3);}
+.badge.exported{background:#d4edda;color:#155724;}
+/* Email template modal */
+#email-template-modal{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;}
+#email-template-modal.open{display:flex;}
+.etpl-wrap{background:var(--panel);border-radius:var(--rlg);width:min(1020px,97vw);height:94vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.25);}
+.etpl-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.etpl-head h3{margin:0;font-size:1rem;font-weight:600;}
+.etpl-body{display:flex;flex:1;overflow:hidden;}
+.etpl-sidebar{width:240px;border-right:1px solid var(--border);overflow-y:auto;padding:16px;flex-shrink:0;display:flex;flex-direction:column;gap:14px;}
+.etpl-sidebar label.cl{font-size:0.75rem;font-weight:600;color:var(--ink2);display:block;margin-bottom:4px;}
+.etpl-sidebar input[type=text],.etpl-sidebar select{width:100%;font-size:0.82rem;}
+.etpl-right{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.etpl-toolbar{padding:8px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:3px;flex-wrap:wrap;flex-shrink:0;background:var(--bg2);}
+.etpl-toolbar button{padding:4px 7px;border-radius:4px;border:1px solid transparent;background:none;cursor:pointer;font-size:0.8rem;font-family:var(--font);color:var(--ink);transition:all 100ms;display:inline-flex;align-items:center;gap:2px;}
+.etpl-toolbar button:hover{background:var(--border);border-color:var(--border);}
+.etpl-toolbar .t-sep{width:1px;height:18px;background:var(--border);margin:0 3px;}
+.etpl-preview{flex:1;overflow:auto;padding:20px;background:var(--bg2);}
+#etpl-outer{margin:0 auto;background:#f4f4f4;border-radius:8px;padding:20px 0;}
+#etpl-card{background:#fff;margin:0 auto;border-radius:8px;padding:40px;}
+#etpl-wysi{outline:none;min-height:200px;font-size:0.9rem;line-height:1.7;color:#333;}
+#etpl-wysi:empty:before{content:'Click here to start writing your email…';color:#aaa;pointer-events:none;}
+.etpl-unsub-preview{font-size:0.78rem;color:#aaa;border-top:1px solid #eee;padding-top:12px;margin-top:16px;text-align:center;}
+.etpl-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-shrink:0;}
+.etpl-draft-note{font-size:0.78rem;color:var(--success);opacity:0;transition:opacity .3s;margin-right:auto;}
+.etpl-draft-note.show{opacity:1;}
+/* Merge tag chips */
+.etpl-tag-menu{display:none;flex-wrap:wrap;gap:5px;padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;margin-top:4px;}
+.etpl-tag-menu.open{display:flex;}
+.etpl-tag-chip{padding:3px 8px;border-radius:12px;background:var(--accent);color:#fff;font-size:0.72rem;font-family:monospace;cursor:pointer;border:none;transition:opacity .15s;}
+.etpl-tag-chip:hover{opacity:.8;}
+.etpl-merge{background:#e8f0fe;color:#1558d6;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:0.85em;}
 .pagination{display:flex;align-items:center;gap:3px;}
 .page-btn{width:28px;height:28px;border:1.5px solid var(--border);border-radius:6px;background:var(--panel);cursor:pointer;font-size:0.8rem;font-family:var(--font);color:var(--ink2);display:flex;align-items:center;justify-content:center;transition:all 120ms;}
 .page-btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -672,6 +703,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
           <option value="all">All statuses</option><option value="active">Active</option><option value="unsubscribed">Unsubscribed</option>
         </select>
         <div style="flex:1"></div>
+        <button id="clear-exports-btn" class="btn btn-outline btn-sm" style="display:none" onclick="clearAllExportFlags()"><span class="material-icons-round mi">flag</span> Clear export flags</button>
         <button class="btn btn-primary btn-sm" onclick="exportData('csv')"><span class="material-icons-round mi">download</span> CSV</button>
         <button class="btn btn-outline btn-sm" onclick="exportData('json')"><span class="material-icons-round mi">download</span> JSON</button>
       </div>
@@ -771,10 +803,15 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
         <div class="cg"><label class="cl">Subject</label><input type="text" id="email-subject" placeholder="Thanks for subscribing!" oninput="cfg.site.emailSubject=this.value"></div>
         <div class="cg">
           <label class="cl">Email body</label>
-          <div class="wysi-preview" id="email-body-preview" onclick="openEmailBodyWysiwyg()" style="min-height:60px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit email body…</span></div>
-          <p style="font-size:0.72rem;color:var(--ink3);margin-top:4px">An unsubscribe link is automatically appended to every email.</p>
+          <div class="wysi-preview" id="email-body-preview" onclick="openEmailTemplateModal()" style="min-height:60px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit email body…</span></div>
+          <p style="font-size:0.72rem;color:var(--ink3);margin-top:4px">A manage-preferences link is automatically appended to every email.</p>
         </div>
       </div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">unsubscribe</span> Unsubscribe / Preferences Page</div>
+      <p class="card-desc" style="font-size:0.78rem">Text shown at the top of the preferences page (where subscribers manage or cancel their subscription).</p>
+      <div class="wysi-preview" id="unsub-page-preview" onclick="openUnsubPageWysiwyg()" style="min-height:42px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit preferences page text…</span></div>
     </div>
   </div>
 </div>
@@ -1028,6 +1065,141 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
   </div>
 </div>
 
+<!-- Email template modal -->
+<div id="email-template-modal">
+  <div class="etpl-wrap">
+    <!-- Header -->
+    <div class="etpl-head">
+      <h3><span class="material-icons-round mi" style="font-size:16px;vertical-align:middle;margin-right:5px">mail</span>Email Template</h3>
+      <button class="modal-close" onclick="closeEmailTemplateModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <!-- Body -->
+    <div class="etpl-body">
+      <!-- Left sidebar -->
+      <div class="etpl-sidebar">
+        <!-- Subject -->
+        <div>
+          <label class="cl">Subject line</label>
+          <input type="text" id="etpl-subject" placeholder="Thanks for subscribing!" oninput="cfg.site.emailSubject=this.value">
+          <div style="margin-top:4px">
+            <button class="btn btn-outline btn-sm" style="font-size:0.72rem" onclick="toggleEtplTagMenu('subject')">+ Merge tag</button>
+            <div id="etpl-tag-menu-subject" class="etpl-tag-menu">
+              <button class="etpl-tag-chip" onclick="etplInsertMergeTag('email','subject')">{{email}}</button>
+              <button class="etpl-tag-chip" onclick="etplInsertMergeTag('firstName','subject')">{{firstName}}</button>
+              <button class="etpl-tag-chip" onclick="etplInsertMergeTag('formName','subject')">{{formName}}</button>
+            </div>
+          </div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:0">
+        <!-- Design controls -->
+        <div>
+          <label class="cl">Background colour</label>
+          <input type="color" id="etpl-bgColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+        </div>
+        <div>
+          <label class="cl">Card background</label>
+          <input type="color" id="etpl-cardBg" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+        </div>
+        <div>
+          <label class="cl">Text colour</label>
+          <input type="color" id="etpl-textColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+        </div>
+        <div>
+          <label class="cl">Heading colour</label>
+          <input type="color" id="etpl-headingColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+        </div>
+        <div>
+          <label class="cl">Body font</label>
+          <select id="etpl-bodyFont" onchange="updateEtplDesign()">
+            <option>Lato</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Source Sans Pro</option><option>Georgia</option><option>Merriweather</option><option>Playfair Display</option>
+          </select>
+        </div>
+        <div>
+          <label class="cl">Heading font</label>
+          <select id="etpl-headingFont" onchange="updateEtplDesign()">
+            <option>Playfair Display</option><option>Lato</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Georgia</option><option>Merriweather</option>
+          </select>
+        </div>
+        <div>
+          <label class="cl">Max width</label>
+          <select id="etpl-maxWidth" onchange="updateEtplDesign()">
+            <option value="500px">500px</option><option value="600px" selected>600px</option><option value="680px">680px</option><option value="720px">720px</option>
+          </select>
+        </div>
+        <div>
+          <label class="cl">Card padding</label>
+          <select id="etpl-padding" onchange="updateEtplDesign()">
+            <option value="24px">Compact (24px)</option><option value="32px">Normal (32px)</option><option value="40px" selected>Roomy (40px)</option><option value="56px">Large (56px)</option>
+          </select>
+        </div>
+        <div>
+          <label class="cl">Corner radius</label>
+          <select id="etpl-borderRadius" onchange="updateEtplDesign()">
+            <option value="0px">None</option><option value="4px">Slight (4px)</option><option value="8px" selected>Rounded (8px)</option><option value="16px">Large (16px)</option>
+          </select>
+        </div>
+      </div>
+      <!-- Right: toolbar + editor -->
+      <div class="etpl-right">
+        <!-- Toolbar -->
+        <div class="etpl-toolbar">
+          <button onclick="etplFmt('bold')" title="Bold"><b style="font-family:serif">B</b></button>
+          <button onclick="etplFmt('italic')" title="Italic"><i style="font-family:serif">I</i></button>
+          <button onclick="etplFmt('underline')" title="Underline"><u>U</u></button>
+          <div class="t-sep"></div>
+          <button onclick="etplFmt('justifyLeft')" title="Align left"><span class="material-icons-round mi">format_align_left</span></button>
+          <button onclick="etplFmt('justifyCenter')" title="Align centre"><span class="material-icons-round mi">format_align_center</span></button>
+          <button onclick="etplFmt('justifyRight')" title="Align right"><span class="material-icons-round mi">format_align_right</span></button>
+          <div class="t-sep"></div>
+          <button onclick="etplFmt('insertUnorderedList')" title="Bullet list"><span class="material-icons-round mi">format_list_bulleted</span></button>
+          <button onclick="etplFmt('insertOrderedList')" title="Numbered list"><span class="material-icons-round mi">format_list_numbered</span></button>
+          <div class="t-sep"></div>
+          <button onclick="etplFmt('formatBlock','h1')" title="Heading 1" style="font-size:10px;font-weight:700;padding:4px 5px">H1</button>
+          <button onclick="etplFmt('formatBlock','h2')" title="Heading 2" style="font-size:10px;font-weight:700;padding:4px 5px">H2</button>
+          <button onclick="etplFmt('formatBlock','h3')" title="Heading 3" style="font-size:10px;font-weight:700;padding:4px 5px">H3</button>
+          <button onclick="etplFmt('formatBlock','p')" title="Paragraph"><span class="material-icons-round mi">notes</span></button>
+          <div class="t-sep"></div>
+          <button onclick="etplLink()" title="Link"><span class="material-icons-round mi">link</span></button>
+          <button onclick="etplInsertImage()" title="Insert image"><span class="material-icons-round mi">image</span></button>
+          <div class="t-sep"></div>
+          <label title="Text colour" style="display:inline-flex;align-items:center;cursor:pointer;padding:4px 6px;border-radius:4px;border:1px solid transparent;gap:3px" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background=''">
+            <span class="material-icons-round mi">format_color_text</span>
+            <input type="color" id="etpl-fgcolor" style="width:0;height:0;opacity:0;position:absolute" oninput="etplFmt('foreColor',this.value)">
+          </label>
+          <div class="t-sep"></div>
+          <button onclick="toggleEtplTagMenu('body')" title="Insert merge tag"><span class="material-icons-round mi">data_object</span> Merge</button>
+          <button onclick="etplInsertUnsubBlock()" title="Insert unsubscribe button" style="font-size:0.75rem">Unsub link</button>
+          <div class="t-sep"></div>
+          <button onclick="etplFmt('removeFormat')" title="Clear formatting"><span class="material-icons-round mi">format_clear</span></button>
+        </div>
+        <!-- Merge tag chip panel (body) -->
+        <div id="etpl-tag-menu-body" class="etpl-tag-menu" style="margin:6px 10px 0">
+          <button class="etpl-tag-chip" onclick="etplInsertMergeTag('email','body')">{{email}}</button>
+          <button class="etpl-tag-chip" onclick="etplInsertMergeTag('firstName','body')">{{firstName}}</button>
+          <button class="etpl-tag-chip" onclick="etplInsertMergeTag('formName','body')">{{formName}}</button>
+          <button class="etpl-tag-chip" onclick="etplInsertMergeTag('unsubscribeUrl','body')">{{unsubscribeUrl}}</button>
+        </div>
+        <!-- Preview pane -->
+        <div class="etpl-preview">
+          <div id="etpl-outer">
+            <div id="etpl-card">
+              <div id="etpl-wysi" contenteditable="true"></div>
+              <div class="etpl-unsub-preview">Don't want these emails? <a href="#" style="color:#aaa">Manage preferences</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Footer -->
+    <div class="etpl-footer">
+      <span id="etpl-draft-note" class="etpl-draft-note">Draft saved ✓</span>
+      <button class="btn btn-outline" onclick="closeEmailTemplateModal()">Cancel</button>
+      <button class="btn btn-outline" onclick="saveDraftEmailTemplate()">Save draft</button>
+      <button class="btn btn-primary" onclick="saveEmailTemplate()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Text/heading edit modal (used by legacy content blocks) -->
 <div id="text-edit-modal" class="modal-overlay">
   <div class="modal-box" style="width:480px">
@@ -1261,6 +1433,9 @@ function populateControls(){
   const ebPrev=document.getElementById('email-body-preview');
   if(ebPrev)ebPrev.innerHTML=cfg.site.emailBodyHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit email body…</span>';
   toggleEmailFields();
+  // Unsubscribe/preferences page text
+  const unsubPrev=document.getElementById('unsub-page-preview');
+  if(unsubPrev)unsubPrev.innerHTML=cfg.site.unsubscribePageText||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit preferences page text…</span>';
   renderFieldList();renderCustomFontList();
   rebuildDesignColorPickers();
   populatePfDesignTplSelect();
@@ -2734,13 +2909,23 @@ async function loadSubscribers(page){
   document.getElementById('stat-total').textContent=all.total;
   document.getElementById('stat-active').textContent=all.subscribers.filter(s=>s.status==='active').length;
   document.getElementById('stat-unsub').textContent=all.subscribers.filter(s=>s.status==='unsubscribed').length;
+  // Show/hide "clear all exports" button
+  const hasExported=all.subscribers.some(s=>s.exported);
+  const clearBtn=document.getElementById('clear-exports-btn');
+  if(clearBtn)clearBtn.style.display=hasExported?'':'none';
   const thead=document.getElementById('sub-thead');thead.innerHTML='';
-  ['Email','Status','Subscribed',...(cfg.fields||[]).filter(f=>!f.system).map(f=>f.label),''].forEach(h=>{const th=document.createElement('th');th.textContent=h;thead.appendChild(th);});
+  ['Email','Status','Exported','Subscribed',...(cfg.fields||[]).filter(f=>!f.system).map(f=>f.label),''].forEach(h=>{const th=document.createElement('th');th.textContent=h;thead.appendChild(th);});
   const tbody=document.getElementById('sub-tbody');tbody.innerHTML='';
   j.subscribers.forEach(s=>{
     const tr=document.createElement('tr');
     const fields=(cfg.fields||[]).filter(f=>!f.system).map(f=>`<td>${s.customFields?.[f.id]||'—'}</td>`).join('');
-    tr.innerHTML=`<td class="email-cell">${s.email}</td><td><span class="badge ${s.status}">${s.status}</span></td><td class="date-cell">${new Date(s.subscribedAt).toLocaleDateString()}</td>${fields}<td><button class="btn btn-danger btn-sm" onclick="deleteSubscriber('${s.id}','${s.email}')">Delete</button></td>`;
+    const exportedCell=s.exported
+      ?`<td><span class="badge exported">✓ exported</span> <button class="btn btn-outline btn-sm" style="padding:1px 5px;font-size:0.68rem" onclick="clearExportFlag('${s.id}')" title="Clear export flag">×</button></td>`
+      :`<td style="color:var(--ink3);font-size:0.8rem">—</td>`;
+    const subBtn=s.status==='active'
+      ?`<button class="btn btn-outline btn-sm" onclick="adminUnsubscribe('${s.id}','${s.email}')" title="Unsubscribe"><span class="material-icons-round mi" style="font-size:13px">person_off</span></button>`
+      :`<button class="btn btn-outline btn-sm" onclick="adminReactivate('${s.id}','${s.email}')" title="Re-activate"><span class="material-icons-round mi" style="font-size:13px">person_add</span></button>`;
+    tr.innerHTML=`<td class="email-cell">${s.email}</td><td><span class="badge ${s.status}">${s.status}</span></td>${exportedCell}<td class="date-cell">${new Date(s.subscribedAt).toLocaleDateString()}</td>${fields}<td style="white-space:nowrap">${subBtn} <button class="btn btn-danger btn-sm" onclick="deleteSubscriber('${s.id}','${s.email}')">Delete</button></td>`;
     tbody.appendChild(tr);
   });
   const cnt=document.getElementById('sub-count');if(cnt)cnt.textContent=`${j.total} subscriber${j.total!==1?'s':''}`;
@@ -2752,6 +2937,25 @@ async function deleteSubscriber(id,email){
   if(!confirm(`Permanently delete data for ${email}?`))return;
   const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}`,{method:'DELETE'});
   if(r.ok){toast('Subscriber deleted','success');loadSubscribers(subPage);}else toast('Delete failed','error');
+}
+async function clearExportFlag(id){
+  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/clear-export`,{method:'POST'});
+  if(r.ok){toast('Export flag cleared','success');loadSubscribers(subPage);}else toast('Failed to clear flag','error');
+}
+async function clearAllExportFlags(){
+  if(!confirm('Clear export flags for all subscribers?'))return;
+  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/clear-all-exports`,{method:'POST'});
+  if(r.ok){toast('All export flags cleared','success');loadSubscribers(subPage);}else toast('Failed','error');
+}
+async function adminUnsubscribe(id,email){
+  if(!confirm(`Unsubscribe ${email}? Their record will be kept.`))return;
+  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/unsubscribe`,{method:'POST'});
+  if(r.ok){toast('Subscriber unsubscribed','success');loadSubscribers(subPage);}else toast('Failed','error');
+}
+async function adminReactivate(id,email){
+  if(!confirm(`Re-activate ${email}?`))return;
+  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/reactivate`,{method:'POST'});
+  if(r.ok){toast('Subscriber re-activated','success');loadSubscribers(subPage);}else toast('Failed','error');
 }
 function exportData(fmt){
   if(!currentFormSlug){toast('No form selected','error');return;}
@@ -2785,12 +2989,145 @@ async function copyEmbedCode(elId){
 // ── Captcha ──
 function toggleCaptchaFields(){const e=document.getElementById('captcha-enabled');const f=document.getElementById('captcha-fields');if(f)f.style.display=e?.checked?'block':'none';}
 function toggleEmailFields(){const e=document.getElementById('email-enabled');const f=document.getElementById('email-fields');if(f)f.style.display=e?.checked?'block':'none';}
-function openEmailBodyWysiwyg(){
-  openWysiwygModal(cfg.site.emailBodyHtml||'','Welcome email body',html=>{
-    cfg.site.emailBodyHtml=html;
-    const prev=document.getElementById('email-body-preview');
-    if(prev)prev.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit email body…</span>';
+// kept for backwards compat (may be called from elsewhere)
+function openEmailBodyWysiwyg(){ openEmailTemplateModal(); }
+
+// ── Unsubscribe page WYSIWYG ──
+function openUnsubPageWysiwyg(){
+  openWysiwygModal(cfg.site.unsubscribePageText||'','Preferences page text',html=>{
+    cfg.site.unsubscribePageText=html;
+    const prev=document.getElementById('unsub-page-preview');
+    if(prev)prev.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit preferences page text…</span>';
   });
+}
+
+// ── Email template modal ──
+function openEmailTemplateModal(){
+  if(!cfg||!cfg.site)return;
+  const modal=document.getElementById('email-template-modal');
+  // Populate subject
+  const subjEl=document.getElementById('etpl-subject');
+  if(subjEl)subjEl.value=cfg.site.emailSubject||'';
+  // Populate body editor
+  const wysi=document.getElementById('etpl-wysi');
+  if(wysi)wysi.innerHTML=cfg.site.emailBodyHtml||'';
+  // Populate design controls & apply
+  const ed=cfg.site.emailDesign||{};
+  _etplSetControl('etpl-bgColor',     ed.bgColor||'#f4f4f4');
+  _etplSetControl('etpl-cardBg',      ed.cardBg||'#ffffff');
+  _etplSetControl('etpl-textColor',   ed.textColor||'#333333');
+  _etplSetControl('etpl-headingColor',ed.headingColor||'#1a1a2e');
+  _etplSetControl('etpl-bodyFont',    ed.bodyFont||'Lato');
+  _etplSetControl('etpl-headingFont', ed.headingFont||'Playfair Display');
+  _etplSetControl('etpl-maxWidth',    ed.maxWidth||'600px');
+  _etplSetControl('etpl-padding',     ed.padding||'40px');
+  _etplSetControl('etpl-borderRadius',ed.borderRadius||'8px');
+  applyEtplDesign();
+  modal.classList.add('open');
+  // Close any open tag menus
+  document.getElementById('etpl-tag-menu-subject')?.classList.remove('open');
+  document.getElementById('etpl-tag-menu-body')?.classList.remove('open');
+}
+function _etplSetControl(id,val){
+  const el=document.getElementById(id);
+  if(!el)return;
+  // For selects: try to find matching option, fallback to first
+  if(el.tagName==='SELECT'){
+    const opt=Array.from(el.options).find(o=>o.value===val);
+    if(opt)opt.selected=true;
+  } else {
+    el.value=val;
+  }
+}
+function closeEmailTemplateModal(){
+  document.getElementById('email-template-modal')?.classList.remove('open');
+}
+function saveEmailTemplate(){
+  _etplWriteBack();
+  closeEmailTemplateModal();
+}
+function saveDraftEmailTemplate(){
+  _etplWriteBack();
+  const note=document.getElementById('etpl-draft-note');
+  if(note){note.classList.add('show');setTimeout(()=>note.classList.remove('show'),2000);}
+}
+function _etplWriteBack(){
+  cfg.site.emailSubject=document.getElementById('etpl-subject')?.value||'';
+  cfg.site.emailBodyHtml=document.getElementById('etpl-wysi')?.innerHTML||'';
+  // Update settings tab preview
+  const prev=document.getElementById('email-body-preview');
+  if(prev)prev.innerHTML=cfg.site.emailBodyHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit email body…</span>';
+  const subPrev=document.getElementById('email-subject');
+  if(subPrev&&subPrev!==document.getElementById('etpl-subject'))subPrev.value=cfg.site.emailSubject;
+}
+function updateEtplDesign(){
+  const ed=cfg.site.emailDesign||(cfg.site.emailDesign={});
+  ed.bgColor      =document.getElementById('etpl-bgColor')?.value||ed.bgColor;
+  ed.cardBg       =document.getElementById('etpl-cardBg')?.value||ed.cardBg;
+  ed.textColor    =document.getElementById('etpl-textColor')?.value||ed.textColor;
+  ed.headingColor =document.getElementById('etpl-headingColor')?.value||ed.headingColor;
+  ed.bodyFont     =document.getElementById('etpl-bodyFont')?.value||ed.bodyFont;
+  ed.headingFont  =document.getElementById('etpl-headingFont')?.value||ed.headingFont;
+  ed.maxWidth     =document.getElementById('etpl-maxWidth')?.value||ed.maxWidth;
+  ed.padding      =document.getElementById('etpl-padding')?.value||ed.padding;
+  ed.borderRadius =document.getElementById('etpl-borderRadius')?.value||ed.borderRadius;
+  applyEtplDesign();
+}
+function applyEtplDesign(){
+  const ed=cfg?.site?.emailDesign||{};
+  const outer=document.getElementById('etpl-outer');
+  const card=document.getElementById('etpl-card');
+  const wysi=document.getElementById('etpl-wysi');
+  if(outer)outer.style.background=ed.bgColor||'#f4f4f4';
+  if(card){
+    card.style.background=ed.cardBg||'#ffffff';
+    card.style.borderRadius=ed.borderRadius||'8px';
+    card.style.padding=ed.padding||'40px';
+    card.style.maxWidth=ed.maxWidth||'600px';
+    card.style.margin='0 auto';
+  }
+  if(wysi){
+    wysi.style.color=ed.textColor||'#333333';
+    wysi.style.fontFamily=`'${ed.bodyFont||'Lato'}',sans-serif`;
+  }
+}
+function etplFmt(cmd,val){
+  document.getElementById('etpl-wysi')?.focus();
+  document.execCommand(cmd,false,val||null);
+}
+function etplLink(){
+  const url=prompt('Enter URL:','https://');
+  if(url){document.getElementById('etpl-wysi')?.focus();document.execCommand('createLink',false,url);}
+}
+function etplInsertImage(){
+  openMediaPicker(url=>{
+    document.getElementById('etpl-wysi')?.focus();
+    document.execCommand('insertHTML',false,`<img src="${url}" style="max-width:100%;height:auto;display:block;margin:12px auto">`);
+  });
+}
+function etplInsertMergeTag(tag,target){
+  if(target==='subject'){
+    const el=document.getElementById('etpl-subject');
+    if(!el)return;
+    const pos=el.selectionStart||el.value.length;
+    el.value=el.value.slice(0,pos)+`{{${tag}}}`+el.value.slice(pos);
+    el.selectionStart=el.selectionEnd=pos+tag.length+4;
+    cfg.site.emailSubject=el.value;
+  } else {
+    document.getElementById('etpl-wysi')?.focus();
+    document.execCommand('insertHTML',false,`<span class="etpl-merge" contenteditable="false">{{${tag}}}</span>\u00A0`);
+  }
+  // Close the menu
+  document.getElementById(`etpl-tag-menu-${target}`)?.classList.remove('open');
+}
+function toggleEtplTagMenu(target){
+  const menu=document.getElementById(`etpl-tag-menu-${target}`);
+  if(menu)menu.classList.toggle('open');
+}
+function etplInsertUnsubBlock(){
+  const html=`<div style="text-align:center;margin:24px 0"><a href="{{unsubscribeUrl}}" style="display:inline-block;padding:10px 24px;background:#f5f5f5;color:#888;border-radius:4px;font-size:0.85rem;text-decoration:none">Unsubscribe</a></div>`;
+  document.getElementById('etpl-wysi')?.focus();
+  document.execCommand('insertHTML',false,html);
 }
 async function saveCaptchaSettings(){
   cfg.site.captchaEnabled=document.getElementById('captcha-enabled').checked;
