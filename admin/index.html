@@ -324,6 +324,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #tab-design{flex-direction:row;overflow:hidden;}
 #design-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
 #design-panel .page-body{max-width:none;padding:24px 20px;}
+#tab-pfsettings{flex-direction:row;overflow:hidden;}
+#settings-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
+#settings-panel .page-body{max-width:none;padding:24px 20px;}
+#settings-preview{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#settings-prev-frame-wrap{flex:1;overflow:auto;padding:20px;background:var(--bg2);}
+#settings-preview-frame{width:100%;height:680px;border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff;}
 #design-preview{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;}
 #design-prev-frame-wrap{padding:24px;display:flex;justify-content:center;align-items:flex-start;width:100%;}
 .palette-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
@@ -1229,7 +1235,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 
 <!-- FORM SETTINGS TAB -->
 <div id="tab-pfsettings" class="page">
-  <div class="page-body narrow">
+  <div id="settings-panel">
+  <div class="page-body">
     <div class="page-head"><h2>Settings</h2><p>Form-specific configuration — template, identity, legal, and notifications.</p></div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">style</span> Design Template</div>
@@ -1295,6 +1302,13 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">unsubscribe</span> Unsubscribe / Preferences Page</div>
       <p class="card-desc" style="font-size:0.78rem">Text shown at the top of the preferences page (where subscribers manage or cancel their subscription).</p>
       <div class="wysi-preview" id="unsub-page-preview" onclick="openUnsubPageWysiwyg()" style="min-height:42px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit preferences page text…</span></div>
+    </div>
+  </div>
+  </div><!-- /settings-panel -->
+  <div id="settings-preview">
+    <div class="prev-toolbar"><span class="prev-lbl" style="margin-left:0">Live preview</span></div>
+    <div id="settings-prev-frame-wrap">
+      <iframe id="settings-preview-frame" src="about:blank"></iframe>
     </div>
   </div>
 </div>
@@ -2290,7 +2304,7 @@ async function openFormEditor(slug){
   const vs=document.getElementById('view-site-btn');if(vs){vs.style.display='';vs.onclick=()=>window.open('/'+slug,'_blank');}
   // Update preview iframes (append ?_preview=1 so admin loads don't count as visits)
   const pf=document.getElementById('preview-frame');if(pf)pf.src='/'+slug+'?_preview=1';
-  const dpf=document.getElementById('design-preview-frame');if(dpf)dpf.src='/'+slug+'?_preview=1';
+  const dpf=document.getElementById('design-preview-frame');if(dpf)dpf.src='/'+slug+'?_preview=1&_generic=1';
   const epf=document.getElementById('embed-preview-frame');if(epf)epf.src='/'+slug+'/embed';
   // Populate panels and switch to Build
   switchPanelTab('form');
@@ -2406,6 +2420,7 @@ async function refreshPreview(){
   const f=document.getElementById('preview-frame');
   if(f){if(_panelTab==='response'){f.src='/'+currentFormSlug+'/confirmation-preview?_t='+Date.now();}else{f.src=f.src;}}
   const f2=document.getElementById('design-preview-frame');if(f2)f2.src=f2.src;
+  const f3=document.getElementById('settings-preview-frame');if(f3&&f3.src!=='about:blank')f3.src=f3.src;
 }
 function setPreviewSize(s,btn){
   document.querySelectorAll('.psz').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
@@ -4309,6 +4324,7 @@ function switchTab(tab,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const p=document.getElementById('tab-'+tab);if(p)p.classList.add('active');
   if(tab==='subscribers')loadSubscribers(1);
+  if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help')switchInnerTab('help');
   if(tab==='design'){
@@ -4660,7 +4676,7 @@ function exitTplEdit(){
   const sel=document.getElementById('design-tpl-sel');if(sel)sel.value='';
   const empty=document.getElementById('dtpl-empty');
   if(empty)empty.style.display=designTemplates.length?'none':'';
-  if(currentFormSlug){const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/'+currentFormSlug+'?_preview=1';}
+  if(currentFormSlug){const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/'+currentFormSlug+'?_preview=1&_generic=1';}
 }
 
 async function saveTplFromDesignTab(){
@@ -4712,7 +4728,7 @@ function scheduleDesignTplPreview(){
   _tplPreviewTimer=setTimeout(()=>{
     const f2=document.getElementById('design-preview-frame');
     if(f2&&currentFormSlug&&_editingTpl)
-      f2.src='/'+currentFormSlug+'?_tplPreview='+_editingTpl.id+'&_t='+Date.now();
+      f2.src='/'+currentFormSlug+'?_tplPreview='+_editingTpl.id+'&_generic=1&_t='+Date.now();
   },600);
 }
 

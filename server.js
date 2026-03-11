@@ -284,6 +284,20 @@ function writeDesignTemplates(templates) {
   fs.writeFileSync(DESIGN_TMPL_FILE, JSON.stringify(templates, null, 2));
 }
 
+// Generic sections used when ?_generic=1 is requested (design tab preview)
+// Real form content is replaced with placeholder demo content so the preview
+// always looks clean regardless of what the user has built.
+const GENERIC_PREVIEW_SECTIONS = [
+  { id:'hero', type:'hero', visible:true,
+    heading:'Stay in the loop', subheading:'Join our community and get the latest news, tips, and updates delivered straight to your inbox.', colors:{} },
+  { id:'form', type:'form', visible:true },
+  { id:'footer', type:'footer', visible:true, text:'© 2026 · Unsubscribe any time' }
+];
+const GENERIC_PREVIEW_FIELDS = [
+  { id:'gf_name',  type:'text',  label:'Your name',      placeholder:'Jane Smith',          required:false, system:false },
+  { id:'gf_email', type:'email', label:'Email address',  placeholder:'jane@example.com',    required:true,  system:true  }
+];
+
 function defaultFormConfig(slug, name) {
   return {
     slug, name,
@@ -1047,6 +1061,10 @@ app.get('/:slug', (req, res) => {
       const tmpls = readDesignTemplates();
       const tpl = tmpls.find(t => t.id === tplPreviewId);
       if (tpl && tpl.design) formCfg = { ...formCfg, design: { ...tpl.design, customFonts: (formCfg.design || {}).customFonts } };
+    }
+    // ?_generic=1 — replace sections/fields with neutral demo content (used by design-tab preview)
+    if (req.query._generic) {
+      formCfg = { ...formCfg, sections: GENERIC_PREVIEW_SECTIONS, fields: GENERIC_PREVIEW_FIELDS };
     }
     res.send(renderPublicPage(formCfg));
   }
