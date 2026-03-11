@@ -165,11 +165,12 @@ app.use(helmet({
     directives: {
       defaultSrc:     ["'self'"],
       scriptSrc:      ["'self'", "'unsafe-inline'", 'https://js.hcaptcha.com'],
+      scriptSrcAttr:  ["'unsafe-inline'"],  // allow onclick/onchange handlers in admin SPA & public pages
       styleSrc:       ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc:        ["'self'", 'https://fonts.gstatic.com'],
       imgSrc:         ["'self'", 'data:', 'blob:', 'https:'],
       connectSrc:     ["'self'", 'https://api.hcaptcha.com'],
-      frameSrc:       ["'none'", 'https://www.youtube.com', 'https://player.vimeo.com'],
+      frameSrc:       ['https://www.youtube.com', 'https://player.vimeo.com'],  // 'none' must be sole value; omit to inherit default-src
       frameAncestors: ["'self'"],   // overridden to * on /:slug/embed routes
       objectSrc:      ["'none'"],
       baseUri:        ["'self'"],
@@ -1078,6 +1079,7 @@ app.get('/:slug/embed', (req, res) => {
     // All other CSP directives match the global policy.
     res.setHeader('Content-Security-Policy',
       "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.hcaptcha.com; " +
+      "script-src-attr 'unsafe-inline'; " +
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; " +
       "connect-src 'self' https://api.hcaptcha.com; " +

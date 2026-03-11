@@ -1003,11 +1003,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><th>Directive</th><th>Value</th><th>Reason</th></tr>
           <tr><td><code>default-src</code></td><td><code>'self'</code></td><td>Deny everything not explicitly listed</td></tr>
           <tr><td><code>script-src</code></td><td><code>'self' 'unsafe-inline' https://js.hcaptcha.com</code></td><td>Inline scripts used in public pages; hCaptcha widget</td></tr>
+          <tr><td><code>script-src-attr</code></td><td><code>'unsafe-inline'</code></td><td>Allows inline <code>onclick</code>/<code>oninput</code> event handlers; Helmet sets <code>'none'</code> by default which breaks the admin SPA</td></tr>
           <tr><td><code>style-src</code></td><td><code>'self' 'unsafe-inline' https://fonts.googleapis.com</code></td><td>Inline styles; Google Fonts CSS</td></tr>
           <tr><td><code>font-src</code></td><td><code>'self' https://fonts.gstatic.com</code></td><td>Custom uploaded fonts (self) + Google Fonts files</td></tr>
           <tr><td><code>img-src</code></td><td><code>'self' data: blob: https:</code></td><td>Uploaded images (self), data URIs, blob URLs, external images in content blocks</td></tr>
           <tr><td><code>connect-src</code></td><td><code>'self' https://api.hcaptcha.com</code></td><td>Admin API calls + hCaptcha verification</td></tr>
-          <tr><td><code>frame-src</code></td><td><code>'none' https://www.youtube.com https://player.vimeo.com</code></td><td>Only YouTube/Vimeo iframes in video blocks</td></tr>
+          <tr><td><code>frame-src</code></td><td><code>https://www.youtube.com https://player.vimeo.com</code></td><td>Only YouTube/Vimeo iframes in video blocks; <code>'none'</code> omitted — it must be the sole value to be valid</td></tr>
           <tr><td><code>frame-ancestors</code></td><td><code>'self'</code></td><td>Prevents all third-party framing (clickjacking)</td></tr>
           <tr><td><code>object-src</code></td><td><code>'none'</code></td><td>Block Flash / plugins entirely</td></tr>
           <tr><td><code>base-uri</code></td><td><code>'self'</code></td><td>Prevent base-tag hijacking</td></tr>
