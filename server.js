@@ -1002,9 +1002,11 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
 // Fonts that are NOT on Google Fonts (premium/custom — require .woff2 upload)
 const NON_GF_FONTS = new Set(['Roc Grotesk']);
 
-function googleFontTag(cfg) {
+function googleFontTag(cfg, effectiveDesign) {
+  // customFonts are always per-form, never from templates
   const customFontNames = new Set((cfg.design.customFonts || []).map(f => f.name));
-  const d = cfg.design;
+  // Use effective design (may be template-overridden) for font selection
+  const d = effectiveDesign || cfg.design;
   const seen = new Set();
   const fonts = [d.h1Font||d.googleFont, d.h2Font||d.googleFont, d.h3Font||d.googleFont, d.h4Font||d.googleFont, d.bodyFont, d.btnFont]
     .filter(Boolean)
@@ -1424,7 +1426,17 @@ function renderBlockElement(el, cfg) {
   if (!el) return '';
   if (el.type === 'field') {
     const f = cfg && (cfg.fields||[]).find(fd => fd.id === el.fieldId);
-    return f ? renderFormField(f, cfg) : '';
+    if (!f) return '';
+    const st = el.style || {};
+    const vars = [
+      st.labelColor ? `--sf-lbl:${st.labelColor}` : '',
+      st.textColor  ? `--sf-txt:${st.textColor}`  : '',
+      st.bg         ? `--sf-fbg:${st.bg}`          : '',
+      st.fontFamily ? `--sf-ff:'${st.fontFamily}',sans-serif` : '',
+      st.fontSize   ? `--sf-fsz:${st.fontSize}px`  : ''
+    ].filter(Boolean).join(';');
+    const html = renderFormField(f, cfg);
+    return vars ? `<div style="${vars}">${html}</div>` : html;
   }
   if (el.type === 'submit') {
     const d2 = (cfg&&cfg.design)||{};
@@ -1496,11 +1508,17 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
   // Hero
   if (section.id === 'hero' || section.type === 'hero') {
     const h = section;
-    return `
+    const hc = h.colors || {};
+    // Apply per-section color overrides as inline styles (override CSS vars)
+    const h1Sty = hc.text ? ` style="color:${hc.text}"` : '';
+    const subSty = hc.text ? ` style="color:${hc.text}"` : '';
+    const bgSty = hc.bg ? ` style="background:${hc.bg};padding:20px;border-radius:8px;margin-bottom:4px"` : '';
+    return `<div${bgSty}>
     ${h.imageUrl && h.imagePosition === 'above' ? `<img src="${h.imageUrl}" class="sf-hero-img" alt="">` : ''}
-    <h1>${h.heading || ''}</h1>
-    ${h.subheading ? `<p class="sf-sub">${h.subheading}</p>` : ''}
-    ${h.imageUrl && h.imagePosition === 'below' ? `<img src="${h.imageUrl}" class="sf-hero-img below" alt="">` : ''}`;
+    <h1${h1Sty}>${h.heading || ''}</h1>
+    ${h.subheading ? `<p class="sf-sub"${subSty}>${h.subheading}</p>` : ''}
+    ${h.imageUrl && h.imagePosition === 'below' ? `<img src="${h.imageUrl}" class="sf-hero-img below" alt="">` : ''}
+    </div>`;
   }
 
   // Form (inner content only — <form> wrapper is at the card level)
@@ -1606,13 +1624,26 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
       if (!item) return '';
       if (item.type === 'field') {
         const f = (cfg.fields||[]).find(fd => fd.id === item.fieldId);
-        return f ? renderFormField(f, cfg) : '';
+        if (!f) return '';
+        const st = item.style || {};
+        const vars = [
+          st.labelColor ? `--sf-lbl:${st.labelColor}` : '',
+          st.textColor  ? `--sf-txt:${st.textColor}`  : '',
+          st.bg         ? `--sf-fbg:${st.bg}`          : '',
+          st.fontFamily ? `--sf-ff:'${st.fontFamily}',sans-serif` : '',
+          st.fontSize   ? `--sf-fsz:${st.fontSize}px`  : ''
+        ].filter(Boolean).join(';');
+        const html = renderFormField(f, cfg);
+        return vars ? `<div style="${vars}">${html}</div>` : html;
       }
       if (item.type === 'submit') {
         const btnLabel = item.buttonText || d.buttonText || 'Subscribe';
+        const btnBg = item.btnBg || d.btnBg || d.accentColor || '';
+        const btnTc = item.btnTextColor || d.btnTextColor || '#fff';
+        const btnSty = (item.btnBg || item.btnTextColor) ? ` style="background:${btnBg||'var(--btn-bg)'};color:${btnTc}"` : '';
         return `<div class="sf-gdpr">${gdprHtml(s)}</div>
         ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
-        <button type="submit" class="sf-btn">${btnLabel}</button>
+        <button type="submit" class="sf-btn"${btnSty}>${btnLabel}</button>
         <div id="sf-msg" class="sf-msg"></div>`;
       }
       return renderBlockElement(item, cfg);
@@ -1684,7 +1715,7 @@ function renderPublicPage(cfg) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${s.title}</title>
-${googleFontTag(cfg)}
+${googleFontTag(cfg, d)}
 ${customFontFaceCSS(cfg)}
 ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
 <style>
@@ -1696,14 +1727,14 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
     --text: ${d.textColor};
     --radius: ${d.buttonRadius};
     --container: ${d.containerWidth};
-    --font-h1: '${d.h1Font||d.googleFont}', serif;
-    --font-h2: '${d.h2Font||d.googleFont}', serif;
-    --font-h3: '${d.h3Font||d.googleFont}', serif;
-    --font-h4: '${d.h4Font||d.googleFont}', serif;
+    --font-h1: '${d.h1Font||d.googleFont||d.bodyFont||'serif'}', serif;
+    --font-h2: '${d.h2Font||d.googleFont||d.bodyFont||'serif'}', serif;
+    --font-h3: '${d.h3Font||d.googleFont||d.bodyFont||'serif'}', serif;
+    --font-h4: '${d.h4Font||d.googleFont||d.bodyFont||'serif'}', serif;
     --font-heading: var(--font-h1);
-    --font-body: '${d.bodyFont}', sans-serif;
-    --font-btn: '${d.btnFont||d.bodyFont}', sans-serif;
-    --font-field: '${d.fieldFont||d.bodyFont}', sans-serif;
+    --font-body: '${d.bodyFont||'sans-serif'}', sans-serif;
+    --font-btn: '${d.btnFont||d.bodyFont||'sans-serif'}', sans-serif;
+    --font-field: '${d.fieldFont||d.bodyFont||'sans-serif'}', sans-serif;
     --btn-bg: ${d.btnBg || d.accentColor};
     --btn-color: ${d.btnTextColor || '#fff'};
     --btn-border-color: ${d.btnBorderColor || 'transparent'};
@@ -1722,9 +1753,9 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   h4 { font-family: var(--font-h4); color: var(--primary); font-size: 1.05rem; line-height: 1.4; margin-bottom: 6px; }
   .sf-sub { color: #666; font-size: 1.05rem; text-align: center; margin-bottom: 32px; line-height: 1.6; }
   .sf-field { margin-bottom: 16px; }
-  .sf-field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
+  .sf-field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--sf-lbl, var(--primary)); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
   .req { color: var(--accent); }
-  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-field); font-size: 1rem; color: var(--text); transition: border-color 0.2s; background: ${d.fieldBg||'#fafafa'}; }
+  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--sf-ff, var(--font-field)); font-size: var(--sf-fsz, 1rem); color: var(--sf-txt, var(--text)); transition: border-color 0.2s; background: var(--sf-fbg, ${d.fieldBg||'#fafafa'}); }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }
@@ -1983,7 +2014,7 @@ function renderEmbedPage(cfg) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${s.title}</title>
-${googleFontTag(cfg)}
+${googleFontTag(cfg, d)}
 ${customFontFaceCSS(cfg)}
 ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 <style>
@@ -1993,14 +2024,14 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
     --accent: ${d.accentColor};
     --text: ${d.textColor};
     --radius: ${d.buttonRadius};
-    --font-h1: '${d.h1Font||d.googleFont}', serif;
-    --font-h2: '${d.h2Font||d.googleFont}', serif;
-    --font-h3: '${d.h3Font||d.googleFont}', serif;
-    --font-h4: '${d.h4Font||d.googleFont}', serif;
+    --font-h1: '${d.h1Font||d.googleFont||d.bodyFont||'serif'}', serif;
+    --font-h2: '${d.h2Font||d.googleFont||d.bodyFont||'serif'}', serif;
+    --font-h3: '${d.h3Font||d.googleFont||d.bodyFont||'serif'}', serif;
+    --font-h4: '${d.h4Font||d.googleFont||d.bodyFont||'serif'}', serif;
     --font-heading: var(--font-h1);
-    --font-body: '${d.bodyFont}', sans-serif;
-    --font-btn: '${d.btnFont||d.bodyFont}', sans-serif;
-    --font-field: '${d.fieldFont||d.bodyFont}', sans-serif;
+    --font-body: '${d.bodyFont||'sans-serif'}', sans-serif;
+    --font-btn: '${d.btnFont||d.bodyFont||'sans-serif'}', sans-serif;
+    --font-field: '${d.fieldFont||d.bodyFont||'sans-serif'}', sans-serif;
     --btn-bg: ${d.btnBg || d.accentColor};
     --btn-color: ${d.btnTextColor || '#fff'};
     --btn-border-color: ${d.btnBorderColor || 'transparent'};
@@ -2018,9 +2049,9 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   h3 { font-family: var(--font-h3); color: var(--primary); font-size: clamp(0.95rem, 2.5vw, 1.2rem); line-height: 1.35; margin-bottom: 6px; }
   .sf-sub { color: #666; font-size: 0.97rem; text-align: center; margin-bottom: 22px; line-height: 1.6; }
   .sf-field { margin-bottom: 14px; }
-  .sf-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .sf-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--sf-lbl, var(--primary)); margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
   .req { color: var(--accent); }
-  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--font-field); font-size: 0.97rem; color: var(--text); transition: border-color 0.2s; background: ${d.fieldBg||'#fafafa'}; }
+  .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--sf-ff, var(--font-field)); font-size: var(--sf-fsz, 0.97rem); color: var(--sf-txt, var(--text)); transition: border-color 0.2s; background: var(--sf-fbg, ${d.fieldBg||'#fafafa'}); }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
   .sf-field--check label { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; text-transform: none; letter-spacing: 0; }
   .sf-field--check input[type=checkbox] { width: auto; margin-top: 2px; accent-color: var(--accent); }

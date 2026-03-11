@@ -535,6 +535,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       </select>
       <button class="btn btn-outline btn-sm" onclick="createNewTpl()"><span class="material-icons-round mi">add</span> New</button>
       <button class="btn btn-primary btn-sm" id="dtpl-save-btn" style="display:none" onclick="saveTplFromDesignTab()"><span class="material-icons-round mi">save</span> Save template</button>
+      <button class="btn btn-outline btn-sm" id="dtpl-saveas-btn" style="display:none" onclick="saveTplAsFromDesignTab()" title="Save a copy under a new name"><span class="material-icons-round mi">save_as</span> Save as…</button>
       <button class="btn btn-outline btn-sm" id="dtpl-done-btn" style="display:none" onclick="exitTplEdit()">Done</button>
     </div>
     <div id="dtpl-empty" style="padding:40px 20px;text-align:center;color:var(--ink3);font-size:0.84rem">No templates yet — click <strong>New</strong> to create one.</div>
@@ -1065,6 +1066,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="ibtn" onclick="wysiLink()" title="Link"><span class="material-icons-round mi">link</span></button>
       <button class="ibtn" onclick="wysiFmt('removeFormat')" title="Clear formatting"><span class="material-icons-round mi">format_clear</span></button>
     </div>
+    <div id="wysi-inserts" style="display:none;flex-wrap:wrap;align-items:center;gap:5px;padding:5px 0;border-bottom:1px solid var(--border2);margin-bottom:8px"></div>
     <div id="wysiwyg-area" contenteditable="true"
       style="min-height:140px;max-height:320px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r);padding:12px 14px;font-size:0.9rem;line-height:1.75;outline:none;background:var(--panel)"
       oninput="wysiLivePreview()"></div>
@@ -2706,13 +2708,34 @@ function saveTextEdit(){
 
 // WYSIWYG visual editor modal
 let _wysiwygSaveFn=null;
-function openWysiwygModal(html,title,saveFn){
+let _wysiInserts=[];
+function openWysiwygModal(html,title,saveFn,inserts){
   _wysiwygSaveFn=saveFn||null;
   document.getElementById('wysiwyg-modal-title').textContent=title||'Edit rich text';
   document.getElementById('wysiwyg-area').innerHTML=html||'';
   const ind=document.getElementById('wysi-draft-ind');if(ind)ind.style.display='none';
+  // Populate context-specific insert chips
+  _wysiInserts=inserts||[];
+  const insertsEl=document.getElementById('wysi-inserts');
+  if(insertsEl){
+    if(_wysiInserts.length){
+      insertsEl.style.display='flex';
+      insertsEl.innerHTML='<span style="font-size:0.73rem;color:var(--ink3)">Insert:</span>'+
+        _wysiInserts.map((ins,i)=>`<button class="ibtn" style="font-size:0.73rem;padding:2px 9px;background:var(--accent-bg);color:var(--accent);border-radius:10px" onclick="wysiInsertByIndex(${i})">${ins.label}</button>`).join('');
+    }else{
+      insertsEl.style.display='none';
+      insertsEl.innerHTML='';
+    }
+  }
   document.getElementById('wysiwyg-modal').classList.add('open');
   setTimeout(()=>document.getElementById('wysiwyg-area').focus(),100);
+}
+function wysiInsertByIndex(i){
+  const ins=_wysiInserts[i];if(!ins)return;
+  const area=document.getElementById('wysiwyg-area');
+  area.focus();
+  document.execCommand('insertHTML',false,ins.html);
+  wysiLivePreview();
 }
 function toggleWysiwygFs(){
   const m=document.getElementById('wysiwyg-modal');m.classList.toggle('wysi-fs');
@@ -2744,7 +2767,10 @@ function openSubmitDisclaimerWysiwyg(){
     const prev=document.getElementById('ie-submit-gdpr-preview');
     if(prev)prev.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer text… (HTML allowed, use {privacyUrl} as placeholder)</span>';
     schedulePreview();
-  });
+  },[
+    {label:'Privacy link',html:'<a href="{privacyUrl}" target="_blank">Privacy Policy</a>'},
+    {label:'Unsubscribe link',html:'<a href="{unsubscribeUrl}">Unsubscribe</a>'}
+  ]);
 }
 function openItemSubmitErrorWysiwyg(){
   const found=_blockArray(_editCntBlock);if(!found||!found.block.items)return;
@@ -3017,6 +3043,8 @@ function collectConditions(){return _conditions.filter(c=>c.fieldId);}
 // ── Tabs ──
 const FORM_REQUIRED_TABS=new Set(['build','subscribers','embed','pfsettings']);
 function switchTab(tab,btn){
+  // Auto-exit template editing mode when navigating away from the design tab
+  if(_editingTpl && tab!=='design') exitTplEdit();
   // Guard: form-dependent tabs require a form selected
   if(FORM_REQUIRED_TABS.has(tab)&&!currentFormSlug){
     toast('Select a form first','');
@@ -3345,6 +3373,7 @@ function enterTplEdit(tpl){
   document.getElementById('design-cards-wrap').style.display='';
   const empty=document.getElementById('dtpl-empty');if(empty)empty.style.display='none';
   const saveBtn=document.getElementById('dtpl-save-btn');if(saveBtn)saveBtn.style.display='';
+  const saveAsBtn=document.getElementById('dtpl-saveas-btn');if(saveAsBtn)saveAsBtn.style.display='';
   const doneBtn=document.getElementById('dtpl-done-btn');if(doneBtn)doneBtn.style.display='';
   buildFontPickers();buildPalettes();rebuildDesignColorPickers();renderBrandColorList();
   _populateDesignNonColorControls();
@@ -3357,6 +3386,7 @@ function exitTplEdit(){
   _cfgDesignBackup=null;_editingTpl=null;
   document.getElementById('design-cards-wrap').style.display='none';
   const saveBtn=document.getElementById('dtpl-save-btn');if(saveBtn)saveBtn.style.display='none';
+  const saveAsBtn=document.getElementById('dtpl-saveas-btn');if(saveAsBtn)saveAsBtn.style.display='none';
   const doneBtn=document.getElementById('dtpl-done-btn');if(doneBtn)doneBtn.style.display='none';
   const sel=document.getElementById('design-tpl-sel');if(sel)sel.value='';
   const empty=document.getElementById('dtpl-empty');
@@ -3372,6 +3402,25 @@ async function saveTplFromDesignTab(){
     body:JSON.stringify({design:_editingTpl.design})
   });
   if(r.ok)toast('Template saved','success');else toast('Save failed','error');
+}
+
+async function saveTplAsFromDesignTab(){
+  if(!cfg)return;
+  const base=_editingTpl?_editingTpl.name:'Design';
+  const name=prompt('Save copy as:',base+' (copy)');if(!name)return;
+  const design=JSON.parse(JSON.stringify(cfg.design));
+  const r=await fetch('/api/admin/design-templates',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name,design})
+  });
+  if(r.ok){
+    const t=await r.json();designTemplates.push(t);
+    populateDesignTplSelect();
+    // Switch editing context to the new copy
+    exitTplEdit();
+    enterTplEdit(t);
+    toast('Saved as "'+t.name+'"','success');
+  }else toast('Save failed','error');
 }
 
 async function createNewTpl(){
