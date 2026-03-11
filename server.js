@@ -231,6 +231,15 @@ function writeSharedMedia(items) {
   fs.writeFileSync(SHARED_MEDIA_FILE, JSON.stringify(items, null, 2));
 }
 
+// ── Shared custom fonts ───────────────────────────────────────────────────────
+const SHARED_FONTS_FILE = path.join(DATA_DIR, 'fonts-shared.json');
+function readSharedFonts() {
+  return fs.existsSync(SHARED_FONTS_FILE) ? JSON.parse(fs.readFileSync(SHARED_FONTS_FILE, 'utf8')) : [];
+}
+function writeSharedFonts(fonts) {
+  fs.writeFileSync(SHARED_FONTS_FILE, JSON.stringify(fonts, null, 2));
+}
+
 // ── Design templates ──────────────────────────────────────────────────────────
 function readDesignTemplates() {
   if (!fs.existsSync(DESIGN_TMPL_FILE)) return [];
@@ -691,10 +700,33 @@ app.post('/api/admin/media/upload', adminAuth, upload.single('image'), (req, res
   res.json({ url });
 });
 
-// Upload font for a form
+// Upload font — defaults to shared library; pass shared=0 for form-only
 app.post('/api/admin/forms/:slug/upload-font', adminAuth, uploadFont.single('font'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  res.json({ url: `/uploads/fonts/${req.file.filename}` });
+  const url = `/uploads/fonts/${req.file.filename}`;
+  const name = (req.body.name || '').trim();
+  const toShared = req.body.shared !== '0';   // default: save to shared library
+  if (toShared && name) {
+    const fonts = readSharedFonts();
+    if (!fonts.find(f => f.name === name)) {
+      fonts.push({ id: uuidv4(), name, url, uploadedAt: new Date().toISOString() });
+      writeSharedFonts(fonts);
+    }
+    return res.json({ url, shared: true });
+  }
+  res.json({ url, shared: false });
+});
+
+// List shared fonts
+app.get('/api/admin/fonts', adminAuth, (req, res) => {
+  res.json(readSharedFonts());
+});
+
+// Delete a shared font
+app.delete('/api/admin/fonts/:id', adminAuth, (req, res) => {
+  const fonts = readSharedFonts().filter(f => f.id !== req.params.id);
+  writeSharedFonts(fonts);
+  res.json({ ok: true });
 });
 
 // List media library for a form (shared items first, then form-specific)
@@ -1003,14 +1035,17 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
 const NON_GF_FONTS = new Set(['Roc Grotesk']);
 
 function googleFontTag(cfg, effectiveDesign) {
-  // customFonts are always per-form, never from templates
-  const customFontNames = new Set((cfg.design.customFonts || []).map(f => f.name));
+  // Merge shared + per-form custom fonts; both bypass Google Fonts loading
+  const allCustomNames = new Set([
+    ...readSharedFonts().map(f => f.name),
+    ...(cfg.design.customFonts || []).map(f => f.name)
+  ]);
   // Use effective design (may be template-overridden) for font selection
   const d = effectiveDesign || cfg.design;
   const seen = new Set();
   const fonts = [d.h1Font||d.googleFont, d.h2Font||d.googleFont, d.h3Font||d.googleFont, d.h4Font||d.googleFont, d.bodyFont, d.btnFont]
     .filter(Boolean)
-    .filter(f => !NON_GF_FONTS.has(f) && !customFontNames.has(f))
+    .filter(f => !NON_GF_FONTS.has(f) && !allCustomNames.has(f))
     .filter(f => { if(seen.has(f)) return false; seen.add(f); return true; });
   if (!fonts.length) return '';
   const query = fonts.map(f => f.replace(/ /g, '+')).join('&family=');
@@ -1024,7 +1059,15 @@ function gdprHtml(siteCfg) {
 }
 
 function customFontFaceCSS(cfg) {
-  const fonts = cfg.design.customFonts || [];
+  // Merge shared fonts (loaded for every form) + per-form fonts, deduplicated by name
+  const shared = readSharedFonts();
+  const formFonts = cfg.design.customFonts || [];
+  const seen = new Set();
+  const fonts = [...shared, ...formFonts].filter(f => {
+    if (seen.has(f.name)) return false;
+    seen.add(f.name);
+    return true;
+  });
   if (!fonts.length) return '';
   const faces = fonts.map(f => {
     const ext = f.url.split('.').pop().toLowerCase();

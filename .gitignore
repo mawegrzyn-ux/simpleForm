@@ -12,6 +12,8 @@ data/forms/
 data/forms-index.json
 data/subscribers-*.json
 data/design-templates.json
+data/media-shared.json
+data/fonts-shared.json
 public/uploads/
 
 *.log

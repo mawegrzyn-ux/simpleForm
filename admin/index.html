@@ -862,16 +862,20 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <h2>Custom fonts</h2>
       <button class="modal-close" onclick="closeCustomFontsModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
     </div>
-    <p style="font-size:0.83rem;color:var(--ink3);margin-bottom:14px">Upload .woff / .woff2 / .ttf / .otf files. Uploaded fonts appear in all font pickers.</p>
+    <p style="font-size:0.83rem;color:var(--ink3);margin-bottom:14px">Upload .woff / .woff2 / .ttf / .otf files. <strong>Shared</strong> fonts are available in every form; <em>This form</em> fonts only appear here.</p>
     <div id="custom-font-list" style="margin-bottom:10px"></div>
-    <div style="display:flex;gap:6px">
-      <input type="text" id="custom-font-name" placeholder="Font name (e.g. Futura)" style="flex:1">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <input type="text" id="custom-font-name" placeholder="Font name (e.g. Futura)" style="flex:1;min-width:120px">
+      <select id="font-upload-scope" style="width:auto;flex-shrink:0">
+        <option value="shared">Shared (all forms)</option>
+        <option value="form">This form only</option>
+      </select>
       <label class="up-btn" style="width:auto;white-space:nowrap;cursor:pointer;flex-shrink:0">
         <span class="material-icons-round mi">upload</span> Upload
         <input type="file" id="upload-font-file" accept=".woff,.woff2,.ttf,.otf" style="display:none" onchange="handleFontUpload(this)">
       </label>
     </div>
-    <div class="info-box" style="margin-top:8px;font-size:0.75rem">Enter the font name first, then click Upload to select a file.</div>
+    <div class="info-box" style="margin-top:8px;font-size:0.75rem">Enter the font name, choose scope, then click Upload to select a file.</div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeCustomFontsModal()">Done</button>
     </div>
@@ -1361,6 +1365,7 @@ async function loadFormsIndex(){
   formsIndex=await r.json();
   renderFormsList();
   loadDesignTemplates();
+  loadSharedFonts();
   switchTab('forms');
 }
 
@@ -1743,40 +1748,72 @@ async function handleFontUpload(input){
   if(!currentFormSlug){toast('No form selected','error');return;}
   const name=document.getElementById('custom-font-name').value.trim();
   if(!name){toast('Enter a font name first','error');return;}
-  const fd=new FormData();fd.append('font',file);
+  const scopeSel=document.getElementById('font-upload-scope');
+  const toShared=!scopeSel||scopeSel.value!=='form';
+  const fd=new FormData();fd.append('font',file);fd.append('name',name);fd.append('shared',toShared?'1':'0');
   try{
     const j=await fetch(`/api/admin/forms/${currentFormSlug}/upload-font`,{method:'POST',body:fd}).then(r=>r.json());
     if(j.url){
-      if(!cfg.design.customFonts)cfg.design.customFonts=[];
-      cfg.design.customFonts.push({name,url:j.url});
+      if(j.shared){
+        sharedFonts.push({id:j.id||name,name,url:j.url});
+      }else{
+        if(!cfg.design.customFonts)cfg.design.customFonts=[];
+        cfg.design.customFonts.push({name,url:j.url});
+      }
       document.getElementById('custom-font-name').value='';input.value='';
-      renderCustomFontList();buildFontPickers();schedulePreview();toast('Font uploaded: '+name,'success');
+      renderCustomFontList();buildFontPickers();schedulePreview();
+      toast('Font uploaded: '+name+(j.shared?' (shared)':''),'success');
     }
   }catch(e){toast('Upload failed','error');}
 }
-function removeCustomFont(name){cfg.design.customFonts=cfg.design.customFonts.filter(f=>f.name!==name);renderCustomFontList();buildFontPickers();schedulePreview();}
+async function removeCustomFont(source,nameOrId){
+  if(source==='shared'){
+    const f=sharedFonts.find(f=>f.id===nameOrId||f.name===nameOrId);
+    if(!f)return;
+    await fetch(`/api/admin/fonts/${f.id}`,{method:'DELETE'});
+    sharedFonts=sharedFonts.filter(x=>x.id!==f.id);
+  }else{
+    cfg.design.customFonts=(cfg.design.customFonts||[]).filter(f=>f.name!==nameOrId);
+  }
+  renderCustomFontList();buildFontPickers();schedulePreview();
+}
 function renderCustomFontList(){
   const list=document.getElementById('custom-font-list');if(!list)return;
-  const fonts=cfg.design.customFonts||[];
-  if(!fonts.length){list.innerHTML='<p style="font-size:0.8rem;color:var(--ink3);margin-bottom:4px">No custom fonts uploaded yet.</p>';return;}
+  const formFonts=(cfg&&cfg.design.customFonts)||[];
+  const allFonts=[
+    ...sharedFonts.map(f=>({...f,_shared:true})),
+    ...formFonts.map(f=>({...f,_shared:false}))
+  ];
+  if(!allFonts.length){list.innerHTML='<p style="font-size:0.8rem;color:var(--ink3);margin-bottom:4px">No custom fonts uploaded yet.</p>';return;}
   list.innerHTML='';
-  fonts.forEach(f=>{
+  allFonts.forEach(f=>{
     const item=document.createElement('div');item.className='custom-font-item';
-    item.innerHTML=`<span class="custom-font-name" style="font-family:'${f.name}'">${f.name}</span><button class="ibtn danger" onclick="removeCustomFont('${f.name}')"><span class="material-icons-round mi">delete</span></button>`;
+    const badge=f._shared
+      ?`<span style="font-size:0.68rem;background:var(--accent-bg);color:var(--accent);border-radius:8px;padding:1px 6px;white-space:nowrap">shared</span>`
+      :`<span style="font-size:0.68rem;background:var(--bg2);color:var(--ink3);border-radius:8px;padding:1px 6px;white-space:nowrap">this form</span>`;
+    const delArg=f._shared?(f.id||f.name):f.name;
+    const src=f._shared?'shared':'form';
+    item.innerHTML=`<span class="custom-font-name" style="font-family:'${f.name}'">${f.name}</span>${badge}<button class="ibtn danger" onclick="removeCustomFont('${src}','${delArg}')"><span class="material-icons-round mi">delete</span></button>`;
     list.appendChild(item);
   });
 }
-function openCustomFontsModal(){
+async function openCustomFontsModal(){
+  await loadSharedFonts();  // refresh from server
   renderCustomFontList();
   document.getElementById('custom-fonts-modal').classList.add('open');
 }
 function closeCustomFontsModal(){document.getElementById('custom-fonts-modal').classList.remove('open');}
 
 // ── Fonts ──
+function _allCustomFonts(){
+  // Merged: shared first, then per-form; deduplicated by name
+  const seen=new Set();
+  return [...sharedFonts,...(cfg&&cfg.design.customFonts||[])].filter(f=>{if(seen.has(f.name))return false;seen.add(f.name);return true;});
+}
 function injectCustomFontFaces(){
   let el=document.getElementById('admin-custom-font-faces');
   if(!el){el=document.createElement('style');el.id='admin-custom-font-faces';document.head.appendChild(el);}
-  el.textContent=(cfg&&cfg.design.customFonts||[]).map(f=>{
+  el.textContent=_allCustomFonts().map(f=>{
     const ext=f.url.split('.').pop().toLowerCase();
     const fmt=ext==='woff2'?'woff2':ext==='woff'?'woff':ext==='otf'?'opentype':'truetype';
     return `@font-face{font-family:'${f.name}';src:url('${f.url}') format('${fmt}');font-weight:100 900;font-display:swap;}`;
@@ -1784,7 +1821,7 @@ function injectCustomFontFaces(){
 }
 function buildFontPickers(){
   injectCustomFontFaces();
-  const customFonts=(cfg&&cfg.design.customFonts||[]).map(f=>f.name);
+  const customFonts=_allCustomFonts().map(f=>f.name);
   const allH=[...HEADING_FONTS,...customFonts];
   const allB=[...BODY_FONTS,...customFonts];
   // Per-H-tag pickers — fall back to googleFont for backward compat
@@ -3326,6 +3363,12 @@ function toast(msg,type=''){
   e.innerHTML=`<span class="material-icons-round mi">${icon}</span>${msg}`;
   e.className='show '+(type||'');
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>{e.className='';},3000);
+}
+
+// ── Shared fonts ──
+let sharedFonts=[];
+async function loadSharedFonts(){
+  try{const r=await fetch('/api/admin/fonts');if(r.ok)sharedFonts=await r.json();}catch(e){}
 }
 
 // ── Design templates ──
