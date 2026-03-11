@@ -65,6 +65,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:13.
 .page-head{margin-bottom:28px;}
 .page-head h2{font-family:var(--display);font-weight:300;font-size:1.7rem;color:var(--ink);letter-spacing:-0.4px;margin-bottom:3px;}
 .page-head p{color:var(--ink3);font-size:0.88rem;}
+.docs-tabs{display:flex;gap:0;border-bottom:2px solid var(--border2);margin-bottom:24px;}
+.docs-tab{padding:8px 18px;border-radius:6px 6px 0 0;font-size:0.875rem;font-weight:400;color:var(--ink3);cursor:pointer;border:none;background:none;font-family:var(--font);transition:all 120ms var(--ease);border-bottom:3px solid transparent;margin-bottom:-2px;display:inline-flex;align-items:center;gap:5px;}
+.docs-tab:hover{color:var(--ink);background:var(--bg2);}
+.docs-tab.active{color:var(--ink);font-weight:600;border-bottom-color:var(--primary);}
+.docs-panel{display:none;}.docs-panel.active{display:block;}
 /* inputs */
 input[type=text],input[type=url],input[type=number],input[type=password],input[type=email],select,textarea{width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.875rem;font-family:var(--font);color:var(--ink);background:var(--panel);transition:border-color 120ms,box-shadow 120ms;-webkit-appearance:none;}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,75,57,.1);}
@@ -481,7 +486,6 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   <nav class="t-nav">
     <button class="t-tab active" id="tab-forms-btn" onclick="switchTab('forms',this)">Forms<span id="t-form-name-chip" class="t-form-chip" style="display:none"></span></button>
     <button class="t-tab" onclick="switchTab('design',this)">Design</button>
-    <button class="t-tab" onclick="switchTab('system',this)">System</button>
     <button class="t-tab" onclick="switchTab('help',this)"><span class="material-icons-round mi" style="font-size:15px">help_outline</span> Help</button>
   </nav>
   <div class="t-spacer"></div>
@@ -796,9 +800,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   </div>
 </div>
 
-<!-- SYSTEM TAB -->
-<div id="tab-system" class="page">
-  <div class="page-body" style="max-width:900px">
+<!-- SYSTEM PANEL (reparented into tab-help by JS) -->
+<div id="docs-panel-system" class="docs-panel">
     <div class="page-head">
       <h2>System</h2>
       <p>Platform info, tech stack, architecture, security, GDPR, and roadmap.</p>
@@ -1164,8 +1167,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     </div><!-- /system-sections -->
-  </div>
-</div>
+</div><!-- /docs-panel-system -->
 
 <!-- SUBSCRIBERS TAB -->
 <div id="tab-subscribers" class="page">
@@ -1321,9 +1323,14 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   </div>
 </div>
 
-<!-- HELP TAB -->
+<!-- HELP + SYSTEM COMBINED TAB -->
 <div id="tab-help" class="page">
   <div class="page-body" style="max-width:900px">
+    <div class="docs-tabs">
+      <button class="docs-tab active" id="docs-tab-help-btn" onclick="switchInnerTab('help',this)"><span class="material-icons-round mi" style="font-size:14px">help_outline</span> Help</button>
+      <button class="docs-tab" id="docs-tab-system-btn" onclick="switchInnerTab('system',this)"><span class="material-icons-round mi" style="font-size:14px">dns</span> System</button>
+    </div>
+    <div id="docs-panel-help" class="docs-panel active">
     <div class="page-head">
       <h2>Help &amp; Documentation</h2>
       <p>Everything you need to build, design, and grow with SignFlow.</p>
@@ -1663,6 +1670,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     </div><!-- /help-sections -->
+    </div><!-- /docs-panel-help -->
+    <div id="docs-system-slot"></div><!-- system panel moved here by JS -->
   </div>
 </div><!-- /tab-help -->
 
@@ -1867,6 +1876,20 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <button class="block-type-btn" style="width:100%;margin-top:6px;display:flex;gap:8px;justify-content:center" onclick="addContainerItem('submit')">
         <span class="material-icons-round mi">send</span><span class="block-type-label">Submit Button + GDPR</span>
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Container style modal -->
+<div id="cnt-style-modal" class="modal-overlay">
+  <div class="modal-box" style="width:360px">
+    <div class="modal-head">
+      <h2>Container style</h2>
+      <button class="modal-close" onclick="closeCntStyleModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div id="cnt-style-body" style="padding:4px 0 8px"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeCntStyleModal()">Close</button>
     </div>
   </div>
 </div>
@@ -2791,7 +2814,7 @@ function makeBkCard(s,isConfirmation){
     <div class="bk-head" onclick="toggleBk('bk-${s.id}')">
       <span class="material-icons-round ${fixed?'bk-lock':'bk-dh'}">${fixed?'lock':'drag_indicator'}</span>
       <span class="material-icons-round bk-icon">${BK_ICONS[s.type]||'widgets'}</span>
-      <span class="bk-title">${s.name||BK_LABELS[s.type]||s.type}</span>${s.type==='container'?`<span class="material-icons-round bk-rename" onclick="event.stopPropagation();renameBk('${s.id}')" title="Rename container" style="font-size:13px!important;color:rgba(255,255,255,.45);cursor:pointer;flex-shrink:0;padding:2px;border-radius:3px;transition:color 120ms" onmouseenter="this.style.color='rgba(255,255,255,.9)'" onmouseleave="this.style.color='rgba(255,255,255,.45)'">edit</span>`:''}
+      <span class="bk-title">${s.name||BK_LABELS[s.type]||s.type}</span>${s.type==='container'?`<span class="material-icons-round bk-rename" onclick="event.stopPropagation();renameBk('${s.id}')" title="Rename container" style="font-size:13px!important;color:rgba(255,255,255,.45);cursor:pointer;flex-shrink:0;padding:2px;border-radius:3px;transition:color 120ms" onmouseenter="this.style.color='rgba(255,255,255,.9)'" onmouseleave="this.style.color='rgba(255,255,255,.45)'">edit</span><span class="material-icons-round bk-rename" onclick="event.stopPropagation();openCntStyleModal('${s.id}')" title="Container style" style="font-size:13px!important;color:rgba(255,255,255,.45);cursor:pointer;flex-shrink:0;padding:2px;border-radius:3px;transition:color 120ms" onmouseenter="this.style.color='rgba(255,255,255,.9)'" onmouseleave="this.style.color='rgba(255,255,255,.45)'">palette</span>`:''}
       ${showCols?`<div class="bk-cols" onclick="event.stopPropagation()">
         <button class="bk-col-btn${cols===1?' active':''}" onclick="event.stopPropagation();setBkCols('${s.id}',1)">1</button>
         <button class="bk-col-btn${cols===2?' active':''}" onclick="event.stopPropagation();setBkCols('${s.id}',2)">2</button>
@@ -3112,10 +3135,7 @@ function initBlockBcps(b,blockEl){
     buildBrandColorPicker('bcp-hero-bg',c.bg||'',v=>{updateSectionColor(b.id,'bg',v);buildBrandColorPicker('bcp-hero-bg',v,_bcpCallbacks['bcp-hero-bg']);});
   if(blockEl.querySelector('#bcp-hero-text'))
     buildBrandColorPicker('bcp-hero-text',c.text||'',v=>{updateSectionColor(b.id,'text',v);buildBrandColorPicker('bcp-hero-text',v,_bcpCallbacks['bcp-hero-text']);});
-  if(blockEl.querySelector('#bcp-cnt-bg-'+b.id))
-    buildBrandColorPicker('bcp-cnt-bg-'+b.id,style.bg||'',v=>{updateCntStyle(b.id,'bg',v);buildBrandColorPicker('bcp-cnt-bg-'+b.id,v,_bcpCallbacks['bcp-cnt-bg-'+b.id]);});
-  if(blockEl.querySelector('#bcp-cnt-bc-'+b.id))
-    buildBrandColorPicker('bcp-cnt-bc-'+b.id,style.borderColor||'',v=>{updateCntStyle(b.id,'borderColor',v);buildBrandColorPicker('bcp-cnt-bc-'+b.id,v,_bcpCallbacks['bcp-cnt-bc-'+b.id]);});
+  // Container colour pickers are now initialised in openCntStyleModal()
   if(blockEl.querySelector('#bcp-div-'+b.id))
     buildBrandColorPicker('bcp-div-'+b.id,b.color||'#e0e0e0',v=>{updateBlockProp(b.id,'color',v);buildBrandColorPicker('bcp-div-'+b.id,v,_bcpCallbacks['bcp-div-'+b.id]);});
 }
@@ -3552,25 +3572,7 @@ function containerBkBody(b){
   }).join('');
   return `
     <div class="el-list" id="cnt-${b.id}" ondragover="cntDragOver(event)" ondrop="cntDrop(event,'${b.id}')">${itemCards}</div>
-    <button class="add-field-btn" onclick="openCntPicker('${b.id}')"><span class="material-icons-round mi">add</span> Add item</button>
-    <div class="modal-section"><div class="modal-section-title">Container style</div>
-      <div class="cg"><label class="cl">Background</label>
-        <div id="bcp-cnt-bg-${b.id}"></div>
-      </div>
-      <div class="cg"><label class="cl">Border colour</label>
-        <div class="cr" style="gap:6px">
-          <div id="bcp-cnt-bc-${b.id}" style="flex:1"></div>
-          <input type="range" min="0" max="16" step="1" value="${style.borderWidth||1}" oninput="updateCntStyle('${b.id}','borderWidth',+this.value);this.nextElementSibling.value=this.value" style="width:70px;flex-shrink:0"><input type="text" value="${style.borderWidth||1}" style="width:40px;flex-shrink:0" oninput="updateCntStyle('${b.id}','borderWidth',+this.value);this.previousElementSibling.value=this.value"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span>
-        </div>
-      </div>
-      <div class="cg"><label class="cl">Corner radius</label>
-        <div class="cr"><input type="range" min="0" max="40" step="1" value="${parseInt(style.radius)||0}" oninput="updateCntStyle('${b.id}','radius',this.value+'px');this.nextElementSibling.value=this.value" style="flex:1"><input type="text" value="${parseInt(style.radius)||0}" style="width:48px;flex-shrink:0" oninput="updateCntStyle('${b.id}','radius',this.value+'px');this.previousElementSibling.value=parseInt(this.value)||0"><span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span></div>
-      </div>
-      <div class="cr" style="gap:10px;align-items:center;margin-top:6px">
-        <label class="tgl"><input type="checkbox" ${style.shadow?'checked':''} onchange="updateCntStyle('${b.id}','shadow',this.checked)"><span class="tgl-s"></span></label>
-        <label class="tgl-lbl">Drop shadow</label>
-      </div>
-    </div>`;
+    <button class="add-field-btn" onclick="openCntPicker('${b.id}')"><span class="material-icons-round mi">add</span> Add item</button>`;
 }
 
 function updateCntStyle(blockId,key,val){const found=_blockArray(blockId);if(!found)return;if(!found.block.style)found.block.style={};found.block.style[key]=val;schedulePreview();}
@@ -3596,6 +3598,40 @@ function cntDrop(e,blockId){
   const[item]=b.items.splice(di,1);b.items.splice(ti,0,item);
   updateCntBody(blockId);schedulePreview();
 }
+
+let _cntStyleBlockId=null;
+function openCntStyleModal(blockId){
+  const found=_blockArray(blockId);if(!found)return;
+  const b=found.block;const style=b.style||{};
+  _cntStyleBlockId=blockId;
+  document.getElementById('cnt-style-body').innerHTML=`
+    <div class="cg"><label class="cl">Background</label>
+      <div id="cntm-bg"></div>
+    </div>
+    <div class="cg"><label class="cl">Border colour</label>
+      <div class="cr" style="gap:6px">
+        <div id="cntm-bc" style="flex:1"></div>
+        <input type="range" min="0" max="16" step="1" value="${style.borderWidth||1}" oninput="updateCntStyle('${blockId}','borderWidth',+this.value);this.nextElementSibling.value=this.value" style="width:70px;flex-shrink:0">
+        <input type="text" value="${style.borderWidth||1}" style="width:40px;flex-shrink:0" oninput="updateCntStyle('${blockId}','borderWidth',+this.value);this.previousElementSibling.value=this.value">
+        <span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span>
+      </div>
+    </div>
+    <div class="cg"><label class="cl">Corner radius</label>
+      <div class="cr">
+        <input type="range" min="0" max="40" step="1" value="${parseInt(style.radius)||0}" oninput="updateCntStyle('${blockId}','radius',this.value+'px');this.nextElementSibling.value=this.value" style="flex:1">
+        <input type="text" value="${parseInt(style.radius)||0}" style="width:48px;flex-shrink:0" oninput="updateCntStyle('${blockId}','radius',this.value+'px');this.previousElementSibling.value=parseInt(this.value)||0">
+        <span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span>
+      </div>
+    </div>
+    <div class="cr" style="gap:10px;align-items:center;margin-top:6px">
+      <label class="tgl"><input type="checkbox" ${style.shadow?'checked':''} onchange="updateCntStyle('${blockId}','shadow',this.checked)"><span class="tgl-s"></span></label>
+      <label class="tgl-lbl">Drop shadow</label>
+    </div>`;
+  buildBrandColorPicker('cntm-bg',style.bg||'',v=>{updateCntStyle(blockId,'bg',v);buildBrandColorPicker('cntm-bg',v,_bcpCallbacks['cntm-bg']);});
+  buildBrandColorPicker('cntm-bc',style.borderColor||'',v=>{updateCntStyle(blockId,'borderColor',v);buildBrandColorPicker('cntm-bc',v,_bcpCallbacks['cntm-bc']);});
+  document.getElementById('cnt-style-modal').classList.add('open');
+}
+function closeCntStyleModal(){document.getElementById('cnt-style-modal').classList.remove('open');_cntStyleBlockId=null;}
 
 let _cntBlockId=null;
 function openCntPicker(blockId){
@@ -4221,9 +4257,31 @@ function _initHelp(){
   if(first&&!first.classList.contains('open'))first.classList.add('open');
 }
 
+// Move system panel into the help tab on first load
+(function _initDocsTab(){
+  const slot=document.getElementById('docs-system-slot');
+  const panel=document.getElementById('docs-panel-system');
+  if(slot&&panel)slot.replaceWith(panel);
+})();
+
+function switchInnerTab(name,btn){
+  document.querySelectorAll('.docs-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.docs-panel').forEach(p=>p.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  else{
+    const b=document.getElementById('docs-tab-'+name+'-btn');
+    if(b)b.classList.add('active');
+  }
+  const panel=document.getElementById('docs-panel-'+name);
+  if(panel)panel.classList.add('active');
+  if(name==='help')_initHelp();
+}
+
 // ── Tabs ──
 const FORM_REQUIRED_TABS=new Set(['build','subscribers','embed','pfsettings']);
 function switchTab(tab,btn){
+  // Redirect legacy 'system' calls → open the combined help tab on the system inner tab
+  if(tab==='system'){tab='help';btn=null;setTimeout(()=>switchInnerTab('system'),0);}
   // Auto-exit template editing mode when navigating away from the design tab
   if(_editingTpl && tab!=='design') exitTplEdit();
   // Guard: form-dependent tabs require a form selected
@@ -4252,7 +4310,7 @@ function switchTab(tab,btn){
   const p=document.getElementById('tab-'+tab);if(p)p.classList.add('active');
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
-  if(tab==='help')_initHelp();
+  if(tab==='help')switchInnerTab('help');
   if(tab==='design'){
     loadDesignTemplates().then(()=>{
       populateDesignTplSelect();
