@@ -2089,6 +2089,16 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 <script>
 let cfg=null,previewTimer=null,editingFieldId=null,subPage=1,subSearch='',searchTimer=null,currentTab='forms';
 let currentFormSlug=null,formsIndex=[];
+let _csrfToken=''; // populated on admin load from /api/admin/csrf-token
+
+// Wrapper for all admin fetch calls — injects CSRF token header.
+// For FormData bodies (file uploads) the browser sets Content-Type automatically.
+function adminFetch(url,opts={}){
+  const base={'X-CSRF-Token':_csrfToken};
+  if(!(opts.body instanceof FormData))base['Content-Type']='application/json';
+  opts.headers=Object.assign(base,opts.headers||{});
+  return fetch(url,opts);
+}
 let _bkDragArray='sections';
 const HEADING_FONTS=['Playfair Display','Merriweather','Lora','Cormorant Garamond','Libre Baskerville','Raleway','Montserrat','Oswald','Bebas Neue','DM Serif Display','Noto Serif','Noto Display','Roc Grotesk'];
 const BODY_FONTS=['Lato','Open Sans','Nunito','Source Sans 3','Roboto','PT Sans','Mulish','Karla','Fira Sans','IBM Plex Sans','Noto Sans','Jost','Roc Grotesk'];
@@ -2126,7 +2136,9 @@ async function checkSession(){
 
 // ── Forms index ──
 async function loadFormsIndex(){
-  const r=await fetch('/api/admin/forms');
+  // Fetch CSRF token first (one request per session load)
+  try{const ct=await adminFetch('/api/admin/csrf-token').then(r=>r.json());if(ct.token)_csrfToken=ct.token;}catch(_){}
+  const r=await adminFetch('/api/admin/forms');
   if(r.status===401){window.location='/auth/login';return;}
   formsIndex=await r.json();
   renderFormsList();
@@ -2178,7 +2190,7 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
 async function openFormEditor(slug){
   currentFormSlug=slug;
-  const r=await fetch(`/api/admin/forms/${slug}`);
+  const r=await adminFetch(`/api/admin/forms/${slug}`);
   if(r.status===401){window.location='/auth/login';return;}
   cfg=await r.json();
   if(!cfg.design.customFonts)cfg.design.customFonts=[];
@@ -2210,7 +2222,7 @@ async function openFormEditor(slug){
 // ── Config (kept for compatibility) ──
 async function loadConfig(){
   if(!currentFormSlug)return;
-  const r=await fetch(`/api/admin/forms/${currentFormSlug}`);
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}`);
   if(r.status===401){window.location='/auth/login';return;}
   cfg=await r.json();
   if(!cfg.design.customFonts)cfg.design.customFonts=[];
@@ -2293,7 +2305,7 @@ async function saveConfig(){
   if(!currentFormSlug){toast('No form selected','error');return;}
   setSaveInd('saving');
   try{
-    const r=await fetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+    const r=await adminFetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
     if(r.ok){setSaveInd('saved');refreshPreview();toast('Saved!','success');}
     else{setSaveInd('');toast('Save failed','error');}
   }catch(e){toast('Network error','error');}
@@ -2305,7 +2317,7 @@ function schedulePreview(){setSaveInd('');clearTimeout(previewTimer);previewTime
 async function refreshPreview(){
   if(_editingTpl){scheduleDesignTplPreview();return;}
   if(!currentFormSlug||!cfg)return;
-  await fetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+  await adminFetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
   const f=document.getElementById('preview-frame');
   if(f){if(_panelTab==='response'){f.src='/'+currentFormSlug+'/confirmation-preview?_t='+Date.now();}else{f.src=f.src;}}
   const f2=document.getElementById('design-preview-frame');if(f2)f2.src=f2.src;
@@ -2325,7 +2337,7 @@ async function handleImageUpload(input,type){
   if(!currentFormSlug){toast('No form selected','error');return;}
   const fd=new FormData();fd.append('image',file);
   try{
-    const j=await fetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd}).then(r=>r.json());
+    const j=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd}).then(r=>r.json());
     if(j.url){
       if(type==='logo'){cfg.design.logoUrl=j.url;const e=document.getElementById('preview-logo');if(e){e.src=j.url;e.style.display='block';}}
       else if(type==='bg'){cfg.design.backgroundImage=j.url;const e=document.getElementById('preview-bg');if(e){e.src=j.url;e.style.display='block';}}
@@ -2362,7 +2374,7 @@ function closeMediaPicker(){
 async function loadMediaLibrary(){
   if(!currentFormSlug)return;
   try{
-    _mediaItems=await fetch(`/api/admin/forms/${currentFormSlug}/media`).then(r=>r.json());
+    _mediaItems=await adminFetch(`/api/admin/forms/${currentFormSlug}/media`).then(r=>r.json());
     _rebuildFolderSidebar();
     _applyMediaFilter();
   }catch(e){_mediaItems=[];renderMediaGrid([]);}
@@ -2451,7 +2463,7 @@ async function deleteSelectedMedia(){
   if(!_mediaSelected)return;
   if(!confirm(`Delete "${(_mediaSelected.name||_mediaSelected.url.split('/').pop())}"?\nThis permanently removes the file.`))return;
   try{
-    await fetch(`/api/admin/forms/${currentFormSlug}/media`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_mediaSelected.id,_shared:_mediaSelected._shared||false})});
+    await adminFetch(`/api/admin/forms/${currentFormSlug}/media`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_mediaSelected.id,_shared:_mediaSelected._shared||false})});
     _mediaSelected=null;_clearMediaDetail();
     await loadMediaLibrary();toast('Deleted','success');
   }catch(e){toast('Delete failed','error');}
@@ -2460,7 +2472,7 @@ async function moveMediaToFolder(folder){
   if(!_mediaSelected)return;
   const id=_mediaSelected.id,shared=_mediaSelected._shared||false;
   try{
-    await fetch(`/api/admin/forms/${currentFormSlug}/media/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder,_shared:shared})});
+    await adminFetch(`/api/admin/forms/${currentFormSlug}/media/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder,_shared:shared})});
     await loadMediaLibrary();
     const upd=_mediaItems.find(i=>i.id===id);_mediaSelected=null;if(upd)selectMediaItem(upd.id);
     toast('Folder updated','success');
@@ -2470,7 +2482,7 @@ async function toggleMediaShared(){
   if(!_mediaSelected)return;
   const toShared=!_mediaSelected._shared;
   try{
-    await fetch(`/api/admin/forms/${currentFormSlug}/media/${_mediaSelected.id}/move`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toShared})});
+    await adminFetch(`/api/admin/forms/${currentFormSlug}/media/${_mediaSelected.id}/move`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toShared})});
     await loadMediaLibrary();
     // re-select the item after reload
     const updated=_mediaItems.find(i=>i.id===_mediaSelected.id);
@@ -2511,7 +2523,7 @@ async function handleMediaPickerUpload(input){
   fd.append('shared',scope==='shared'?'1':'0');
   fd.append('folder',folder);
   try{
-    const j=await fetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd}).then(r=>r.json());
+    const j=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd}).then(r=>r.json());
     if(j.url){input.value='';await loadMediaLibrary();const newest=_mediaItems[0];if(newest)selectMediaItem(newest.id);toast('Uploaded','success');}
   }catch(e){toast('Upload failed','error');}
 }
@@ -2534,7 +2546,7 @@ async function handleFontUpload(input){
   const toShared=!scopeSel||scopeSel.value!=='form';
   const fd=new FormData();fd.append('font',file);fd.append('name',name);fd.append('shared',toShared?'1':'0');
   try{
-    const j=await fetch(`/api/admin/forms/${currentFormSlug}/upload-font`,{method:'POST',body:fd}).then(r=>r.json());
+    const j=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload-font`,{method:'POST',body:fd}).then(r=>r.json());
     if(j.url){
       if(j.shared){
         sharedFonts.push({id:j.id||name,name,url:j.url});
@@ -2552,7 +2564,7 @@ async function removeCustomFont(source,nameOrId){
   if(source==='shared'){
     const f=sharedFonts.find(f=>f.id===nameOrId||f.name===nameOrId);
     if(!f)return;
-    await fetch(`/api/admin/fonts/${f.id}`,{method:'DELETE'});
+    await adminFetch(`/api/admin/fonts/${f.id}`,{method:'DELETE'});
     sharedFonts=sharedFonts.filter(x=>x.id!==f.id);
   }else{
     cfg.design.customFonts=(cfg.design.customFonts||[]).filter(f=>f.name!==nameOrId);
@@ -3761,7 +3773,7 @@ async function handleItemImageUpload(inp){
   if(!inp.files||!inp.files[0])return;
   const fd=new FormData();fd.append('image',inp.files[0]);
   try{
-    const r=await fetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd});
+    const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd});
     const j=await r.json();
     if(j.url){
       const urlInp=document.getElementById('ie-img-url');if(urlInp)urlInp.value=j.url;
@@ -4208,14 +4220,19 @@ async function loadSubscribers(page){
   const tbody=document.getElementById('sub-tbody');tbody.innerHTML='';
   j.subscribers.forEach(s=>{
     const tr=document.createElement('tr');
-    const fields=(cfg.fields||[]).filter(f=>!f.system).map(f=>`<td>${s.customFields?.[f.id]||'—'}</td>`).join('');
+    // Escape all subscriber data before injecting into HTML
+    const safeEmail=escHtml(s.email||'');
+    const safeStatus=escHtml(s.status||'');
+    const safeDate=escHtml(new Date(s.subscribedAt).toLocaleDateString());
+    const fields=(cfg.fields||[]).filter(f=>!f.system).map(f=>`<td>${escHtml(s.customFields?.[f.id]||'—')}</td>`).join('');
     const exportedCell=s.exported
-      ?`<td><span class="badge exported">✓ exported</span> <button class="btn btn-outline btn-sm" style="padding:1px 5px;font-size:0.68rem" onclick="clearExportFlag('${s.id}')" title="Clear export flag">×</button></td>`
+      ?`<td><span class="badge exported">✓ exported</span> <button class="btn btn-outline btn-sm" style="padding:1px 5px;font-size:0.68rem" data-action="clear-export" data-id="${escHtml(s.id)}" title="Clear export flag">×</button></td>`
       :`<td style="color:var(--ink3);font-size:0.8rem">—</td>`;
-    const subBtn=s.status==='active'
-      ?`<button class="btn btn-outline btn-sm" onclick="adminUnsubscribe('${s.id}','${s.email}')" title="Unsubscribe"><span class="material-icons-round mi" style="font-size:13px">person_off</span></button>`
-      :`<button class="btn btn-outline btn-sm" onclick="adminReactivate('${s.id}','${s.email}')" title="Re-activate"><span class="material-icons-round mi" style="font-size:13px">person_add</span></button>`;
-    tr.innerHTML=`<td class="email-cell">${s.email}</td><td><span class="badge ${s.status}">${s.status}</span></td>${exportedCell}<td class="date-cell">${new Date(s.subscribedAt).toLocaleDateString()}</td>${fields}<td style="white-space:nowrap">${subBtn} <button class="btn btn-danger btn-sm" onclick="deleteSubscriber('${s.id}','${s.email}')">Delete</button></td>`;
+    const subIcon=s.status==='active'?'person_off':'person_add';
+    const subAction=s.status==='active'?'unsub':'reactivate';
+    const subTitle=s.status==='active'?'Unsubscribe':'Re-activate';
+    const subBtn=`<button class="btn btn-outline btn-sm" data-action="${subAction}" data-id="${escHtml(s.id)}" data-email="${safeEmail}" title="${subTitle}"><span class="material-icons-round mi" style="font-size:13px">${subIcon}</span></button>`;
+    tr.innerHTML=`<td class="email-cell">${safeEmail}</td><td><span class="badge ${safeStatus}">${safeStatus}</span></td>${exportedCell}<td class="date-cell">${safeDate}</td>${fields}<td style="white-space:nowrap">${subBtn} <button class="btn btn-danger btn-sm" data-action="delete" data-id="${escHtml(s.id)}" data-email="${safeEmail}">Delete</button></td>`;
     tbody.appendChild(tr);
   });
   const cnt=document.getElementById('sub-count');if(cnt)cnt.textContent=`${j.total} subscriber${j.total!==1?'s':''}`;
@@ -4223,28 +4240,46 @@ async function loadSubscribers(page){
   for(let i=1;i<=j.pages;i++){const btn=document.createElement('button');btn.className='page-btn'+(i===j.page?' active':'');btn.textContent=i;btn.onclick=()=>loadSubscribers(i);pg.appendChild(btn);}
 }
 function debounceSearch(val){clearTimeout(searchTimer);subSearch=val;searchTimer=setTimeout(()=>loadSubscribers(1),300);}
+
+// Subscriber table — single delegated handler so no inline onclick or string injection
+(function(){
+  document.addEventListener('click',function(e){
+    const btn=e.target.closest('[data-action]');
+    if(!btn)return;
+    const tbody=document.getElementById('sub-tbody');
+    if(!tbody||!tbody.contains(btn))return;
+    const action=btn.dataset.action;
+    const id=btn.dataset.id;
+    const email=btn.dataset.email||'';
+    if(action==='delete')deleteSubscriber(id,email);
+    else if(action==='unsub')adminUnsubscribe(id,email);
+    else if(action==='reactivate')adminReactivate(id,email);
+    else if(action==='clear-export')clearExportFlag(id);
+  });
+})();
+
 async function deleteSubscriber(id,email){
   if(!confirm(`Permanently delete data for ${email}?`))return;
-  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}`,{method:'DELETE'});
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}`,{method:'DELETE'});
   if(r.ok){toast('Subscriber deleted','success');loadSubscribers(subPage);}else toast('Delete failed','error');
 }
 async function clearExportFlag(id){
-  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/clear-export`,{method:'POST'});
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/clear-export`,{method:'POST'});
   if(r.ok){toast('Export flag cleared','success');loadSubscribers(subPage);}else toast('Failed to clear flag','error');
 }
 async function clearAllExportFlags(){
   if(!confirm('Clear export flags for all subscribers?'))return;
-  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/clear-all-exports`,{method:'POST'});
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers/clear-all-exports`,{method:'POST'});
   if(r.ok){toast('All export flags cleared','success');loadSubscribers(subPage);}else toast('Failed','error');
 }
 async function adminUnsubscribe(id,email){
   if(!confirm(`Unsubscribe ${email}? Their record will be kept.`))return;
-  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/unsubscribe`,{method:'POST'});
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/unsubscribe`,{method:'POST'});
   if(r.ok){toast('Subscriber unsubscribed','success');loadSubscribers(subPage);}else toast('Failed','error');
 }
 async function adminReactivate(id,email){
   if(!confirm(`Re-activate ${email}?`))return;
-  const r=await fetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/reactivate`,{method:'POST'});
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/reactivate`,{method:'POST'});
   if(r.ok){toast('Subscriber re-activated','success');loadSubscribers(subPage);}else toast('Failed','error');
 }
 function exportData(fmt){
@@ -4439,7 +4474,7 @@ function toast(msg,type=''){
 // ── Shared fonts ──
 let sharedFonts=[];
 async function loadSharedFonts(){
-  try{const r=await fetch('/api/admin/fonts');if(r.ok)sharedFonts=await r.json();}catch(e){}
+  try{const r=await adminFetch('/api/admin/fonts');if(r.ok)sharedFonts=await r.json();}catch(e){}
 }
 
 // ── Design templates ──
@@ -4448,7 +4483,7 @@ let _editingTpl=null;        // { id, name, design } currently being edited
 let _cfgDesignBackup=null;   // snapshot of cfg.design before borrow
 
 async function loadDesignTemplates(){
-  try{const r=await fetch('/api/admin/design-templates');if(r.ok)designTemplates=await r.json();}catch(e){}
+  try{const r=await adminFetch('/api/admin/design-templates');if(r.ok)designTemplates=await r.json();}catch(e){}
   renderDesignTemplates();
 }
 function renderDesignTemplates(){
@@ -4511,7 +4546,7 @@ function exitTplEdit(){
 async function saveTplFromDesignTab(){
   if(!_editingTpl||!cfg)return;
   _editingTpl.design=JSON.parse(JSON.stringify(cfg.design));
-  const r=await fetch(`/api/admin/design-templates/${_editingTpl.id}`,{
+  const r=await adminFetch(`/api/admin/design-templates/${_editingTpl.id}`,{
     method:'PUT',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({design:_editingTpl.design})
   });
@@ -4523,7 +4558,7 @@ async function saveTplAsFromDesignTab(){
   const base=_editingTpl?_editingTpl.name:'Design';
   const name=prompt('Save copy as:',base+' (copy)');if(!name)return;
   const design=JSON.parse(JSON.stringify(cfg.design));
-  const r=await fetch('/api/admin/design-templates',{
+  const r=await adminFetch('/api/admin/design-templates',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name,design})
   });
@@ -4540,7 +4575,7 @@ async function saveTplAsFromDesignTab(){
 async function createNewTpl(){
   const name=prompt('Template name:');if(!name)return;
   const design=cfg?JSON.parse(JSON.stringify(cfg.design)):{};
-  const r=await fetch('/api/admin/design-templates',{
+  const r=await adminFetch('/api/admin/design-templates',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name,design})
   });
@@ -4602,7 +4637,7 @@ async function saveDesignTemplate(){
   const name=document.getElementById('dtmpl-name-input').value.trim();
   if(!name){toast('Enter a template name','error');return;}
   if(!cfg){toast('No form loaded','error');return;}
-  const r=await fetch('/api/admin/design-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,design:cfg.design})});
+  const r=await adminFetch('/api/admin/design-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,design:cfg.design})});
   if(r.ok){
     const t=await r.json();
     designTemplates.push(t);
@@ -4623,14 +4658,14 @@ async function applyDesignTemplate(id){
 async function deleteDesignTemplate(id){
   const t=designTemplates.find(t=>t.id===id);
   if(!confirm(`Delete template "${t?t.name:id}"?`))return;
-  const r=await fetch(`/api/admin/design-templates/${id}`,{method:'DELETE'});
+  const r=await adminFetch(`/api/admin/design-templates/${id}`,{method:'DELETE'});
   if(r.ok){designTemplates=designTemplates.filter(t=>t.id!==id);renderDesignTemplates();toast('Template deleted','success');}
   else toast('Delete failed','error');
 }
 async function updateDesignTemplate(id){
   const t=designTemplates.find(t=>t.id===id);if(!t||!cfg)return;
   if(!confirm(`Update "${t.name}" with current design settings?`))return;
-  const r=await fetch(`/api/admin/design-templates/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({design:cfg.design})});
+  const r=await adminFetch(`/api/admin/design-templates/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({design:cfg.design})});
   if(r.ok){const updated=await r.json();t.design=updated.design||cfg.design;toast('Template updated','success');}
   else toast('Update failed','error');
 }
@@ -4669,7 +4704,7 @@ async function createForm(){
   if(!validateSlug(slug))return;
   const btn=document.getElementById('create-form-btn');btn.disabled=true;
   try{
-    const r=await fetch('/api/admin/forms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,name})});
+    const r=await adminFetch('/api/admin/forms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,name})});
     const j=await r.json();
     if(!r.ok){toast(j.error||'Failed to create form','error');btn.disabled=false;return;}
     closeNewFormModal();
@@ -4682,7 +4717,7 @@ async function createForm(){
 }
 async function resetAnalytics(slug){
   if(!confirm('Reset all analytics counters (visits, submits, errors) for this form?'))return;
-  const r=await fetch(`/api/admin/forms/${slug}/analytics/reset`,{method:'POST'});
+  const r=await adminFetch(`/api/admin/forms/${slug}/analytics/reset`,{method:'POST'});
   if(r.ok){
     const f=formsIndex.find(x=>x.slug===slug);
     if(f)f.analytics={visits:0,submits:0,errors:0};
@@ -4693,7 +4728,7 @@ async function resetAnalytics(slug){
 
 async function deleteForm(slug,name){
   if(!confirm(`Delete form "${name}" and all its subscribers? This cannot be undone.`))return;
-  const r=await fetch(`/api/admin/forms/${slug}`,{method:'DELETE'});
+  const r=await adminFetch(`/api/admin/forms/${slug}`,{method:'DELETE'});
   if(r.ok){
     formsIndex=formsIndex.filter(f=>f.slug!==slug);
     renderFormsList();

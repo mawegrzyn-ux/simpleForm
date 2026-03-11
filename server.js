@@ -48,6 +48,18 @@ function getMailer() {
   return _mailer;
 }
 
+// ── HTML escaping ─────────────────────────────────────────────────────────────
+// Used in every page renderer to prevent XSS from admin-entered text fields.
+// WYSIWYG fields (emailBodyHtml, privacyContent, el.html) are intentionally raw.
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Replace {{merge tags}} in email subject/body before sending
 function replaceMergeTags(text, cfg, subscriber, unsubUrl) {
   const firstName = (subscriber.customFields && (subscriber.customFields.firstName || subscriber.customFields.first_name)) ||
@@ -144,7 +156,29 @@ async function initAuth0() {
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.use(helmet({ contentSecurityPolicy: false }));
+// Helmet security headers — CSP configured per environment.
+// The admin SPA uses inline scripts (single-file HTML), so script-src needs
+// 'unsafe-inline'. A future refactor moving admin JS to a separate file would
+// allow removing 'unsafe-inline' and using a nonce/hash instead.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:     ["'self'"],
+      scriptSrc:      ["'self'", "'unsafe-inline'", 'https://js.hcaptcha.com'],
+      styleSrc:       ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc:        ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc:         ["'self'", 'data:', 'blob:', 'https:'],
+      connectSrc:     ["'self'", 'https://api.hcaptcha.com'],
+      frameSrc:       ["'none'", 'https://www.youtube.com', 'https://player.vimeo.com'],
+      frameAncestors: ["'self'"],   // overridden to * on /:slug/embed routes
+      objectSrc:      ["'none'"],
+      baseUri:        ["'self'"],
+    },
+  },
+  // X-Frame-Options: SAMEORIGIN is the helmet default.
+  // The embed routes override this header individually.
+  frameguard: { action: 'sameorigin' },
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -341,6 +375,25 @@ function adminAuth(req, res, next) {
   res.redirect('/auth/login');
 }
 
+// ── CSRF protection ───────────────────────────────────────────────────────────
+// Double-submit pattern: token stored in session, sent as X-CSRF-Token header.
+// GET /api/admin/csrf-token exposes the token to the admin SPA on load.
+function csrfCheck(req, res, next) {
+  const token = req.headers['x-csrf-token'];
+  if (!token || token !== req.session.csrf) {
+    return res.status(403).json({ error: 'Invalid or missing CSRF token' });
+  }
+  next();
+}
+
+// Single middleware covers all state-changing admin API calls — no per-route changes needed.
+// GET / HEAD / OPTIONS are safe methods and pass through without a token check.
+app.use('/api/admin', (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  if (!isAdminUser(req.session)) return next(); // let adminAuth handle 401
+  return csrfCheck(req, res, next);
+});
+
 // ════════════════════════════════════════
 // PUBLIC ROUTES  (named routes BEFORE /:slug wildcard)
 // ════════════════════════════════════════
@@ -526,9 +579,10 @@ app.get('/auth/callback', adminLimiter, async (req, res) => {
       return res.status(403).send(renderAccessDeniedPage(claims.email || 'unknown'));
     }
 
-    // Store user in session
+    // Store user in session and generate a per-session CSRF token
     req.session.user = claims;
     req.session.accessToken = tokenSet.access_token;
+    req.session.csrf = require('crypto').randomBytes(32).toString('hex');
     delete req.session.authNonce;
     delete req.session.authState;
     delete req.session.authCodeVerifier;
@@ -602,6 +656,13 @@ function bumpAnalytic(slug, key) {
     fs.writeFileSync(analyticsPath(slug), JSON.stringify(a));
   } catch(_) {}
 }
+
+// CSRF token endpoint — called once on admin panel load
+app.get('/api/admin/csrf-token', adminAuth, (req, res) => {
+  // Lazily create token if not yet present (e.g. dev mode without Auth0)
+  if (!req.session.csrf) req.session.csrf = require('crypto').randomBytes(32).toString('hex');
+  res.json({ token: req.session.csrf });
+});
 
 // List all forms (with subscriber counts)
 app.get('/api/admin/forms', adminAuth, (req, res) => {
@@ -1008,12 +1069,20 @@ app.get('/:slug/confirmation-preview', adminAuth, (req, res) => {
   } catch(e) { res.status(404).send('Form not found'); }
 });
 
-// Embed iframe page
+// Embed iframe page — explicitly allows framing from any origin
 app.get('/:slug/embed', (req, res) => {
   try {
     const cfg = readFormConfig(req.params.slug);
     res.setHeader('X-Frame-Options', 'ALLOWALL');
-    res.setHeader('Content-Security-Policy', "frame-ancestors *");
+    // Override helmet's frame-ancestors 'self' with * for the embed page only.
+    // All other CSP directives match the global policy.
+    res.setHeader('Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.hcaptcha.com; " +
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+      "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; " +
+      "connect-src 'self' https://api.hcaptcha.com; " +
+      "frame-src https://www.youtube.com https://player.vimeo.com; " +
+      "frame-ancestors *; object-src 'none'; base-uri 'self'");
     res.send(renderEmbedPage(cfg));
   } catch(e) { res.status(404).send('Form not found'); }
 });
@@ -1130,24 +1199,24 @@ function renderFormField(f, cfg) {
   // ── select ──
   if (f.type === 'select') {
     return `<div class="sf-field"${condAttr}>
-      <label for="sf_${f.id}">${f.label}${req}</label>
+      <label for="sf_${f.id}">${escapeHtml(f.label)}${req}</label>
       <select id="sf_${f.id}" name="${f.id}" ${f.required ? 'required' : ''}>
         <option value="">— Select —</option>
-        ${(f.options || []).map(o => `<option value="${o}">${o}</option>`).join('')}
+        ${(f.options || []).map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}
       </select></div>`;
   }
 
   // ── checkbox ──
   if (f.type === 'checkbox') {
     return `<div class="sf-field sf-field--check"${condAttr}>
-      <label><input type="checkbox" name="${f.id}" value="yes" ${f.required ? 'required' : ''}> ${f.label}${req}</label></div>`;
+      <label><input type="checkbox" name="${f.id}" value="yes" ${f.required ? 'required' : ''}> ${escapeHtml(f.label)}${req}</label></div>`;
   }
 
   // ── textarea ──
   if (f.type === 'textarea') {
     return `<div class="sf-field"${condAttr}>
-      <label for="sf_${f.id}">${f.label}${req}</label>
-      <textarea id="sf_${f.id}" name="${f.id}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''} rows="3"></textarea></div>`;
+      <label for="sf_${f.id}">${escapeHtml(f.label)}${req}</label>
+      <textarea id="sf_${f.id}" name="${f.id}" placeholder="${escapeHtml(f.placeholder || '')}" ${f.required ? 'required' : ''} rows="3"></textarea></div>`;
   }
 
   // ── age ──
@@ -1158,7 +1227,7 @@ function renderFormField(f, cfg) {
     const minYear = curYear - maxAge;
     const maxYear = curYear - minAge;
     return `<div class="sf-field"${condAttr}>
-      <label for="sf_${f.id}">${f.label}${req}</label>
+      <label for="sf_${f.id}">${escapeHtml(f.label)}${req}</label>
       <input type="number" id="sf_${f.id}" name="${f.id}" placeholder="Your age"
         min="${minAge}" max="${maxAge}" ${f.required ? 'required' : ''}
         data-sf-age-min="${minAge}" data-sf-age-max="${maxAge}"></div>`;
@@ -1187,7 +1256,7 @@ function renderFormField(f, cfg) {
     const years = [];
     for (let y = maxY; y >= minY; y--) years.push(y);
     return `<div class="sf-field sf-field--picker"${condAttr}>
-      <label>${f.label}${req}</label>
+      <label>${escapeHtml(f.label)}${req}</label>
       <div class="sf-picker-wrap">
         <div class="sf-picker-drum" id="sf_drum_${f.id}">
           ${years.map(y => `<div class="sf-pick-item" data-val="${y}">${y}</div>`).join('')}
@@ -1206,7 +1275,7 @@ function renderFormField(f, cfg) {
     for (let y = maxY; y >= minY; y--) years.push(y);
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return `<div class="sf-field sf-field--picker"${condAttr}>
-      <label>${f.label}${req}</label>
+      <label>${escapeHtml(f.label)}${req}</label>
       <div class="sf-picker-wrap sf-picker-dual">
         <div class="sf-picker-drum" id="sf_drum_m_${f.id}">
           ${months.map((m, i) => `<div class="sf-pick-item" data-val="${String(i+1).padStart(2,'0')}">${m}</div>`).join('')}
@@ -1246,7 +1315,7 @@ function renderFormField(f, cfg) {
       const fillLen = (pct / 100) * arcLen;
       const initRot = pct * 1.8; // deg = pct(0-100) * 1.8  →  0°…180°
       return `<div class="sf-field sf-field--slider"${condAttr}>
-        <label>${f.label}${req}</label>
+        <label>${escapeHtml(f.label)}${req}</label>
         <div class="sf-slider-wrap sf-slider-arc" style="--sf-accent:${accent};--sf-knob:${knobPx}px;--sf-val-size:${valSize}px">
           <svg class="sf-arc-svg" viewBox="0 0 220 125" xmlns="http://www.w3.org/2000/svg" style="touch-action:none;overflow:visible">
             <path class="sf-arc-bg" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="#e0e0e0" stroke-width="${trackPx}" stroke-linecap="round"/>
@@ -1255,11 +1324,11 @@ function renderFormField(f, cfg) {
             <g class="sf-arc-handle" transform="rotate(${initRot} ${CX} ${CY})" style="cursor:grab;touch-action:none">
               <circle cx="${CX - R}" cy="${CY}" r="${knobPx / 2}" fill="${accent}"/>
               <text x="${CX - R}" y="${CY + 1}" text-anchor="middle" dominant-baseline="middle"
-                font-size="${knobPx * 0.48}" fill="#fff" style="pointer-events:none;user-select:none">${icon}</text>
+                font-size="${knobPx * 0.48}" fill="#fff" style="pointer-events:none;user-select:none">${escapeHtml(icon)}</text>
             </g>
             ${(minLbl || maxLbl) ? `
-            <text x="20" y="122" text-anchor="middle" font-size="10" fill="#aaa">${minLbl}</text>
-            <text x="200" y="122" text-anchor="middle" font-size="10" fill="#aaa">${maxLbl}</text>` : ''}
+            <text x="20" y="122" text-anchor="middle" font-size="10" fill="#aaa">${escapeHtml(minLbl)}</text>
+            <text x="200" y="122" text-anchor="middle" font-size="10" fill="#aaa">${escapeHtml(maxLbl)}</text>` : ''}
           </svg>
           ${showVal ? `<div class="sf-slider-val" style="font-size:var(--sf-val-size)">${def}</div>` : ''}
           <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${def}" ${dataAttrs} ${f.required ? 'required' : ''}>
@@ -1269,17 +1338,17 @@ function renderFormField(f, cfg) {
     // linear or angled — labels go BELOW the track to avoid overlap
     const angledClass = track === 'angled' ? ' sf-slider-angled' : '';
     return `<div class="sf-field sf-field--slider"${condAttr}>
-      <label>${f.label}${req}</label>
+      <label>${escapeHtml(f.label)}${req}</label>
       <div class="sf-slider-wrap${angledClass}" style="--sf-accent:${accent};--sf-knob:${knobPx}px;--sf-track:${trackPx}px;--sf-val-size:${valSize}px">
         <div class="sf-slider-track" style="touch-action:none">
           <div class="sf-slider-fill" style="width:${pct}%"></div>
           <div class="sf-slider-handle" tabindex="0" role="slider"
             aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${def}"
             style="left:${pct}%">
-            <span class="sf-slider-icon">${icon}</span>
+            <span class="sf-slider-icon">${escapeHtml(icon)}</span>
           </div>
         </div>
-        ${(minLbl || maxLbl) ? `<div class="sf-slider-lbls"><span>${minLbl}</span><span>${maxLbl}</span></div>` : ''}
+        ${(minLbl || maxLbl) ? `<div class="sf-slider-lbls"><span>${escapeHtml(minLbl)}</span><span>${escapeHtml(maxLbl)}</span></div>` : ''}
         ${showVal ? `<div class="sf-slider-val" style="font-size:var(--sf-val-size)">${def}</div>` : ''}
         <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${def}" ${dataAttrs} ${f.required ? 'required' : ''}>
       </div></div>`;
@@ -1287,9 +1356,9 @@ function renderFormField(f, cfg) {
 
   // ── default (text, email, number, tel, etc.) ──
   return `<div class="sf-field"${condAttr}>
-    <label for="sf_${f.id}">${f.label}${req}</label>
+    <label for="sf_${f.id}">${escapeHtml(f.label)}${req}</label>
     <input type="${f.type || 'text'}" id="sf_${f.id}" name="${f.id}"
-      placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''}></div>`;
+      placeholder="${escapeHtml(f.placeholder || '')}" ${f.required ? 'required' : ''}></div>`;
 }
 
 // ── Slider + picker CSS (injected into page <style>) ─────────────────────────
@@ -1532,25 +1601,25 @@ function renderBlockElement(el, cfg) {
     const btnLabel = el.buttonText || d2.buttonText || 'Subscribe';
     return `<div class="sf-gdpr">${gdprHtml(s2)}</div>
     ${s2.captchaEnabled && s2.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s2.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
-    <button type="submit" class="sf-btn"${btnStyle}>${btnLabel}</button>
+    <button type="submit" class="sf-btn"${btnStyle}>${escapeHtml(btnLabel)}</button>
     <div id="sf-msg" class="sf-msg"></div>`;
   }
   switch (el.type) {
     case 'heading': {
       const tag = ['h1','h2','h3','h4'][Math.min((el.level || 2) - 1, 3)];
       const align = el.align ? `text-align:${el.align};` : '';
-      return `<${tag} class="sf-el-heading" style="${align}margin:12px 0 6px;line-height:1.3">${el.text || ''}</${tag}>`;
+      return `<${tag} class="sf-el-heading" style="${align}margin:12px 0 6px;line-height:1.3">${escapeHtml(el.text || '')}</${tag}>`;
     }
     case 'paragraph': {
       const align = el.align ? `text-align:${el.align};` : '';
-      return `<p class="sf-el-para" style="${align}margin:8px 0;line-height:1.7">${el.text || ''}</p>`;
+      return `<p class="sf-el-para" style="${align}margin:8px 0;line-height:1.7">${escapeHtml(el.text || '')}</p>`;
     }
     case 'image': {
       if (!el.url) return '';
       const w = el.width || '100%';
       const a = el.align || 'center';
       const m = a === 'right' ? '8px 0 8px auto' : a === 'left' ? '8px auto 8px 0' : '8px auto';
-      return `<img src="${el.url}" alt="${el.alt || ''}" style="max-width:100%;width:${w};border-radius:6px;margin:${m};display:block">`;
+      return `<img src="${el.url}" alt="${escapeHtml(el.alt || '')}" style="max-width:100%;width:${w};border-radius:6px;margin:${m};display:block">`;
     }
     case 'spacer':
       return `<div style="height:${el.height || 40}px"></div>`;
@@ -1577,7 +1646,7 @@ function renderBlockElement(el, cfg) {
       const inner = emb
         ? `<iframe src="${emb}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
         : `<video src="${el.url}" ${ap ? 'autoplay muted playsinline loop ' : ''}controls style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>`;
-      return `<div style="margin:8px 0"><div style="position:relative;padding-bottom:${pb};height:0;overflow:hidden;border-radius:8px">${inner}</div>${el.caption ? `<p style="text-align:center;font-size:0.82rem;color:#999;margin-top:6px">${el.caption}</p>` : ''}</div>`;
+      return `<div style="margin:8px 0"><div style="position:relative;padding-bottom:${pb};height:0;overflow:hidden;border-radius:8px">${inner}</div>${el.caption ? `<p style="text-align:center;font-size:0.82rem;color:#999;margin-top:6px">${escapeHtml(el.caption)}</p>` : ''}</div>`;
     }
     default:
       return '';
@@ -1600,8 +1669,8 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
     const bgSty = hc.bg ? ` style="background:${hc.bg};padding:20px;border-radius:8px;margin-bottom:4px"` : '';
     return `<div${bgSty}>
     ${h.imageUrl && h.imagePosition === 'above' ? `<img src="${h.imageUrl}" class="sf-hero-img" alt="">` : ''}
-    <h1${h1Sty}>${h.heading || ''}</h1>
-    ${h.subheading ? `<p class="sf-sub"${subSty}>${h.subheading}</p>` : ''}
+    <h1${h1Sty}>${escapeHtml(h.heading || '')}</h1>
+    ${h.subheading ? `<p class="sf-sub"${subSty}>${escapeHtml(h.subheading)}</p>` : ''}
     ${h.imageUrl && h.imagePosition === 'below' ? `<img src="${h.imageUrl}" class="sf-hero-img below" alt="">` : ''}
     </div>`;
   }
@@ -1612,7 +1681,7 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
     ${formFields}
     <div class="sf-gdpr">${gdprHtml(s)}</div>
     ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
-    <button type="submit" class="sf-btn">${d.buttonText}</button>
+    <button type="submit" class="sf-btn">${escapeHtml(d.buttonText)}</button>
     <div id="sf-msg" class="sf-msg"></div>`;
   }
 
@@ -1621,7 +1690,7 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
     if (section.items && section.items.length > 0) {
       return `<div class="sf-footer">${section.items.map(item => renderBlockElement(item, cfg)).join('')}</div>`;
     }
-    return `<p class="sf-footer">${section.text || ''}</p>`;
+    return `<p class="sf-footer">${escapeHtml(section.text || '')}</p>`;
   }
 
   // Divider
@@ -1652,7 +1721,7 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
       : `<video src="${url}" ${ap ? 'autoplay muted playsinline loop ' : ''}controls style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"></video>`;
     return `<div style="margin:20px 0">
     <div style="position:relative;padding-bottom:${pb};height:0;overflow:hidden;border-radius:8px">${inner}</div>
-    ${section.caption ? `<p style="text-align:center;font-size:0.82rem;color:#999;margin-top:8px">${section.caption}</p>` : ''}
+    ${section.caption ? `<p style="text-align:center;font-size:0.82rem;color:#999;margin-top:8px">${escapeHtml(section.caption)}</p>` : ''}
   </div>`;
   }
 
@@ -1666,7 +1735,7 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
     const probs  = JSON.stringify(rewards.map(r => +(r.probability || 1)));
     return `<div style="text-align:center;margin:20px 0">
     <canvas id="${swId}" width="280" height="280" style="max-width:100%;display:block;margin:0 auto;border-radius:50%;cursor:pointer"></canvas>
-    <button class="sf-btn" style="margin-top:16px;max-width:280px" id="${swId}_btn">${section.spinButtonText || 'Spin!'}</button>
+    <button class="sf-btn" style="margin-top:16px;max-width:280px" id="${swId}_btn">${escapeHtml(section.spinButtonText || 'Spin!')}</button>
     <p id="${swId}_res" style="margin-top:12px;font-weight:700;font-size:1.1rem;min-height:1.6em"></p>
   </div>
   <script>(function(){
@@ -1728,7 +1797,7 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
         const btnSty = (item.btnBg || item.btnTextColor) ? ` style="background:${btnBg||'var(--btn-bg)'};color:${btnTc}"` : '';
         return `<div class="sf-gdpr">${gdprHtml(s)}</div>
         ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
-        <button type="submit" class="sf-btn"${btnSty}>${btnLabel}</button>
+        <button type="submit" class="sf-btn"${btnSty}>${escapeHtml(btnLabel)}</button>
         <div id="sf-msg" class="sf-msg"></div>`;
       }
       return renderBlockElement(item, cfg);
@@ -1799,7 +1868,7 @@ function renderPublicPage(cfg) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${s.title}</title>
+<title>${escapeHtml(s.title)}</title>
 ${googleFontTag(cfg, d)}
 ${customFontFaceCSS(cfg)}
 ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
@@ -1877,7 +1946,7 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
 
 <!-- Cookie Banner -->
 <div id="sf-cookie" style="display:none">
-  <span>${s.cookieBannerText} <a href="${s.privacyPolicyUrl}">Learn more</a></span>
+  <span>${escapeHtml(s.cookieBannerText)} <a href="${s.privacyPolicyUrl}">Learn more</a></span>
   <button id="sf-cookie-accept">Accept</button>
 </div>
 
@@ -1938,7 +2007,7 @@ function renderUnsubscribePage(cfg, message, success, isDelete = false) {
   const title = isDelete ? 'Delete My Data' : 'Unsubscribe';
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title} · ${cfg.site.title}</title>
+<title>${escapeHtml(title)} · ${escapeHtml(cfg.site.title)}</title>
 ${googleFontTag(cfg)}
 ${customFontFaceCSS(cfg)}
 <style>
@@ -1968,7 +2037,7 @@ function renderPrefCenterBlock(block) {
         block.fontSize ? `font-size:${block.fontSize}px` : '',
         block.fontFamily ? `font-family:'${block.fontFamily}',sans-serif` : ''
       ].filter(Boolean).join(';');
-      return `<${tag} class="pc-heading" style="${st}">${block.text||''}</${tag}>`;
+      return `<${tag} class="pc-heading" style="${st}">${escapeHtml(block.text||'')}</${tag}>`;
     }
     case 'paragraph': {
       const st = [
@@ -1976,13 +2045,13 @@ function renderPrefCenterBlock(block) {
         block.align    ? `text-align:${block.align}` : '',
         block.fontSize ? `font-size:${block.fontSize}px` : ''
       ].filter(Boolean).join(';');
-      return `<p class="pc-para" style="${st}">${block.text||''}</p>`;
+      return `<p class="pc-para" style="${st}">${escapeHtml(block.text||'')}</p>`;
     }
     case 'image': {
       if (!block.url) return '';
       const w = block.width ? `max-width:${block.width}px;` : 'max-width:100%;';
       const align = block.align === 'center' ? 'margin:0 auto;display:block;' : block.align === 'right' ? 'margin-left:auto;display:block;' : '';
-      return `<div class="pc-image-wrap" style="margin:12px 0"><img src="${block.url}" alt="${block.alt||''}" style="${w}${align}width:100%;border-radius:${block.radius||0}px"></div>`;
+      return `<div class="pc-image-wrap" style="margin:12px 0"><img src="${block.url}" alt="${escapeHtml(block.alt||'')}" style="${w}${align}width:100%;border-radius:${block.radius||0}px"></div>`;
     }
     case 'spacer':
       return `<div style="height:${block.height||20}px"></div>`;
@@ -1998,7 +2067,7 @@ function renderPrefCenterBlock(block) {
       const tc  = block.textColor|| '#ffffff';
       const r   = block.radius   || 6;
       const url = block.url      || '#';
-      return `<div style="text-align:${block.align||'left'};margin:10px 0"><a href="${url}" style="display:inline-block;background:${bg};color:${tc};padding:11px 22px;border-radius:${r}px;text-decoration:none;font-size:0.9rem;font-weight:500">${block.label||'Click here'}</a></div>`;
+      return `<div style="text-align:${block.align||'left'};margin:10px 0"><a href="${url}" style="display:inline-block;background:${bg};color:${tc};padding:11px 22px;border-radius:${r}px;text-decoration:none;font-size:0.9rem;font-weight:500">${escapeHtml(block.label||'Click here')}</a></div>`;
     }
     default: return '';
   }
@@ -2044,16 +2113,16 @@ function renderPreferencePage(cfg, { token, email, found, message, success } = {
   const foundFormName = found ? (allSubs.find(x => x.slug === found.slug) || {}).formName || found.slug : '';
   const subsListHtml = allSubs.length ? allSubs.map(({ formName, sub }) => `
     <div class="sub-item">
-      <span class="sub-name">${formName}</span>
-      <span class="badge ${sub.status}">${sub.status}</span>
+      <span class="sub-name">${escapeHtml(formName)}</span>
+      <span class="badge ${escapeHtml(sub.status)}">${escapeHtml(sub.status)}</span>
     </div>`).join('') : '';
 
-  const formHidden = token && email ? `<input type="hidden" name="token" value="${token}"><input type="hidden" name="email" value="${email}">` : '';
+  const formHidden = token && email ? `<input type="hidden" name="token" value="${escapeHtml(token)}"><input type="hidden" name="email" value="${escapeHtml(email)}">` : '';
   const actionsHtml = found && !success ? `
     <form method="POST" action="/preferences" class="pref-actions">
       ${formHidden}
       <button type="submit" name="action" value="unsub-one" class="btn-pref btn-secondary">
-        Unsubscribe from <em>${foundFormName}</em>
+        Unsubscribe from <em>${escapeHtml(foundFormName)}</em>
       </button>
       <button type="submit" name="action" value="unsub-all" class="btn-pref btn-secondary">
         Unsubscribe from all mailings
@@ -2072,7 +2141,7 @@ function renderPreferencePage(cfg, { token, email, found, message, success } = {
 
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${heading} · ${s.title||'SignFlow'}</title>
+<title>${escapeHtml(heading)} · ${escapeHtml(s.title||'SignFlow')}</title>
 ${googleFontTag(cfg)}
 ${customFontFaceCSS(cfg)}
 <style>
@@ -2106,10 +2175,10 @@ ${customFontFaceCSS(cfg)}
 ${overlayDiv}
 <div class="pc-wrap"><div class="card">
   ${logoUrl ? `<div class="pc-logo"><img src="${logoUrl}" alt="${s.title||''}"></div>` : ''}
-  <h1 class="pc-title">${heading}</h1>
-  <p class="pc-subtext">${subText}</p>
-  ${message ? `<p class="${success ? 'msg-success' : 'msg-error'}">${message}</p>` : ''}
-  ${email ? `<p style="font-size:0.85rem;opacity:.6;margin-bottom:16px">Managing preferences for: <strong>${email}</strong></p>` : ''}
+  <h1 class="pc-title">${escapeHtml(heading)}</h1>
+  <p class="pc-subtext">${escapeHtml(subText)}</p>
+  ${message ? `<p class="${success ? 'msg-success' : 'msg-error'}">${escapeHtml(message)}</p>` : ''}
+  ${email ? `<p style="font-size:0.85rem;opacity:.6;margin-bottom:16px">Managing preferences for: <strong>${escapeHtml(email)}</strong></p>` : ''}
   ${sectionsHtml}
   ${subsListHtml ? `<div class="sub-list">${subsListHtml}</div>` : ''}
   ${actionsHtml}
@@ -2122,7 +2191,7 @@ function renderPrivacyPage(cfg) {
   const s = cfg.site;
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Privacy Policy · ${s.title}</title>
+<title>Privacy Policy · ${escapeHtml(s.title)}</title>
 ${googleFontTag(cfg)}
 ${customFontFaceCSS(cfg)}
 <style>

