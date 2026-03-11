@@ -942,32 +942,91 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     <!-- SECURITY -->
-    <div class="help-group" data-tags="security rate limit xss csrf injection headers hashing threat">
+    <div class="help-group" data-tags="security xss csrf csp injection headers escaping token rate limit hashing threat content-security-policy x-frame-options">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">security</span> Security
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
-        <h3>Current controls</h3>
+        <h3>Security controls</h3>
         <table class="help-table">
           <tr><th>Control</th><th>Implementation</th></tr>
           <tr><td>Authentication</td><td>Auth0 OIDC; role-checked on every admin request</td></tr>
           <tr><td>Session signing</td><td><code>express-session</code> + <code>SESSION_SECRET</code>; <code>httpOnly</code>, <code>secure</code>, <code>sameSite:lax</code></td></tr>
           <tr><td>Rate limiting</td><td><code>express-rate-limit</code>: 10 subs / 15 min / IP per form</td></tr>
-          <tr><td>Input sanitisation</td><td>HTML-encode all user values before page render</td></tr>
+          <tr><td>XSS — page renderers</td><td><code>escapeHtml()</code> applied to all admin-authored text before HTML output</td></tr>
+          <tr><td>XSS — admin subscriber table</td><td>All subscriber data escaped via <code>escHtml()</code>; inline <code>onclick</code> replaced with <code>data-*</code> + event delegation</td></tr>
+          <tr><td>CSRF</td><td>Double-submit token (<code>crypto.randomBytes(32)</code>); validated on all non-GET admin API calls</td></tr>
+          <tr><td>Content Security Policy</td><td>Helmet CSP with explicit allowlists; <code>frame-ancestors 'self'</code> globally</td></tr>
+          <tr><td>Framing</td><td><code>X-Frame-Options: SAMEORIGIN</code> globally; <code>ALLOWALL</code> on embed route only</td></tr>
           <tr><td>File upload</td><td>Multer: allowlist MIME types; 10 MB limit; no original filenames served</td></tr>
           <tr><td>Unsubscribe tokens</td><td>UUID v4 per subscriber, validated server-side</td></tr>
           <tr><td>HTTPS</td><td>Enforced via Nginx + Let's Encrypt, auto-renewed</td></tr>
           <tr><td>Secrets</td><td><code>.env</code> excluded from git; SMTP passwords server-side only</td></tr>
         </table>
-        <h3>Known gaps (see Roadmap)</h3>
+
+        <h3>XSS prevention — Plan A: server-side escaping</h3>
+        <p><code>escapeHtml(s)</code> is defined in <code>server.js</code> and covers the five critical characters: <code>&amp;</code> → <code>&amp;amp;</code>, <code>&lt;</code> → <code>&amp;lt;</code>, <code>&gt;</code> → <code>&amp;gt;</code>, <code>"</code> → <code>&amp;quot;</code>, <code>'</code> → <code>&amp;#39;</code>. It is applied to every piece of admin-authored text before it is interpolated into an HTML string.</p>
+        <table class="help-table">
+          <tr><th>Renderer</th><th>Fields escaped</th></tr>
+          <tr><td><code>renderFormField()</code></td><td>label, placeholder, select options, slider min/max labels, slider icon</td></tr>
+          <tr><td><code>renderBlockElement()</code></td><td>heading/paragraph text, image alt, video caption, button label</td></tr>
+          <tr><td><code>renderSectionBlock()</code></td><td>hero heading + subheading, footer text, video caption, spin button text, CTA button text</td></tr>
+          <tr><td><code>renderPublicPage()</code></td><td>page <code>&lt;title&gt;</code>, cookie banner text</td></tr>
+          <tr><td><code>renderPreferencePage()</code></td><td>page title, heading, subtext, status message, subscriber email, form name, subscriber status, hidden token/email inputs</td></tr>
+          <tr><td><code>renderPrefCenterBlock()</code></td><td>block heading/paragraph text, image alt, button label</td></tr>
+          <tr><td><code>renderUnsubscribePage()</code>, <code>renderPrivacyPage()</code></td><td>page title, site title</td></tr>
+        </table>
+        <p>WYSIWYG fields (<code>emailBodyHtml</code>, <code>privacyContent</code>, <code>el.html</code>) are intentionally left as raw HTML — they are admin-authored rich content, not user input.</p>
+
+        <h3>XSS prevention — Plan B: admin subscriber table</h3>
+        <p>Previously, subscriber emails and custom field values were injected directly into <code>tr.innerHTML</code>, and action buttons used <code>onclick="fn('${s.email}')"</code> — a pattern vulnerable to JS injection via crafted email addresses.</p>
+        <p><strong>Fix 1 — data escaping:</strong> All subscriber values (email, status, date, custom fields, IDs) are now wrapped in <code>escHtml()</code> before being placed in <code>innerHTML</code>.</p>
+        <p><strong>Fix 2 — event delegation:</strong> All <code>onclick</code> attribute handlers removed. Buttons carry <code>data-action</code>, <code>data-id</code>, and <code>data-email</code> attributes. A single IIFE-wrapped <code>document.addEventListener('click', …)</code> listens at document level, checks that the target is inside <code>#sub-tbody</code>, reads the <code>data-*</code> attributes, and dispatches to the appropriate function — eliminating all string interpolation in event handler context.</p>
+        <div class="info-box"><strong>Before:</strong> <code>onclick="adminUnsubscribe('${s.id}','${s.email}')"</code><br><strong>After:</strong> <code>data-action="unsub" data-id="…" data-email="…"</code> + delegated listener</div>
+
+        <h3>CSRF — Plan C: double-submit token</h3>
+        <p>All state-changing admin API calls (<code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code> to <code>/api/admin/*</code>) require a valid CSRF token sent as the <code>X-CSRF-Token</code> request header.</p>
+        <table class="help-table">
+          <tr><th>Component</th><th>Detail</th></tr>
+          <tr><td>Token generation</td><td><code>crypto.randomBytes(32).toString('hex')</code> — 64-char hex string; generated once on successful Auth0 login callback and stored in <code>req.session.csrf</code></td></tr>
+          <tr><td>Token endpoint</td><td><code>GET /api/admin/csrf-token</code> → <code>{ token }</code>; GET is safe-method exempt from CSRF checking; lazy-creates token if session has none (dev without Auth0)</td></tr>
+          <tr><td>Server middleware</td><td><code>app.use('/api/admin', …)</code> placed before all route definitions; skips GET/HEAD/OPTIONS; routes unauthenticated requests to <code>adminAuth</code> for its 401 handling; calls <code>csrfCheck()</code> for all other methods</td></tr>
+          <tr><td><code>csrfCheck()</code></td><td>Compares <code>req.headers['x-csrf-token']</code> against <code>req.session.csrf</code>; returns <code>403</code> on mismatch or absence</td></tr>
+          <tr><td>Client <code>adminFetch()</code></td><td>Wrapper around <code>fetch()</code> that injects <code>X-CSRF-Token: _csrfToken</code> on every request; FormData-aware — omits <code>Content-Type</code> override for file uploads so the browser sets the correct <code>multipart/form-data; boundary=…</code></td></tr>
+          <tr><td>Bootstrap</td><td><code>loadFormsIndex()</code> fetches the CSRF token before making any other admin calls; all <code>fetch('/api/admin/…')</code> calls replaced with <code>adminFetch(…)</code></td></tr>
+        </table>
+
+        <h3>Content Security Policy — Plan D: Helmet CSP</h3>
+        <p>Helmet's <code>contentSecurityPolicy</code> was previously disabled (<code>false</code>). It is now enabled with explicit per-directive allowlists.</p>
+        <table class="help-table">
+          <tr><th>Directive</th><th>Value</th><th>Reason</th></tr>
+          <tr><td><code>default-src</code></td><td><code>'self'</code></td><td>Deny everything not explicitly listed</td></tr>
+          <tr><td><code>script-src</code></td><td><code>'self' 'unsafe-inline' https://js.hcaptcha.com</code></td><td>Inline scripts used in public pages; hCaptcha widget</td></tr>
+          <tr><td><code>style-src</code></td><td><code>'self' 'unsafe-inline' https://fonts.googleapis.com</code></td><td>Inline styles; Google Fonts CSS</td></tr>
+          <tr><td><code>font-src</code></td><td><code>'self' https://fonts.gstatic.com</code></td><td>Custom uploaded fonts (self) + Google Fonts files</td></tr>
+          <tr><td><code>img-src</code></td><td><code>'self' data: blob: https:</code></td><td>Uploaded images (self), data URIs, blob URLs, external images in content blocks</td></tr>
+          <tr><td><code>connect-src</code></td><td><code>'self' https://api.hcaptcha.com</code></td><td>Admin API calls + hCaptcha verification</td></tr>
+          <tr><td><code>frame-src</code></td><td><code>'none' https://www.youtube.com https://player.vimeo.com</code></td><td>Only YouTube/Vimeo iframes in video blocks</td></tr>
+          <tr><td><code>frame-ancestors</code></td><td><code>'self'</code></td><td>Prevents all third-party framing (clickjacking)</td></tr>
+          <tr><td><code>object-src</code></td><td><code>'none'</code></td><td>Block Flash / plugins entirely</td></tr>
+          <tr><td><code>base-uri</code></td><td><code>'self'</code></td><td>Prevent base-tag hijacking</td></tr>
+        </table>
+
+        <h3>X-Frame-Options — Plan E</h3>
+        <p>Helmet sets <code>X-Frame-Options: SAMEORIGIN</code> globally, complementing <code>frame-ancestors 'self'</code> in the CSP for older browsers that do not support CSP Level 2.</p>
+        <p>The embed route (<code>GET /:slug/embed</code>) is the single legitimate exception — it must be frameable by any third-party website. That route explicitly overrides both headers:</p>
+        <div class="info-box"><code>X-Frame-Options: ALLOWALL</code><br><code>Content-Security-Policy: … frame-ancestors *; …</code></div>
+        <p>All other CSP directives (script-src, style-src, frame-src, etc.) are preserved on the embed route — only <code>frame-ancestors</code> is widened.</p>
+
+        <h3>Remaining known gaps</h3>
         <table class="help-table">
           <tr><th>Threat</th><th>Gap</th></tr>
-          <tr><td>Brute-force signup</td><td>No CAPTCHA (hCaptcha planned)</td></tr>
-          <tr><td>CSRF on POST routes</td><td>No explicit CSRF token (csurf planned)</td></tr>
-          <tr><td>Upload path traversal</td><td>Filename sanitisation not explicit</td></tr>
-          <tr><td>Data breach</td><td>No encryption at rest</td></tr>
+          <tr><td>Brute-force signup</td><td>Rate-limited but no CAPTCHA (hCaptcha planned)</td></tr>
+          <tr><td>Upload path traversal</td><td>Filename sanitisation not explicit beyond Multer</td></tr>
+          <tr><td>Data breach</td><td>No encryption at rest for JSON flat files</td></tr>
           <tr><td>Dependency vulns</td><td>No automated scanning (Dependabot planned)</td></tr>
+          <tr><td><code>unsafe-inline</code> in script-src</td><td>Required for inline scripts in public pages; nonce-based CSP would eliminate this but requires template changes</td></tr>
         </table>
       </div>
     </div>
@@ -1038,8 +1097,10 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <div class="help-group-body">
         <h3>Phase 1 — Security Hardening</h3>
         <ul>
-          <li>CSRF tokens (<code>csurf</code> middleware) on all state-mutating routes</li>
-          <li>Strict Content Security Policy via <code>helmet</code></li>
+          <li>✅ <strong>XSS prevention</strong> — <code>escapeHtml()</code> applied throughout all page renderers; admin subscriber table uses <code>data-*</code> + event delegation (no inline <code>onclick</code>)</li>
+          <li>✅ <strong>CSRF double-submit token</strong> — <code>crypto.randomBytes(32)</code> token; <code>X-CSRF-Token</code> header; <code>app.use('/api/admin')</code> middleware; <code>adminFetch()</code> client helper</li>
+          <li>✅ <strong>Content Security Policy</strong> — Helmet CSP with explicit per-directive allowlists; <code>frame-ancestors 'self'</code>; embed route overrides to <code>frame-ancestors *</code></li>
+          <li>✅ <strong>X-Frame-Options</strong> — <code>SAMEORIGIN</code> globally; <code>ALLOWALL</code> on embed route only</li>
           <li>hCaptcha / Cloudflare Turnstile on public subscribe route</li>
           <li>File upload: buffer-based MIME validation; per-user disk quota</li>
           <li>Dependabot + Snyk automated dependency scanning</li>
