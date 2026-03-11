@@ -588,6 +588,21 @@ function getFormMediaSize(obj) {
   return total;
 }
 
+// ── Analytics helpers ─────────────────────────────────────────────────────────
+function analyticsPath(slug) { return path.join(DATA_DIR, `analytics-${slug}.json`); }
+function readAnalytics(slug) {
+  try { return JSON.parse(fs.readFileSync(analyticsPath(slug), 'utf8')); }
+  catch(_) { return { visits: 0, submits: 0, errors: 0 }; }
+}
+function bumpAnalytic(slug, key) {
+  try {
+    const a = readAnalytics(slug);
+    a[key] = (a[key] || 0) + 1;
+    a.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(analyticsPath(slug), JSON.stringify(a));
+  } catch(_) {}
+}
+
 // List all forms (with subscriber counts)
 app.get('/api/admin/forms', adminAuth, (req, res) => {
   try {
@@ -608,6 +623,7 @@ app.get('/api/admin/forms', adminAuth, (req, res) => {
         entry.embedJsSize   = Buffer.byteLength(renderEmbedScript(origin, cfg), 'utf8');
         entry.mediaSize     = getFormMediaSize(cfg);
       } catch(_) { /* skip if config unreadable */ }
+      entry.analytics = readAnalytics(f.slug);
       return entry;
     });
     res.json(result);
@@ -899,6 +915,20 @@ app.post('/api/admin/forms/:slug/subscribers/:id/reactivate', adminAuth, (req, r
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Analytics: get per-form analytics
+app.get('/api/admin/forms/:slug/analytics', adminAuth, (req, res) => {
+  try { res.json(readAnalytics(req.params.slug)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Analytics: reset counters for a form
+app.post('/api/admin/forms/:slug/analytics/reset', adminAuth, (req, res) => {
+  try {
+    fs.writeFileSync(analyticsPath(req.params.slug), JSON.stringify({ visits: 0, submits: 0, errors: 0, lastUpdated: new Date().toISOString() }));
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ════════════════════════════════════════
 // PER-FORM PUBLIC ROUTES  (wildcard — must come LAST)
 // ════════════════════════════════════════
@@ -949,6 +979,7 @@ app.get('/:slug', (req, res) => {
   if (RESERVED_SLUGS.has(slug)) return res.status(404).send('Not found');
   try {
     let formCfg = readFormConfig(slug);
+    if (!req.query._preview && !req.query._tplPreview) bumpAnalytic(slug, 'visits');
     const tplPreviewId = req.query._tplPreview;
     if (tplPreviewId) {
       const tmpls = readDesignTemplates();
@@ -1008,20 +1039,20 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
 
   if (cfg.site.captchaEnabled && cfg.site.hcaptchaSecretKey) {
     const captchaToken = body['h-captcha-response'] || '';
-    if (!captchaToken) return res.status(400).json({ error: 'Please complete the CAPTCHA.' });
+    if (!captchaToken) { bumpAnalytic(slug, 'errors'); return res.status(400).json({ error: 'Please complete the CAPTCHA.' }); }
     try {
       const vp = new URLSearchParams({ secret: cfg.site.hcaptchaSecretKey, response: captchaToken, remoteip: req.ip });
       const vr = await fetch('https://api.hcaptcha.com/siteverify', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: vp.toString() });
       const vj = await vr.json();
-      if (!vj.success) return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.' });
+      if (!vj.success) { bumpAnalytic(slug, 'errors'); return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.' }); }
     } catch(e) { return res.status(500).json({ error: 'CAPTCHA service error. Please try again.' }); }
   }
 
   const email = (body.email || '').trim().toLowerCase();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Valid email required.' });
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { bumpAnalytic(slug, 'errors'); return res.status(400).json({ error: 'Valid email required.' }); }
 
   const existing = subs.find(s => s.email === email);
-  if (existing && existing.status === 'active') return res.status(409).json({ error: 'This email is already subscribed.' });
+  if (existing && existing.status === 'active') { bumpAnalytic(slug, 'errors'); return res.status(409).json({ error: 'This email is already subscribed.' }); }
 
   const record = { id: uuidv4(), email, status: 'active', subscribedAt: new Date().toISOString(),
     unsubscribedAt: null, unsubscribeToken: uuidv4(), consentGiven: true,
@@ -1032,6 +1063,7 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   else { subs.push(record); }
 
   writeFormSubscribers(slug, subs);
+  bumpAnalytic(slug, 'submits');
   // Fire-and-forget welcome email (never blocks the response)
   sendWelcomeEmail(cfg, record).catch(e => console.error('[email]', e.message));
   res.json({ success: true });

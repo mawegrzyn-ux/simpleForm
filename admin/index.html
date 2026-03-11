@@ -419,7 +419,13 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .form-card-desc{font-size:0.8rem;color:var(--ink3);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .form-card-meta{display:flex;align-items:center;gap:8px;font-size:0.79rem;color:var(--ink3);}
 .slug-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-family:monospace;font-size:0.73rem;color:var(--ink2);}
-.size-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-size:0.73rem;color:var(--ink3);display:inline-flex;align-items:center;gap:2px;}
+.size-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-size:0.73rem;color:var(--ink3);display:inline-flex;align-items:center;gap:2px;cursor:default;}
+.form-card-analytics{display:flex;align-items:center;gap:10px;font-size:0.76rem;color:var(--ink3);margin-top:4px;}
+.analytics-stat{display:inline-flex;align-items:center;gap:3px;}
+.analytics-stat .mi{font-size:13px;}
+.analytics-stat.visits{color:var(--ink2);}
+.analytics-stat.submits{color:#2e7d32;}
+.analytics-stat.errors{color:#b71c1c;}
 .form-card-acts{display:flex;gap:6px;flex-shrink:0;}
 /* ── Media Picker ──────────────────────────────────────────────────────── */
 #media-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:2100;display:none;align-items:center;justify-content:center;}
@@ -2131,27 +2137,41 @@ async function loadFormsIndex(){
 
 function fmtBytes(b){if(b==null)return'—';if(b<1024)return b+'B';if(b<1024*1024)return(b/1024).toFixed(1)+'KB';return(b/(1024*1024)).toFixed(2)+'MB';}
 
+function fmtNum(n){if(!n&&n!==0)return'—';if(n>=1000000)return(n/1000000).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'k';return String(n);}
+
 function renderFormsList(){
   const el=document.getElementById('forms-list');if(!el)return;
   if(!formsIndex.length){el.innerHTML='<p style="color:var(--ink3);font-size:0.875rem;text-align:center;padding:32px">No forms yet. Create your first form.</p>';return;}
-  el.innerHTML=formsIndex.map(f=>`
-    <div class="form-card">
+  el.innerHTML=formsIndex.map(f=>{
+    const a=f.analytics||{};
+    const hasAnalytics=a.visits!=null||a.submits!=null;
+    const totalPayload=(f.embedPageSize||0)+(f.embedJsSize||0)+(f.mediaSize||0);
+    const hasPayload=f.embedPageSize!=null||f.embedJsSize!=null||f.mediaSize!=null;
+    const payloadBreakdown=`Embed page: ${fmtBytes(f.embedPageSize)}\nEmbed JS:   ${fmtBytes(f.embedJsSize)}\nMedia:      ${fmtBytes(f.mediaSize)}`;
+    const analyticsRow=hasAnalytics?`
+      <div class="form-card-analytics">
+        <span class="analytics-stat visits" title="Page visits"><span class="material-icons-round mi">visibility</span> ${fmtNum(a.visits)}</span>
+        <span class="analytics-stat submits" title="Successful signups"><span class="material-icons-round mi">how_to_reg</span> ${fmtNum(a.submits)}</span>
+        ${(a.errors||0)>0?`<span class="analytics-stat errors" title="Submit errors"><span class="material-icons-round mi">error_outline</span> ${fmtNum(a.errors)}</span>`:''}
+        <button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:0.7rem;padding:1px 6px" onclick="resetAnalytics('${f.slug}')" title="Reset analytics counters">reset</button>
+      </div>`:'';
+    return`<div class="form-card">
       <div class="form-card-info">
         <div class="form-card-name">${escHtml(f.name)}</div>
         ${f.description?`<div class="form-card-desc">${escHtml(f.description)}</div>`:''}
         <div class="form-card-meta">
           <span class="slug-pill">/${f.slug}</span>
           <span>${f.subscriberCount!=null?f.subscriberCount+' subscriber'+(f.subscriberCount!==1?'s':''):'—'}</span>
-          <span class="size-pill" title="Embed iframe HTML size"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">web</span> ${fmtBytes(f.embedPageSize)}</span>
-          <span class="size-pill" title="Embed JS script size"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">code</span> ${fmtBytes(f.embedJsSize)}</span>
-          <span class="size-pill" title="Total uploaded media size (logo, background, images)"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">perm_media</span> ${fmtBytes(f.mediaSize)}</span>
+          ${hasPayload?`<span class="size-pill" title="${payloadBreakdown}"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">data_usage</span> ${fmtBytes(totalPayload)}</span>`:''}
         </div>
+        ${analyticsRow}
       </div>
       <div class="form-card-acts">
         <button class="btn btn-outline btn-sm" onclick="openFormEditor('${f.slug}')"><span class="material-icons-round mi">edit</span> Edit</button>
         <button class="btn btn-danger btn-sm" onclick="deleteForm('${f.slug}','${escHtml(f.name)}')"><span class="material-icons-round mi">delete</span></button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -2171,9 +2191,9 @@ async function openFormEditor(slug){
   // Show Save / View site buttons
   const sb=document.getElementById('save-btn');if(sb)sb.style.display='';
   const vs=document.getElementById('view-site-btn');if(vs){vs.style.display='';vs.onclick=()=>window.open('/'+slug,'_blank');}
-  // Update preview iframes
-  const pf=document.getElementById('preview-frame');if(pf)pf.src='/'+slug;
-  const dpf=document.getElementById('design-preview-frame');if(dpf)dpf.src='/'+slug;
+  // Update preview iframes (append ?_preview=1 so admin loads don't count as visits)
+  const pf=document.getElementById('preview-frame');if(pf)pf.src='/'+slug+'?_preview=1';
+  const dpf=document.getElementById('design-preview-frame');if(dpf)dpf.src='/'+slug+'?_preview=1';
   const epf=document.getElementById('embed-preview-frame');if(epf)epf.src='/'+slug+'/embed';
   // Populate panels and switch to Build
   switchPanelTab('form');
@@ -3056,7 +3076,7 @@ function switchPanelTab(tab){
     addLabel.textContent='Add container';
     tabFormBtn.classList.add('active');
     if(addBtn)addBtn.style.display='';
-    if(currentFormSlug){const pf=document.getElementById('preview-frame');if(pf&&pf.src.includes('confirmation-preview'))pf.src='/'+currentFormSlug;}
+    if(currentFormSlug){const pf=document.getElementById('preview-frame');if(pf&&pf.src.includes('confirmation-preview'))pf.src='/'+currentFormSlug+'?_preview=1';}
   }else if(tab==='response'){
     responseScroll.style.display='flex';
     addLabel.textContent='Add container';
@@ -3102,16 +3122,19 @@ const PC_COLORS=[
 function buildPcColorPickers(){
   const pc=_pc();if(!pc)return;
   const wrap=document.getElementById('pc-color-rows');if(!wrap)return;
-  wrap.innerHTML=PC_COLORS.map(({key,label})=>{
-    const val=pc[key]||'';
-    return `<div class="cg-row" style="display:flex;align-items:center;gap:8px">
-      <label class="cl" style="flex:1;margin:0">${label}</label>
-      <div style="display:flex;align-items:center;gap:5px">
-        <input type="color" value="${val||'#ffffff'}" style="width:28px;height:24px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none" oninput="setPcDesign('${key}',this.value);document.getElementById('pc-hex-${key}').value=this.value">
-        <input type="text" id="pc-hex-${key}" value="${val}" placeholder="inherit" style="width:80px;font-size:0.78rem;padding:4px 6px" oninput="setPcDesign('${key}',this.value)">
-      </div>
-    </div>`;
-  }).join('');
+  // Render label + BCP container for each colour token
+  wrap.innerHTML=PC_COLORS.map(({key,label})=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+      <label class="cl" style="flex:1;margin:0;font-size:0.8rem">${label}</label>
+      <div id="pc-bcp-${key}" style="width:190px;flex-shrink:0"></div>
+    </div>`).join('');
+  // Build a BCP for each colour — callback updates pc directly and rebuilds pickers
+  PC_COLORS.forEach(({key})=>{
+    buildBrandColorPicker('pc-bcp-'+key, pc[key]||'', v=>{
+      setPcDesign(key,v);
+      buildPcColorPickers(); // refresh all pickers so selection state stays in sync
+    });
+  });
 }
 
 function buildPcFontPickers(){
@@ -3256,11 +3279,27 @@ function openPcBlockModal(id){
   const block=pc.sections.find(b=>b.id===id);if(!block)return;
   _pcEditId=id;
   const m=document.getElementById('pc-block-modal');if(!m)return;
-  // Populate fields based on type
   document.getElementById('pcm-type').textContent=block.type;
   const fields=document.getElementById('pcm-fields');
   fields.innerHTML=buildPcModalFields(block);
   m.style.display='flex';
+  // Build BCPs for colour fields (must happen after innerHTML is set)
+  _buildPcModalBcps(block);
+}
+function _buildPcModalBcps(block){
+  const t=block.type;
+  // Helper: build a BCP that writes directly to block[key] on pick
+  const bcp=(key,fallback)=>{
+    const elId='pcm-bcp-'+key;
+    if(!document.getElementById(elId))return;
+    buildBrandColorPicker(elId, block[key]||fallback||'', v=>{
+      block[key]=v;
+      buildBrandColorPicker(elId, v, _bcpCallbacks[elId]);
+    });
+  };
+  if(t==='heading'||t==='paragraph')bcp('color','');
+  if(t==='button'){bcp('bgColor','');bcp('textColor','');}
+  if(t==='divider')bcp('color','#e0e0e0');
 }
 function closePcBlockModal(){
   _pcEditId=null;
@@ -3269,9 +3308,11 @@ function closePcBlockModal(){
 function savePcBlockModal(){
   const pc=_pc();if(!pc||!_pcEditId)return;
   const block=pc.sections.find(b=>b.id===_pcEditId);if(!block)return;
-  // Read all inputs from modal
+  // Colour keys are already written to block directly by BCP callbacks — skip them here
+  const COLOUR_KEYS=new Set(['color','bgColor','textColor']);
   document.querySelectorAll('#pcm-fields [data-pckey]').forEach(el=>{
     const key=el.dataset.pckey;
+    if(COLOUR_KEYS.has(key))return; // handled by BCP
     const val=el.type==='number'?Number(el.value):(el.type==='checkbox'?el.checked:el.value);
     block[key]=val;
   });
@@ -3281,28 +3322,29 @@ function savePcBlockModal(){
 function buildPcModalFields(block){
   const t=block.type;
   let html='';
+  // colour() renders a BCP placeholder — value is written directly to block by _buildPcModalBcps()
+  const colour=(label,key)=>`<div class="cg" style="margin-top:6px"><label class="cl">${label}</label><div id="pcm-bcp-${key}"></div></div>`;
+  function field(type,label,val,key,options){
+    if(type==='select')
+      return `<div class="cg" style="margin-top:6px"><label class="cl">${label}</label><select data-pckey="${key}">${options.map(o=>`<option value="${o}"${o===val?' selected':''}>${o}</option>`).join('')}</select></div>`;
+    return `<div class="cg" style="margin-top:6px"><label class="cl">${label}</label><input type="${type}" data-pckey="${key}" value="${val}"></div>`;
+  }
   if(t==='heading'){
-    html+=field('text','Text',block.text||'','text')+field('select','Level',block.level||'h2','level',['h1','h2','h3','h4'])+field('text','Colour',block.color||'','color')+field('text','Font size (px)',block.fontSize||'','fontSize')+field('select','Align',block.align||'left','align',['left','center','right']);
+    html+=field('text','Text',block.text||'','text')+field('select','Level',block.level||'h2','level',['h1','h2','h3','h4'])+colour('Colour','color')+field('text','Font size (px)',block.fontSize||'','fontSize')+field('select','Align',block.align||'left','align',['left','center','right']);
   }else if(t==='paragraph'){
-    html+=`<div class="cg"><label class="cl">Text</label><textarea rows="4" data-pckey="text" style="resize:vertical">${block.text||''}</textarea></div>`+field('text','Colour',block.color||'','color')+field('text','Font size (px)',block.fontSize||'','fontSize')+field('select','Align',block.align||'left','align',['left','center','right']);
+    html+=`<div class="cg"><label class="cl">Text</label><textarea rows="4" data-pckey="text" style="resize:vertical">${block.text||''}</textarea></div>`+colour('Colour','color')+field('text','Font size (px)',block.fontSize||'','fontSize')+field('select','Align',block.align||'left','align',['left','center','right']);
   }else if(t==='image'){
     html+=field('text','Image URL',block.url||'','url')+`<div class="cg" style="margin-top:6px"><button class="btn btn-outline btn-sm" onclick="pickPcBlockImage()"><span class="material-icons-round mi">image</span> Choose from library</button></div>`+field('text','Alt text',block.alt||'','alt')+field('number','Max width (px)',block.width||'','width')+field('select','Align',block.align||'left','align',['left','center','right'])+field('number','Border radius (px)',block.radius||0,'radius');
   }else if(t==='button'){
-    html+=field('text','Label',block.label||'','label')+field('text','URL',block.url||'','url')+field('text','Background colour',block.bgColor||'','bgColor')+field('text','Text colour',block.textColor||'','textColor')+field('number','Border radius (px)',block.radius||6,'radius')+field('select','Align',block.align||'left','align',['left','center','right']);
+    html+=field('text','Label',block.label||'','label')+field('text','URL',block.url||'','url')+colour('Background colour','bgColor')+colour('Text colour','textColor')+field('number','Border radius (px)',block.radius||6,'radius')+field('select','Align',block.align||'left','align',['left','center','right']);
   }else if(t==='wysiwyg'){
     html+=`<div class="cg"><label class="cl">HTML content</label><textarea rows="6" data-pckey="html" style="resize:vertical;font-family:monospace;font-size:0.8rem">${(block.html||'').replace(/</g,'&lt;')}</textarea></div>`;
   }else if(t==='spacer'){
     html+=field('number','Height (px)',block.height||20,'height');
   }else if(t==='divider'){
-    html+=field('text','Colour',block.color||'#e0e0e0','color')+field('number','Thickness (px)',block.thickness||1,'thickness')+field('number','Margin (px)',block.margin||16,'margin');
+    html+=colour('Colour','color')+field('number','Thickness (px)',block.thickness||1,'thickness')+field('number','Margin (px)',block.margin||16,'margin');
   }
   return html;
-  function field(type,label,val,key,options){
-    if(type==='select'){
-      return `<div class="cg" style="margin-top:6px"><label class="cl">${label}</label><select data-pckey="${key}">${options.map(o=>`<option value="${o}"${o===val?' selected':''}>${o}</option>`).join('')}</select></div>`;
-    }
-    return `<div class="cg" style="margin-top:6px"><label class="cl">${label}</label><input type="${type}" data-pckey="${key}" value="${val}"></div>`;
-  }
 }
 function pickPcBlockImage(){
   openMediaPicker(url=>{
@@ -4463,7 +4505,7 @@ function exitTplEdit(){
   const sel=document.getElementById('design-tpl-sel');if(sel)sel.value='';
   const empty=document.getElementById('dtpl-empty');
   if(empty)empty.style.display=designTemplates.length?'none':'';
-  if(currentFormSlug){const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/'+currentFormSlug;}
+  if(currentFormSlug){const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/'+currentFormSlug+'?_preview=1';}
 }
 
 async function saveTplFromDesignTab(){
@@ -4638,6 +4680,17 @@ async function createForm(){
   }catch(e){toast('Network error','error');}
   btn.disabled=false;
 }
+async function resetAnalytics(slug){
+  if(!confirm('Reset all analytics counters (visits, submits, errors) for this form?'))return;
+  const r=await fetch(`/api/admin/forms/${slug}/analytics/reset`,{method:'POST'});
+  if(r.ok){
+    const f=formsIndex.find(x=>x.slug===slug);
+    if(f)f.analytics={visits:0,submits:0,errors:0};
+    renderFormsList();
+    toast('Analytics reset','success');
+  }else{toast('Reset failed','error');}
+}
+
 async function deleteForm(slug,name){
   if(!confirm(`Delete form "${name}" and all its subscribers? This cannot be undone.`))return;
   const r=await fetch(`/api/admin/forms/${slug}`,{method:'DELETE'});
