@@ -170,7 +170,7 @@ app.use(helmet({
       fontSrc:        ["'self'", 'https://fonts.gstatic.com'],
       imgSrc:         ["'self'", 'data:', 'blob:', 'https:'],
       connectSrc:     ["'self'", 'https://api.hcaptcha.com'],
-      frameSrc:       ['https://www.youtube.com', 'https://player.vimeo.com'],  // 'none' must be sole value; omit to inherit default-src
+      frameSrc:       ["'self'", 'https://www.youtube.com', 'https://player.vimeo.com'],  // 'self' needed for admin live preview iframe
       frameAncestors: ["'self'"],   // overridden to * on /:slug/embed routes
       objectSrc:      ["'none'"],
       baseUri:        ["'self'"],
