@@ -223,6 +223,13 @@ function readFormMedia(slug) {
 function writeFormMedia(slug, items) {
   fs.writeFileSync(path.join(DATA_DIR, `media-${slug}.json`), JSON.stringify(items, null, 2));
 }
+const SHARED_MEDIA_FILE = path.join(DATA_DIR, 'media-shared.json');
+function readSharedMedia() {
+  return fs.existsSync(SHARED_MEDIA_FILE) ? JSON.parse(fs.readFileSync(SHARED_MEDIA_FILE, 'utf8')) : [];
+}
+function writeSharedMedia(items) {
+  fs.writeFileSync(SHARED_MEDIA_FILE, JSON.stringify(items, null, 2));
+}
 
 // ── Design templates ──────────────────────────────────────────────────────────
 function readDesignTemplates() {
@@ -236,7 +243,7 @@ function writeDesignTemplates(templates) {
 function defaultFormConfig(slug, name) {
   return {
     slug, name,
-    site: { title: name, favicon: '', adminPassword: '', cookieBannerText: '', privacyPolicyUrl: '/privacy',
+    site: { title: name, description: '', favicon: '', adminPassword: '', cookieBannerText: '', privacyPolicyUrl: '/privacy',
             gdprText: 'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.',
             unsubscribeEnabled: true, captchaEnabled: false, hcaptchaSiteKey: '', hcaptchaSecretKey: '',
             emailEnabled: false, emailFromName: '', emailReplyTo: '', emailSubject: '', emailBodyHtml: '',
@@ -577,6 +584,7 @@ app.get('/api/admin/forms', adminAuth, (req, res) => {
       };
       try {
         const cfg = readFormConfig(f.slug);
+        entry.description   = cfg.site.description || '';
         entry.embedPageSize = Buffer.byteLength(renderEmbedPage(cfg), 'utf8');
         entry.embedJsSize   = Buffer.byteLength(renderEmbedScript(origin, cfg), 'utf8');
         entry.mediaSize     = getFormMediaSize(cfg);
@@ -654,14 +662,31 @@ app.post('/api/admin/forms/:slug', adminAuth, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Upload image for a form
+// Upload image for a form (or to shared library when shared=1 in body)
 app.post('/api/admin/forms/:slug/upload', adminAuth, upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   const url = `/uploads/${req.file.filename}`;
+  const folder = req.body.folder || '';
+  const shared = req.body.shared === '1' || req.body.shared === 'true';
   try {
-    const items = readFormMedia(req.params.slug);
-    items.unshift({ id: uuidv4(), url, name: req.file.originalname, size: req.file.size, mimeType: req.file.mimetype, uploadedAt: new Date().toISOString() });
-    writeFormMedia(req.params.slug, items);
+    const item = { id: uuidv4(), url, name: req.file.originalname, size: req.file.size, mimeType: req.file.mimetype, uploadedAt: new Date().toISOString(), folder };
+    if (shared) {
+      const items = readSharedMedia(); items.unshift(item); writeSharedMedia(items);
+    } else {
+      const items = readFormMedia(req.params.slug); items.unshift(item); writeFormMedia(req.params.slug, items);
+    }
+  } catch(_) {}
+  res.json({ url });
+});
+
+// Upload image directly to shared library
+app.post('/api/admin/media/upload', adminAuth, upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  const url = `/uploads/${req.file.filename}`;
+  const folder = req.body.folder || '';
+  try {
+    const item = { id: uuidv4(), url, name: req.file.originalname, size: req.file.size, mimeType: req.file.mimetype, uploadedAt: new Date().toISOString(), folder };
+    const items = readSharedMedia(); items.unshift(item); writeSharedMedia(items);
   } catch(_) {}
   res.json({ url });
 });
@@ -672,17 +697,20 @@ app.post('/api/admin/forms/:slug/upload-font', adminAuth, uploadFont.single('fon
   res.json({ url: `/uploads/fonts/${req.file.filename}` });
 });
 
-// List media library for a form
+// List media library for a form (shared items first, then form-specific)
 app.get('/api/admin/forms/:slug/media', adminAuth, (req, res) => {
-  try { res.json(readFormMedia(req.params.slug)); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  try {
+    const shared = readSharedMedia().map(i => ({ ...i, _shared: true }));
+    const form   = readFormMedia(req.params.slug).map(i => ({ ...i, _shared: false }));
+    res.json([...shared, ...form]);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Delete a media item (removes from library + disk)
 app.delete('/api/admin/forms/:slug/media', adminAuth, (req, res) => {
   try {
-    const { id } = req.body;
-    let items = readFormMedia(req.params.slug);
+    const { id, _shared } = req.body;
+    let items = _shared ? readSharedMedia() : readFormMedia(req.params.slug);
     const item = items.find(i => i.id === id);
     if (!item) return res.status(404).json({ error: 'Not found' });
     try {
@@ -690,7 +718,37 @@ app.delete('/api/admin/forms/:slug/media', adminAuth, (req, res) => {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     } catch(_) {}
     items = items.filter(i => i.id !== id);
-    writeFormMedia(req.params.slug, items);
+    if (_shared) writeSharedMedia(items); else writeFormMedia(req.params.slug, items);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Update media item metadata (folder, name)
+app.patch('/api/admin/forms/:slug/media/:id', adminAuth, (req, res) => {
+  try {
+    const { folder, name, _shared } = req.body;
+    let items = _shared ? readSharedMedia() : readFormMedia(req.params.slug);
+    const item = items.find(i => i.id === req.params.id);
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    if (folder !== undefined) item.folder = folder;
+    if (name   !== undefined) item.name   = name;
+    if (_shared) writeSharedMedia(items); else writeFormMedia(req.params.slug, items);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Move a media item between form and shared library
+app.post('/api/admin/forms/:slug/media/:id/move', adminAuth, (req, res) => {
+  try {
+    const { toShared } = req.body;
+    const srcItems  = toShared ? readFormMedia(req.params.slug) : readSharedMedia();
+    const destItems = toShared ? readSharedMedia() : readFormMedia(req.params.slug);
+    const idx = srcItems.findIndex(i => i.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    const [item] = srcItems.splice(idx, 1);
+    destItems.unshift(item);
+    if (toShared) { writeFormMedia(req.params.slug, srcItems); writeSharedMedia(destItems); }
+    else          { writeSharedMedia(srcItems); writeFormMedia(req.params.slug, destItems); }
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1935,7 +1993,11 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
     --accent: ${d.accentColor};
     --text: ${d.textColor};
     --radius: ${d.buttonRadius};
-    --font-heading: '${d.googleFont}', serif;
+    --font-h1: '${d.h1Font||d.googleFont}', serif;
+    --font-h2: '${d.h2Font||d.googleFont}', serif;
+    --font-h3: '${d.h3Font||d.googleFont}', serif;
+    --font-h4: '${d.h4Font||d.googleFont}', serif;
+    --font-heading: var(--font-h1);
     --font-body: '${d.bodyFont}', sans-serif;
     --font-btn: '${d.btnFont||d.bodyFont}', sans-serif;
     --font-field: '${d.fieldFont||d.bodyFont}', sans-serif;
@@ -1951,7 +2013,9 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   .sf-logo img { width: ${d.logoWidth}; max-width: 100%; }
   .sf-hero-img { width: 100%; border-radius: 8px; margin-bottom: 20px; object-fit: cover; max-height: 200px; }
   .sf-hero-img.below { margin-top: 20px; margin-bottom: 0; }
-  h1 { font-family: var(--font-heading); color: var(--primary); font-size: clamp(1.3rem, 4vw, 1.9rem); line-height: 1.2; margin-bottom: 10px; text-align: center; }
+  h1 { font-family: var(--font-h1); color: var(--primary); font-size: clamp(1.3rem, 4vw, 1.9rem); line-height: 1.2; margin-bottom: 10px; text-align: center; }
+  h2 { font-family: var(--font-h2); color: var(--primary); font-size: clamp(1.1rem, 3vw, 1.5rem); line-height: 1.3; margin-bottom: 8px; }
+  h3 { font-family: var(--font-h3); color: var(--primary); font-size: clamp(0.95rem, 2.5vw, 1.2rem); line-height: 1.35; margin-bottom: 6px; }
   .sf-sub { color: #666; font-size: 0.97rem; text-align: center; margin-bottom: 22px; line-height: 1.6; }
   .sf-field { margin-bottom: 14px; }
   .sf-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }

@@ -387,19 +387,27 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .form-card:hover{box-shadow:var(--shadow-sm);}
 .form-card-info{flex:1;min-width:0;}
 .form-card-name{font-weight:600;font-size:0.95rem;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.form-card-desc{font-size:0.8rem;color:var(--ink3);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .form-card-meta{display:flex;align-items:center;gap:8px;font-size:0.79rem;color:var(--ink3);}
 .slug-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-family:monospace;font-size:0.73rem;color:var(--ink2);}
 .size-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-size:0.73rem;color:var(--ink3);display:inline-flex;align-items:center;gap:2px;}
 .form-card-acts{display:flex;gap:6px;flex-shrink:0;}
 /* ── Media Picker ──────────────────────────────────────────────────────── */
-#media-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:600;display:none;align-items:center;justify-content:center;}
+#media-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:2100;display:none;align-items:center;justify-content:center;}
 #media-picker-overlay.open{display:flex;}
-#media-picker-box{background:var(--panel);border-radius:var(--rlg);width:min(920px,96vw);height:min(640px,92vh);display:flex;flex-direction:column;box-shadow:var(--shadow-lg);overflow:hidden;animation:fadeUp .18s var(--ease);}
+#media-picker-box{background:var(--panel);border-radius:var(--rlg);width:min(1060px,96vw);height:min(660px,92vh);display:flex;flex-direction:column;box-shadow:var(--shadow-lg);overflow:hidden;animation:fadeUp .18s var(--ease);}
 #media-picker-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
 #media-picker-head h2{font-size:0.95rem;font-weight:600;flex:1;}
 #media-picker-toolbar{display:flex;align-items:center;gap:8px;padding:10px 18px;border-bottom:1px solid var(--border2);flex-shrink:0;background:var(--bg);}
-#media-search{flex:1;max-width:280px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.83rem;font-family:var(--font);width:auto;}
+#media-search{flex:1;max-width:240px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.83rem;font-family:var(--font);width:auto;}
 #media-body{display:flex;flex:1;overflow:hidden;}
+#media-folders{width:148px;border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;padding:8px 0;background:var(--bg);}
+.mf-item{display:flex;align-items:center;gap:6px;padding:5px 12px;font-size:0.8rem;cursor:pointer;border-radius:0;transition:background 80ms;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mf-item:hover{background:var(--panel);}
+.mf-item.active{background:var(--accent-bg);color:var(--accent);font-weight:600;}
+.mf-item .material-icons-round{font-size:14px;flex-shrink:0;}
+.mf-new{display:flex;align-items:center;gap:5px;padding:5px 12px;font-size:0.77rem;color:var(--ink3);cursor:pointer;margin-top:2px;}
+.mf-new:hover{color:var(--accent);}
 #media-grid-wrap{flex:1;overflow-y:auto;padding:14px;}
 #media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;}
 .media-item{border:2px solid transparent;border-radius:var(--r);overflow:hidden;cursor:pointer;background:var(--bg);transition:border-color 120ms,box-shadow 120ms;position:relative;}
@@ -409,6 +417,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .mi-name{font-size:0.67rem;color:var(--ink2);padding:3px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--panel);}
 .mi-check{position:absolute;top:4px;right:4px;background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:11px!important;pointer-events:none;}
 .media-item.selected .mi-check{display:flex;}
+.mi-shared{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;border-radius:3px;padding:1px 4px;font-size:0.58rem;font-weight:600;letter-spacing:0.03em;pointer-events:none;}
 #media-detail{width:210px;border-left:1px solid var(--border);padding:14px;overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;gap:10px;background:var(--bg);}
 #media-detail-img{width:100%;border-radius:var(--r);object-fit:contain;max-height:120px;background:var(--panel);border:1px solid var(--border);display:none;}
 #media-detail-none{color:var(--ink3);font-size:0.82rem;text-align:center;padding-top:32px;line-height:1.7;}
@@ -416,6 +425,8 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .md-row strong{font-size:0.67rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:1px;}
 #media-picker-foot{display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;justify-content:flex-end;}
 #media-empty{text-align:center;padding:48px 24px;color:var(--ink3);font-size:0.88rem;display:none;}
+.media-upload-opts{display:flex;align-items:center;gap:6px;}
+.media-upload-opts select{padding:4px 6px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.78rem;font-family:var(--font);background:var(--panel);color:var(--ink);}
 </style>
 </head>
 <body>
@@ -764,6 +775,7 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">manage_accounts</span> Form identity</div>
       <div class="cg"><label class="cl">Site title (browser tab)</label><input type="text" id="c-sitetitle" oninput="cfg.site.title=this.value;schedulePreview()"></div>
+      <div class="cg"><label class="cl">Form description <span style="font-weight:400;color:var(--ink3)">(internal notes / admin only)</span></label><textarea id="c-description" rows="2" style="resize:vertical;font-size:0.85rem;line-height:1.5" placeholder="What this form is for, any notes…" oninput="cfg.site.description=this.value"></textarea></div>
     </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">cookie</span> Cookie & Legal</div>
@@ -1238,24 +1250,57 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
       <button class="modal-close" onclick="closeMediaPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
     </div>
     <div id="media-picker-toolbar">
-      <input id="media-search" type="search" placeholder="Search by filename…" oninput="filterMedia(this.value)">
-      <label class="tbtn tbtn-ghost" style="cursor:pointer">
-        <span class="material-icons-round mi">upload</span> Upload
-        <input type="file" id="media-upload-input" accept="image/*" style="display:none" onchange="handleMediaPickerUpload(this)">
-      </label>
+      <input id="media-search" type="search" placeholder="Search…" oninput="filterMedia(this.value)">
+      <div class="media-upload-opts">
+        <select id="media-upload-scope" title="Upload destination">
+          <option value="form">This form</option>
+          <option value="shared">Shared (all forms)</option>
+        </select>
+        <select id="media-upload-folder" style="max-width:120px" title="Upload to folder">
+          <option value="">No folder</option>
+        </select>
+        <label class="tbtn tbtn-ghost" style="cursor:pointer">
+          <span class="material-icons-round mi">upload</span> Upload
+          <input type="file" id="media-upload-input" accept="image/*" style="display:none" onchange="handleMediaPickerUpload(this)">
+        </label>
+      </div>
     </div>
     <div id="media-body">
+      <div id="media-folders">
+        <div class="mf-item active" data-scope="all" data-folder="" onclick="setMediaScope('all','')">
+          <span class="material-icons-round">photo_library</span> All media
+        </div>
+        <div class="mf-item" data-scope="shared" data-folder="" onclick="setMediaScope('shared','')">
+          <span class="material-icons-round">public</span> Shared
+        </div>
+        <div class="mf-item" data-scope="form" data-folder="" onclick="setMediaScope('form','')">
+          <span class="material-icons-round">folder_special</span> This form
+        </div>
+        <div id="media-folder-list" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"></div>
+        <div class="mf-new" onclick="createMediaFolder()">
+          <span class="material-icons-round" style="font-size:14px">create_new_folder</span> New folder
+        </div>
+      </div>
       <div id="media-grid-wrap">
         <div id="media-grid"></div>
-        <div id="media-empty">No media yet — upload an image to get started.</div>
+        <div id="media-empty">No media here — upload an image to get started.</div>
       </div>
       <div id="media-detail">
         <div id="media-detail-none">Select an item<br>to see details</div>
         <img id="media-detail-img" src="" alt="">
         <div id="media-detail-info"></div>
-        <button class="up-btn del" id="media-del-btn" style="display:none;margin-top:auto" onclick="deleteSelectedMedia()">
-          <span class="material-icons-round mi">delete</span> Delete
-        </button>
+        <div id="media-detail-actions" style="display:none;flex-direction:column;gap:6px;margin-top:auto">
+          <div style="font-size:0.7rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em">Folder</div>
+          <select id="media-folder-sel" style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.8rem;font-family:var(--font)" onchange="moveMediaToFolder(this.value)">
+            <option value="">No folder</option>
+          </select>
+          <button class="up-btn" id="media-share-btn" onclick="toggleMediaShared()" style="font-size:0.78rem">
+            <span class="material-icons-round mi" style="font-size:14px">public</span> <span id="media-share-btn-lbl">Move to shared</span>
+          </button>
+          <button class="up-btn del" id="media-del-btn" onclick="deleteSelectedMedia()" style="font-size:0.78rem">
+            <span class="material-icons-round mi" style="font-size:14px">delete</span> Delete
+          </button>
+        </div>
       </div>
     </div>
     <div id="media-picker-foot">
@@ -1326,6 +1371,7 @@ function renderFormsList(){
     <div class="form-card">
       <div class="form-card-info">
         <div class="form-card-name">${escHtml(f.name)}</div>
+        ${f.description?`<div class="form-card-desc">${escHtml(f.description)}</div>`:''}
         <div class="form-card-meta">
           <span class="slug-pill">/${f.slug}</span>
           <span>${f.subscriberCount!=null?f.subscriberCount+' subscriber'+(f.subscriberCount!==1?'s':''):'—'}</span>
@@ -1395,7 +1441,7 @@ function populateControls(){
   if(cfg.design.logoUrl){const e=document.getElementById('preview-logo');if(e){e.src=cfg.design.logoUrl;e.style.display='block';}}
   const cookiePrev=document.getElementById('c-cookie-preview');
   if(cookiePrev)cookiePrev.innerHTML=cfg.site.cookieBannerText||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit cookie banner text…</span>';
-  sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);
+  sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);sv('c-description',cfg.site.description||'');
   if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=cfg.design.backgroundImage;e.style.display='block';}}
   const ov=document.getElementById('c-overlay');if(ov)ov.value=cfg.design.backgroundOverlay;
   const ovv=document.getElementById('overlay-val');if(ovv)ovv.textContent=cfg.design.backgroundOverlay;
@@ -1501,20 +1547,24 @@ async function handleImageUpload(input,type){
 }
 // ── Media Picker ──────────────────────────────────────────────────────────────
 let _mediaItems=[],_mediaFiltered=[],_mediaSelected=null,_mediaCallback=null,_mediaType=null;
+let _mediaScope='all',_mediaFolder='';
 async function openMediaPicker(callbackOrType){
   _mediaCallback=typeof callbackOrType==='function'?callbackOrType:null;
   _mediaType=typeof callbackOrType==='string'?callbackOrType:null;
   const insertBtn=document.getElementById('media-insert-btn');
   if(insertBtn)insertBtn.style.display=(_mediaCallback||(_mediaType&&_mediaType!=='manage'))?'':'none';
-  _mediaSelected=null;
+  _mediaSelected=null;_mediaScope='all';_mediaFolder='';
   document.getElementById('media-search').value='';
+  _clearMediaDetail();
+  document.getElementById('media-picker-overlay').classList.add('open');
+  await loadMediaLibrary();
+}
+function _clearMediaDetail(){
   document.getElementById('media-detail-img').style.display='none';
   document.getElementById('media-detail-none').style.display='block';
   document.getElementById('media-detail-info').innerHTML='';
-  document.getElementById('media-del-btn').style.display='none';
-  if(insertBtn)insertBtn.disabled=true;
-  document.getElementById('media-picker-overlay').classList.add('open');
-  await loadMediaLibrary();
+  const acts=document.getElementById('media-detail-actions');if(acts)acts.style.display='none';
+  const ins=document.getElementById('media-insert-btn');if(ins)ins.disabled=true;
 }
 function closeMediaPicker(){
   document.getElementById('media-picker-overlay').classList.remove('open');
@@ -1524,14 +1574,43 @@ async function loadMediaLibrary(){
   if(!currentFormSlug)return;
   try{
     _mediaItems=await fetch(`/api/admin/forms/${currentFormSlug}/media`).then(r=>r.json());
-    filterMedia(document.getElementById('media-search').value);
+    _rebuildFolderSidebar();
+    _applyMediaFilter();
   }catch(e){_mediaItems=[];renderMediaGrid([]);}
 }
-function filterMedia(q){
-  const lq=(q||'').toLowerCase().trim();
-  _mediaFiltered=lq?_mediaItems.filter(i=>(i.name||'').toLowerCase().includes(lq)):[..._mediaItems];
-  renderMediaGrid(_mediaFiltered);
+function _rebuildFolderSidebar(){
+  const folders=[...new Set(_mediaItems.map(i=>i.folder||'').filter(f=>f))].sort();
+  // update upload folder selects
+  ['media-upload-folder','media-folder-sel'].forEach(selId=>{
+    const sel=document.getElementById(selId);if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">No folder</option>'+folders.map(f=>`<option value="${escHtml(f)}">${escHtml(f)}</option>`).join('');
+    if(folders.includes(cur))sel.value=cur;
+  });
+  // rebuild folder list in sidebar
+  const list=document.getElementById('media-folder-list');if(!list)return;
+  list.innerHTML=folders.map(f=>`<div class="mf-item${_mediaFolder===f&&_mediaScope==='folder'?' active':''}" data-scope="folder" data-folder="${escHtml(f)}" onclick="setMediaScope('folder','${f.replace(/'/g,"\\'")}')"><span class="material-icons-round">folder</span> ${escHtml(f)}</div>`).join('');
 }
+function _applyMediaFilter(){
+  const q=(document.getElementById('media-search').value||'').toLowerCase().trim();
+  let items=_mediaItems;
+  if(_mediaScope==='shared')items=items.filter(i=>i._shared);
+  else if(_mediaScope==='form')items=items.filter(i=>!i._shared);
+  else if(_mediaScope==='folder')items=items.filter(i=>(i.folder||'')===_mediaFolder);
+  if(q)items=items.filter(i=>(i.name||'').toLowerCase().includes(q));
+  _mediaFiltered=[...items];
+  renderMediaGrid(_mediaFiltered);
+  // sync sidebar active state
+  document.querySelectorAll('.mf-item').forEach(el=>{
+    const sc=el.dataset.scope,fo=el.dataset.folder||'';
+    el.classList.toggle('active',(sc==='folder'?(_mediaScope==='folder'&&_mediaFolder===fo):(sc===_mediaScope&&_mediaScope!=='folder')));
+  });
+}
+function setMediaScope(scope,folder){
+  _mediaScope=scope;_mediaFolder=folder||'';
+  _applyMediaFilter();
+}
+function filterMedia(q){_applyMediaFilter();}
 function renderMediaGrid(items){
   const grid=document.getElementById('media-grid');const empty=document.getElementById('media-empty');
   if(!items.length){grid.innerHTML='';empty.style.display='block';return;}
@@ -1539,22 +1618,31 @@ function renderMediaGrid(items){
   grid.innerHTML=items.map(item=>{
     const sel=_mediaSelected&&_mediaSelected.id===item.id?' selected':'';
     const nm=(item.name||item.url.split('/').pop()).replace(/</g,'&lt;');
-    return `<div class="media-item${sel}" data-id="${item.id}" onclick="selectMediaItem('${item.id}')"><img src="${item.url}" alt="${nm}" loading="lazy"><div class="mi-name">${nm}</div><span class="material-icons-round mi-check">check</span></div>`;
+    const sharedBadge=item._shared?'<span class="mi-shared">shared</span>':'';
+    const folderBadge=item.folder?`<span class="mi-shared" style="top:auto;bottom:22px;background:rgba(0,0,0,.4)">${escHtml(item.folder)}</span>`:'';
+    return `<div class="media-item${sel}" data-id="${item.id}" onclick="selectMediaItem('${item.id}')">${sharedBadge}${folderBadge}<img src="${item.url}" alt="${nm}" loading="lazy"><div class="mi-name">${nm}</div><span class="material-icons-round mi-check">check</span></div>`;
   }).join('');
 }
 function selectMediaItem(id){
   _mediaSelected=_mediaFiltered.find(i=>i.id===id)||null;
   document.querySelectorAll('#media-grid .media-item').forEach(el=>el.classList.toggle('selected',el.dataset.id===id));
   const dImg=document.getElementById('media-detail-img');const dNone=document.getElementById('media-detail-none');
-  const dInfo=document.getElementById('media-detail-info');const dDel=document.getElementById('media-del-btn');const ins=document.getElementById('media-insert-btn');
+  const dInfo=document.getElementById('media-detail-info');
+  const acts=document.getElementById('media-detail-actions');
+  const ins=document.getElementById('media-insert-btn');
   if(_mediaSelected){
     dImg.src=_mediaSelected.url;dImg.style.display='block';dNone.style.display='none';
     const sz=_mediaSelected.size?fmtBytes(_mediaSelected.size):'—';
     const d=_mediaSelected.uploadedAt?new Date(_mediaSelected.uploadedAt).toLocaleDateString():'—';
-    dInfo.innerHTML=`<div class="md-row"><strong>File</strong>${(_mediaSelected.name||'').replace(/</g,'&lt;')}</div><div class="md-row"><strong>Type</strong>${_mediaSelected.mimeType||'image'}</div><div class="md-row"><strong>Size</strong>${sz}</div><div class="md-row"><strong>Uploaded</strong>${d}</div>`;
-    dDel.style.display='flex';ins.disabled=false;
+    const scopeLabel=_mediaSelected._shared?'<span style="color:#0c5460;background:#d1ecf1;padding:1px 6px;border-radius:3px;font-size:0.72rem;font-weight:600">SHARED</span>':'<span style="color:var(--ink3);font-size:0.72rem">This form</span>';
+    dInfo.innerHTML=`<div class="md-row"><strong>File</strong>${(_mediaSelected.name||'').replace(/</g,'&lt;')}</div><div class="md-row"><strong>Type</strong>${_mediaSelected.mimeType||'image'}</div><div class="md-row"><strong>Size</strong>${sz}</div><div class="md-row"><strong>Uploaded</strong>${d}</div><div class="md-row"><strong>Scope</strong>${scopeLabel}</div>`;
+    // populate folder select
+    const fsel=document.getElementById('media-folder-sel');if(fsel)fsel.value=_mediaSelected.folder||'';
+    // update share button label
+    const lbl=document.getElementById('media-share-btn-lbl');if(lbl)lbl.textContent=_mediaSelected._shared?'Move to this form':'Move to shared';
+    if(acts)acts.style.display='flex';ins.disabled=false;
   }else{
-    dImg.style.display='none';dNone.style.display='block';dInfo.innerHTML='';dDel.style.display='none';ins.disabled=true;
+    _clearMediaDetail();
   }
 }
 function insertSelectedMedia(){
@@ -1567,27 +1655,72 @@ function insertSelectedMedia(){
 function applyMediaSelection(type,url){
   if(type==='logo'){cfg.design.logoUrl=url;const e=document.getElementById('preview-logo');if(e){e.src=url;e.style.display='block';}}
   else if(type==='bg'){cfg.design.backgroundImage=url;const e=document.getElementById('preview-bg');if(e){e.src=url;e.style.display='block';}}
-  else if(type==='hero-img'){const s=cfg.sections.find(s=>s.id==='hero');if(s)s.imageUrl=url;const e=document.getElementById('preview-hero-img');if(e){e.src=url;e.style.display='block';}}
+  else if(type==='hero-img'){const s=cfg.sections.find(s=>s.type==='hero'||s.id==='hero');if(s)s.imageUrl=url;const e=document.getElementById('preview-hero-img');if(e){e.src=url;e.style.display='block';}}
   schedulePreview();
 }
 async function deleteSelectedMedia(){
   if(!_mediaSelected)return;
   if(!confirm(`Delete "${(_mediaSelected.name||_mediaSelected.url.split('/').pop())}"?\nThis permanently removes the file.`))return;
   try{
-    await fetch(`/api/admin/forms/${currentFormSlug}/media`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_mediaSelected.id})});
-    _mediaSelected=null;
-    document.getElementById('media-detail-img').style.display='none';
-    document.getElementById('media-detail-none').style.display='block';
-    document.getElementById('media-detail-info').innerHTML='';
-    document.getElementById('media-del-btn').style.display='none';
-    document.getElementById('media-insert-btn').disabled=true;
+    await fetch(`/api/admin/forms/${currentFormSlug}/media`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_mediaSelected.id,_shared:_mediaSelected._shared||false})});
+    _mediaSelected=null;_clearMediaDetail();
     await loadMediaLibrary();toast('Deleted','success');
   }catch(e){toast('Delete failed','error');}
+}
+async function moveMediaToFolder(folder){
+  if(!_mediaSelected)return;
+  const id=_mediaSelected.id,shared=_mediaSelected._shared||false;
+  try{
+    await fetch(`/api/admin/forms/${currentFormSlug}/media/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder,_shared:shared})});
+    await loadMediaLibrary();
+    const upd=_mediaItems.find(i=>i.id===id);_mediaSelected=null;if(upd)selectMediaItem(upd.id);
+    toast('Folder updated','success');
+  }catch(e){toast('Failed','error');}
+}
+async function toggleMediaShared(){
+  if(!_mediaSelected)return;
+  const toShared=!_mediaSelected._shared;
+  try{
+    await fetch(`/api/admin/forms/${currentFormSlug}/media/${_mediaSelected.id}/move`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toShared})});
+    await loadMediaLibrary();
+    // re-select the item after reload
+    const updated=_mediaItems.find(i=>i.id===_mediaSelected.id);
+    _mediaSelected=null;
+    if(updated){selectMediaItem(updated.id);}
+    toast(toShared?'Moved to shared library':'Moved to this form','success');
+  }catch(e){toast('Failed','error');}
+}
+async function createMediaFolder(){
+  const name=prompt('Folder name:','');
+  if(!name||!name.trim())return;
+  const folder=name.trim();
+  // Add folder to selects immediately (it becomes real when an item is moved into it)
+  ['media-upload-folder','media-folder-sel'].forEach(selId=>{
+    const sel=document.getElementById(selId);if(!sel)return;
+    if(!Array.from(sel.options).some(o=>o.value===folder)){
+      const o=document.createElement('option');o.value=folder;o.textContent=folder;sel.appendChild(o);
+    }
+    sel.value=folder;
+  });
+  // Add to sidebar
+  const list=document.getElementById('media-folder-list');
+  if(list&&!list.querySelector(`[data-folder="${escHtml(folder)}"]`)){
+    const div=document.createElement('div');div.className='mf-item';div.dataset.scope='folder';div.dataset.folder=folder;
+    div.innerHTML=`<span class="material-icons-round">folder</span> ${escHtml(folder)}`;
+    div.onclick=()=>setMediaScope('folder',folder);
+    list.appendChild(div);
+  }
+  setMediaScope('folder',folder);
+  toast(`Folder "${folder}" created — upload images or drag items into it`,'success');
 }
 async function handleMediaPickerUpload(input){
   const file=input.files[0];if(!file)return;
   if(!currentFormSlug){toast('No form selected','error');return;}
+  const scope=document.getElementById('media-upload-scope')?.value||'form';
+  const folder=document.getElementById('media-upload-folder')?.value||'';
   const fd=new FormData();fd.append('image',file);
+  fd.append('shared',scope==='shared'?'1':'0');
+  fd.append('folder',folder);
   try{
     const j=await fetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd}).then(r=>r.json());
     if(j.url){input.value='';await loadMediaLibrary();const newest=_mediaItems[0];if(newest)selectMediaItem(newest.id);toast('Uploaded','success');}
@@ -1686,7 +1819,7 @@ function toggleFpDropdown(trigger){
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest('.fp-wrap'))document.querySelectorAll('.fp-wrap.open').forEach(w=>w.classList.remove('open'));
-  if(!e.target.closest('.bcp-wrap'))document.querySelectorAll('.bcp-wrap.open').forEach(w=>w.classList.remove('open'));
+  if(!e.target.closest('.bcp-wrap'))document.querySelectorAll('.bcp-wrap.open').forEach(w=>{w.classList.remove('open');_bcpResetDd(w);});
 });
 
 // ── Palettes ──
@@ -1794,15 +1927,15 @@ function heroBkBody(s){
   const subheadingVal=(s.subheading||'').replace(/</g,'&lt;');
   const imgPos=s.imagePosition||'above';
   return `
-    <div class="cg"><label class="cl">Heading</label><input type="text" id="c-heading" value="${headingVal}" oninput="updateSection('hero','heading',this.value)"></div>
-    <div class="cg"><label class="cl">Subheading</label><textarea id="c-subheading" rows="2" oninput="updateSection('hero','subheading',this.value)">${subheadingVal}</textarea></div>
+    <div class="cg"><label class="cl">Heading</label><input type="text" id="c-heading" value="${headingVal}" oninput="updateSection('${s.id}','heading',this.value)"></div>
+    <div class="cg"><label class="cl">Subheading</label><textarea id="c-subheading" rows="2" oninput="updateSection('${s.id}','subheading',this.value)">${subheadingVal}</textarea></div>
     <div class="cg">
       <label class="cl">Hero image</label>
       <button class="up-btn" onclick="openMediaPicker('hero-img')"><span class="material-icons-round mi">photo_library</span> Choose from library</button>
       <img id="preview-hero-img" class="img-prev"${s.imageUrl?' src="'+s.imageUrl+'" style="display:block"':''}>
     </div>
     <div class="cg"><label class="cl">Image position</label>
-      <select id="c-imgpos" onchange="updateSection('hero','imagePosition',this.value)">
+      <select id="c-imgpos" onchange="updateSection('${s.id}','imagePosition',this.value)">
         <option value="above"${imgPos==='above'?' selected':''}>Above heading</option>
         <option value="below"${imgPos==='below'?' selected':''}>Below heading</option>
       </select>
@@ -2011,7 +2144,12 @@ let _bcpCallbacks={};
 function buildBrandColorPicker(containerId,currentColor,onChange){
   const c=document.getElementById(containerId);if(!c)return;
   _migrateBrandColors();
-  const brands=(cfg&&cfg.design&&cfg.design.brandColors)||[];
+  let brands=(cfg&&cfg.design&&cfg.design.brandColors)||[];
+  // If no form-level brand colours, fall back to the linked design template's brand colours
+  if(!brands.length&&cfg&&cfg.designTemplateId&&typeof designTemplates!=='undefined'){
+    const tpl=designTemplates.find(t=>t.id===cfg.designTemplateId);
+    if(tpl&&tpl.design&&Array.isArray(tpl.design.brandColors)&&tpl.design.brandColors.length)brands=tpl.design.brandColors;
+  }
   const cur=brands.find(b=>b.color===currentColor);
   const label=cur?(cur.name||cur.color):(currentColor||'Choose colour…');
   const swatchStyle=currentColor?`background:${currentColor}`:'background:transparent;border:1.5px dashed var(--border)';
@@ -2029,9 +2167,25 @@ function buildBrandColorPicker(containerId,currentColor,onChange){
   </div>`;
   _bcpCallbacks[containerId]=onChange;
 }
+function _bcpResetDd(wrap){const dd=wrap.querySelector('.bcp-dropdown');if(dd){dd.style.position='';dd.style.top='';dd.style.left='';dd.style.right='';dd.style.width='';dd.style.zIndex='';}}
 function bcpToggle(id){
-  document.querySelectorAll('.bcp-wrap.open').forEach(w=>{if(w.id!=='bcpw-'+id)w.classList.remove('open');});
-  const w=document.getElementById('bcpw-'+id);if(w)w.classList.toggle('open');
+  document.querySelectorAll('.bcp-wrap.open').forEach(w=>{if(w.id!=='bcpw-'+id){w.classList.remove('open');_bcpResetDd(w);}});
+  const w=document.getElementById('bcpw-'+id);if(!w)return;
+  const wasOpen=w.classList.contains('open');
+  if(wasOpen){w.classList.remove('open');_bcpResetDd(w);}
+  else{
+    const dd=w.querySelector('.bcp-dropdown');const btn=w.querySelector('.bcp-trigger');
+    if(dd&&btn){
+      const r=btn.getBoundingClientRect();
+      dd.style.position='fixed';
+      dd.style.top=(r.bottom+4)+'px';
+      dd.style.left=r.left+'px';
+      dd.style.right='auto';
+      dd.style.width=Math.max(r.width,220)+'px';
+      dd.style.zIndex='9999';
+    }
+    w.classList.add('open');
+  }
 }
 function bcpPick(containerId,color){
   const w=document.getElementById('bcpw-'+containerId);if(w)w.classList.remove('open');
@@ -3319,7 +3473,7 @@ async function updateDesignTemplate(id){
 }
 
 // ── Forms management ──
-const RESERVED_SLUGS_CLIENT=new Set(['admin','auth','api','privacy','unsubscribe','delete-data','embed','public','uploads','assets']);
+const RESERVED_SLUGS_CLIENT=new Set(['admin','auth','api','privacy','unsubscribe','delete-data','preferences','embed','public','uploads','assets']);
 function openNewFormModal(){
   document.getElementById('new-form-name').value='';
   document.getElementById('new-form-slug').value='';
