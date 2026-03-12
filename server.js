@@ -366,7 +366,9 @@ function defaultFormConfig(slug, name) {
             emailDesign: { bgColor: '#f4f4f4', cardBg: '#ffffff', textColor: '#333333', headingColor: '#1a1a2e',
               bodyFont: 'Lato', headingFont: 'Playfair Display', maxWidth: '600px', padding: '40px', borderRadius: '8px' },
             unsubscribePageText: 'Manage your subscription preferences below.',
-            embedAllowedDomains: [] },
+            embedAllowedDomains: [],
+            allowDuplicateEmail: false,
+            uniqueKeyFields: ['email'] },
     design: { googleFont: 'Playfair Display', bodyFont: 'Lato', primaryColor: '#1a1a2e',
               accentColor: '#e94560', backgroundColor: '#f8f5f0', textColor: '#1a1a2e',
               buttonText: 'Subscribe Now', buttonRadius: '4px', containerWidth: '560px',
@@ -1323,9 +1325,26 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   }
   const email = validated.email.trim().toLowerCase();
 
-  // Check for existing active subscription
+  // ── Duplicate / uniqueness check ─────────────────────────────────────────────
+  // Build a WHERE clause from the configured key fields.
+  // Field IDs are validated as /^[a-zA-Z][a-zA-Z0-9_]*$/ so safe to interpolate in JSONB path.
+  const allowDup  = cfg.site.allowDuplicateEmail || false;
+  const keyFields = allowDup
+    ? (cfg.site.uniqueKeyFields || ['email']).filter(Boolean)
+    : ['email'];
+  const dupConds  = ['form_slug=$1'];
+  const dupParams = [slug];
+  let   dupIdx    = 2;
+  if (keyFields.includes('email')) {
+    dupConds.push(`email=$${dupIdx++}`);
+    dupParams.push(email);
+  }
+  keyFields.filter(f => f !== 'email').forEach(fieldId => {
+    dupConds.push(`custom_fields->>'${fieldId}'=$${dupIdx++}`);
+    dupParams.push((body[fieldId] || '').trim());
+  });
   const { rows: existingRows } = await pool.query(
-    `SELECT id, status FROM subscribers WHERE form_slug=$1 AND email=$2 LIMIT 1`, [slug, email]);
+    `SELECT id, status FROM subscribers WHERE ${dupConds.join(' AND ')} LIMIT 1`, dupParams);
   const existing = existingRows[0] || null;
   if (existing && existing.status === 'active') {
     bumpAnalytic(slug, 'errors');

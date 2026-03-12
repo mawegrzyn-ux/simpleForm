@@ -1534,6 +1534,23 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <p class="card-desc" style="font-size:0.78rem">Text shown at the top of the preferences page (where subscribers manage or cancel their subscription).</p>
       <div class="wysi-preview" id="unsub-page-preview" onclick="openUnsubPageWysiwyg()" style="min-height:42px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit preferences page text…</span></div>
     </div>
+    <div class="card" style="padding:16px">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:8px"><span class="material-icons-round mi">rule</span> Submission deduplication</div>
+      <p class="card-desc" style="font-size:0.78rem;margin-bottom:10px">By default each email can only subscribe once. Enable multi-field keys to allow the same email if other fields differ — e.g. same email but different first name.</p>
+      <div class="setting-row" style="padding-top:0;margin-bottom:0">
+        <div class="setting-info">
+          <div class="setting-title">Allow duplicate emails</div>
+          <div class="setting-desc">Same email can submit again if the key fields below differ</div>
+        </div>
+        <label class="tgl"><input type="checkbox" id="dup-allow-email" onchange="cfg.site.allowDuplicateEmail=this.checked;toggleDupKeyFields()"><span class="tgl-s"></span></label>
+      </div>
+      <div id="dup-key-fields" style="display:none;margin-top:12px">
+        <label class="cl" style="margin-bottom:4px">Unique key fields</label>
+        <p style="font-size:0.72rem;color:var(--ink3);margin:0 0 8px">A new submission is only blocked if ALL ticked fields match an existing active subscriber.</p>
+        <div id="dup-key-checkboxes" style="display:flex;flex-direction:column;gap:3px"></div>
+        <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="saveConfig()"><span class="material-icons-round mi">save</span> Save</button>
+      </div>
+    </div>
   </div>
   </div><!-- /settings-panel -->
   <div id="settings-preview">
@@ -2065,8 +2082,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <label class="cl" style="margin:0">Tiles</label>
         <button class="add-field-btn" onclick="iselAddItem()" style="font-size:0.72rem;padding:3px 8px"><span class="material-icons-round mi" style="font-size:14px">add</span> Add tile</button>
       </div>
-      <div style="font-size:0.68rem;color:var(--ink3);margin-bottom:4px;display:grid;grid-template-columns:88px 78px 1fr 1fr 20px;gap:4px;padding:0 2px">
-        <span>Icon type</span><span>Icon / emoji</span><span>Value (saved)</span><span>Label (shown)</span><span></span>
+      <div style="font-size:0.68rem;color:var(--ink3);margin-bottom:4px;display:grid;grid-template-columns:88px 80px 1fr 1fr 20px;gap:4px;padding:0 2px">
+        <span>Icon type</span><span>Icon</span><span>Value (saved)</span><span>Label (shown)</span><span></span>
       </div>
       <div id="modal-isel-items" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-bottom:8px;padding-right:2px"></div>
       <div class="cr" style="gap:8px;margin-bottom:6px">
@@ -2267,6 +2284,20 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <button class="btn btn-outline" onclick="closeItemEdit()">Cancel</button>
       <button class="btn btn-primary" onclick="saveItemEdit()">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- ── Material Icon Picker ─────────────────────────────────────────────── -->
+<div id="icon-picker-modal" class="modal-overlay">
+  <div class="modal-box" style="width:560px;max-height:82vh;display:flex;flex-direction:column">
+    <div class="modal-head">
+      <h2>Pick a Material icon</h2>
+      <button class="modal-close" onclick="closeIconPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <input type="search" id="icon-picker-search" placeholder="Search icons… (e.g. star, home, heart)" oninput="filterIconGrid(this.value)"
+      style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.85rem;font-family:var(--font);margin-bottom:8px">
+    <div id="icon-picker-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px;overflow-y:auto;padding:4px 2px;flex:1"></div>
+    <div id="icon-picker-empty" style="display:none;text-align:center;color:var(--ink3);padding:24px 0;font-size:0.85rem">No icons found — try a different keyword</div>
   </div>
 </div>
 
@@ -2500,6 +2531,7 @@ function populateControls(){
   const cookiePrev=document.getElementById('c-cookie-preview');
   if(cookiePrev)cookiePrev.innerHTML=cfg.site.cookieBannerText||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit cookie banner text…</span>';
   sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);sv('c-description',cfg.site.description||'');
+  const dupChk=document.getElementById('dup-allow-email');if(dupChk){dupChk.checked=!!cfg.site.allowDuplicateEmail;toggleDupKeyFields();}
   if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=cfg.design.backgroundImage;e.style.display='block';}}
   const ov=document.getElementById('c-overlay');if(ov)ov.value=cfg.design.backgroundOverlay;
   const ovv=document.getElementById('overlay-val');if(ovv)ovv.textContent=cfg.design.backgroundOverlay;
@@ -4451,15 +4483,25 @@ function iselRenderItems(){
   el.innerHTML='';
   _iselItems.forEach((item,i)=>{
     const row=document.createElement('div');
-    row.style.cssText='display:grid;grid-template-columns:88px 78px 1fr 1fr 24px;gap:4px;align-items:center;';
-    const iconPlaceholder=item.iconType==='material'?'favorite':item.iconType==='image'?'https://…':'😊';
+    row.style.cssText='display:grid;grid-template-columns:88px 80px 1fr 1fr 24px;gap:4px;align-items:center;';
+    // Icon cell varies by type
+    let iconCell='';
+    if(item.iconType==='material'){
+      const preview=item.icon?`<span class="material-icons-round" style="font-size:15px;color:#555;flex-shrink:0">${item.icon}</span>`:'';
+      iconCell=`<button class="ibtn" onclick="openIconPicker(${i})" style="display:flex;align-items:center;gap:3px;padding:2px 6px;font-size:0.68rem;width:100%;overflow:hidden;white-space:nowrap;min-height:26px" title="${item.icon||'Pick icon'}">${preview}<span style="overflow:hidden;text-overflow:ellipsis;flex:1;text-align:left">${item.icon||'pick…'}</span></button>`;
+    }else if(item.iconType==='image'){
+      const thumb=item.icon?`<img src="${item.icon}" style="width:20px;height:20px;object-fit:contain;border-radius:3px;border:1px solid #e0e0e0;flex-shrink:0" onerror="this.style.display='none'">`:'';
+      iconCell=`<button class="ibtn" onclick="openMediaPicker(function(url){_iselItems[${i}].icon=url;iselRenderItems();})" style="display:flex;align-items:center;gap:3px;padding:2px 6px;font-size:0.68rem;width:100%;overflow:hidden;min-height:26px" title="${item.icon||'Pick image'}">${thumb}<span style="overflow:hidden;text-overflow:ellipsis;flex:1;white-space:nowrap">${item.icon?'change…':'pick…'}</span></button>`;
+    }else{
+      iconCell=`<input type="text" value="${(item.icon||'').replace(/"/g,'&quot;')}" placeholder="😊" style="font-size:0.85rem;width:100%;text-align:center" oninput="_iselItems[${i}].icon=this.value">`;
+    }
     row.innerHTML=`
-      <select style="font-size:0.75rem" onchange="_iselItems[${i}].iconType=this.value;iselRenderItems()">
+      <select style="font-size:0.73rem" onchange="_iselItems[${i}].iconType=this.value;iselRenderItems()">
         <option value="material"${item.iconType==='material'?' selected':''}>Material icon</option>
         <option value="emoji"${item.iconType==='emoji'?' selected':''}>Emoji</option>
-        <option value="image"${item.iconType==='image'?' selected':''}>Image URL</option>
+        <option value="image"${item.iconType==='image'?' selected':''}>Image</option>
       </select>
-      <input type="text" value="${(item.icon||'').replace(/"/g,'&quot;')}" placeholder="${iconPlaceholder}" style="font-size:0.75rem" oninput="_iselItems[${i}].icon=this.value">
+      <div style="display:flex;min-width:0">${iconCell}</div>
       <input type="text" value="${(item.value||'').replace(/"/g,'&quot;')}" placeholder="value" style="font-size:0.75rem" oninput="_iselItems[${i}].value=this.value">
       <input type="text" value="${(item.label||'').replace(/"/g,'&quot;')}" placeholder="label" style="font-size:0.75rem" oninput="_iselItems[${i}].label=this.value">
       <button class="ibtn danger" title="Remove" onclick="_iselItems.splice(${i},1);iselRenderItems()" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">close</span></button>`;
@@ -4471,6 +4513,83 @@ function iselOnLayoutChange(){
   const isGrid=document.getElementById('modal-isel-layout')?.value==='grid';
   const opts=document.getElementById('modal-isel-grid-opts');
   if(opts)opts.style.display=isGrid?'flex':'none';
+}
+
+// ── Material Icon Picker ──
+const _ISEL_ICONS=[
+  // People & social
+  'person','people','group','face','manage_accounts','person_add','person_remove','elderly','child_care','self_improvement','accessibility',
+  // Emotions & reactions
+  'mood','sentiment_satisfied','sentiment_dissatisfied','sentiment_neutral','emoji_emotions','thumb_up','thumb_down','favorite','favorite_border','star','star_border','star_half',
+  // Communication
+  'email','phone','call','chat','message','sms','forum','notifications','notifications_none','contact_page','share','send','qr_code','link','announcement',
+  // Navigation & UI
+  'home','search','menu','close','add','remove','check','more_vert','more_horiz','arrow_back','arrow_forward','arrow_upward','arrow_downward','chevron_right','chevron_left','expand_more','expand_less','refresh','open_in_new','launch','info','help_outline','warning','error','check_circle','cancel',
+  // Settings & actions
+  'settings','build','edit','delete','visibility','visibility_off','lock','lock_open','download','upload','print','attach_file','bookmark','bookmark_border','label','tag','filter_list','sort','block','flag','report',
+  // Content & files
+  'article','description','folder','folder_open','file_copy','attachment','code','create','format_bold','format_italic','format_list_bulleted','notes','feed',
+  // Media & camera
+  'play_arrow','pause','stop','skip_next','skip_previous','volume_up','volume_off','camera','photo','image','videocam','mic','mic_off','headphones','music_note','radio','tv','cast','movie','library_music',
+  // Shopping & money
+  'shopping_cart','shopping_bag','store','local_offer','discount','credit_card','account_balance','attach_money','euro','trending_up','bar_chart','pie_chart','analytics','business','work','inventory',
+  // Food & drink
+  'restaurant','local_cafe','local_bar','cake','wine_bar','fastfood','lunch_dining','coffee','local_pizza','dining','kitchen',
+  // Travel & transport
+  'flight','hotel','directions_car','directions_bus','train','local_taxi','two_wheeler','electric_bike','electric_car','map','place','location_on','explore','language','public','travel_explore',
+  // Nature & weather
+  'wb_sunny','nights_stay','cloud','umbrella','ac_unit','water_drop','local_florist','nature','terrain','forest','eco','park','beach_access','landscape',
+  // Health & fitness
+  'local_hospital','medical_services','health_and_safety','monitor_heart','vaccines','spa','fitness_center','sports','psychology','biotech',
+  // Sports & hobbies
+  'sports_soccer','sports_basketball','sports_tennis','sports_esports','pool','golf_course','sports_volleyball','casino','hiking','directions_bike',
+  // Home & objects
+  'lightbulb','electrical_services','home_repair_service','handyman','construction','kitchen','bed','bathtub','chair','weekend','garage',
+  // Time & events
+  'event','calendar_month','schedule','alarm','timer','hourglass_empty','date_range','today',
+  // Tech & devices
+  'computer','laptop','smartphone','tablet','watch','headset','keyboard','mouse','wifi','bluetooth','cloud_upload','cloud_download','security','vpn_key','power','memory',
+  // Awards & misc
+  'celebration','card_giftcard','redeem','emoji_events','military_tech','diamond','local_activity','confirmation_number','new_releases','loyalty','workspace_premium',
+];
+let _iconPickerRowIdx=-1;
+function openIconPicker(rowIdx){
+  _iconPickerRowIdx=rowIdx;
+  const s=document.getElementById('icon-picker-search');if(s)s.value='';
+  filterIconGrid('');
+  document.getElementById('icon-picker-modal').classList.add('open');
+}
+function closeIconPicker(){document.getElementById('icon-picker-modal').classList.remove('open');}
+function filterIconGrid(q){
+  const lower=(q||'').toLowerCase().trim();
+  const filtered=lower?_ISEL_ICONS.filter(n=>n.includes(lower)):_ISEL_ICONS;
+  const grid=document.getElementById('icon-picker-grid');
+  const empty=document.getElementById('icon-picker-empty');
+  grid.innerHTML=filtered.map(name=>`<button title="${name}" onclick="selectPickerIcon('${name}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px solid transparent;border-radius:8px;background:#f6f6f6;cursor:pointer;gap:2px;padding:6px 4px;transition:border-color 120ms,background 120ms;min-height:52px" onmouseover="this.style.background='#eef2ff';this.style.borderColor='var(--accent)'" onmouseout="this.style.background='#f6f6f6';this.style.borderColor='transparent'"><span class="material-icons-round" style="font-size:22px;color:#444">${name}</span><span style="font-size:6.5px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48px;text-align:center;line-height:1.2">${name.replace(/_/g,' ')}</span></button>`).join('');
+  empty.style.display=filtered.length?'none':'block';
+  grid.style.display=filtered.length?'grid':'none';
+}
+function selectPickerIcon(name){
+  if(_iconPickerRowIdx>=0&&_iconPickerRowIdx<_iselItems.length){_iselItems[_iconPickerRowIdx].icon=name;iselRenderItems();}
+  closeIconPicker();
+}
+
+// ── Deduplication settings ──
+function toggleDupKeyFields(){
+  const allow=document.getElementById('dup-allow-email')?.checked;
+  const div=document.getElementById('dup-key-fields');
+  if(div)div.style.display=allow?'block':'none';
+  if(allow)renderDupKeyCheckboxes();
+}
+function renderDupKeyCheckboxes(){
+  const el=document.getElementById('dup-key-checkboxes');if(!el)return;
+  const keys=cfg.site.uniqueKeyFields||['email'];
+  el.innerHTML=(cfg.fields||[]).map(f=>`<label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:pointer;padding:3px 0"><input type="checkbox" value="${f.id}"${keys.includes(f.id)?' checked':''} onchange="toggleDupKeyField(this)"><span>${f.label}</span><code style="font-size:0.7rem;color:var(--ink3)">${f.id}</code></label>`).join('');
+}
+function toggleDupKeyField(cb){
+  if(!cfg.site.uniqueKeyFields)cfg.site.uniqueKeyFields=['email'];
+  if(cb.checked){if(!cfg.site.uniqueKeyFields.includes(cb.value))cfg.site.uniqueKeyFields.push(cb.value);}
+  else{const i=cfg.site.uniqueKeyFields.indexOf(cb.value);if(i>-1)cfg.site.uniqueKeyFields.splice(i,1);}
 }
 
 // ── Conditions ──
