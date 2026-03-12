@@ -134,6 +134,16 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .pc-block-item .pc-bk-type{font-size:0.7rem;color:var(--ink3);background:var(--bg2);border-radius:3px;padding:1px 5px;flex-shrink:0;}
 .pc-block-item .pc-bk-btn{background:none;border:none;cursor:pointer;color:var(--ink3);padding:2px;border-radius:3px;display:flex;align-items:center;transition:color 120ms;}
 .pc-block-item .pc-bk-btn:hover{color:var(--ink);}
+/* Pref-scroll collapsible section cards */
+.pc-section{border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;background:var(--panel);}
+.pc-section-head{display:flex;align-items:center;gap:7px;padding:9px 12px;cursor:pointer;background:var(--bg2);font-size:0.82rem;font-weight:600;color:var(--ink2);user-select:none;border-bottom:1px solid transparent;transition:background 120ms;}
+.pc-section-head:hover{background:var(--bg);}
+.pc-section-head .mi{font-size:16px!important;color:var(--ink3);}
+.pc-section.open .pc-section-head{border-bottom-color:var(--border);}
+.pc-s-chevron{margin-left:auto;font-size:16px!important;color:var(--ink3);transition:transform 200ms var(--ease);flex-shrink:0;}
+.pc-section.open .pc-s-chevron{transform:rotate(180deg);}
+.pc-section-body{padding:10px 12px 12px;display:none;}
+.pc-section.open .pc-section-body{display:block;}
 #bl-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:flex;flex-direction:column;}
 #response-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:none;flex-direction:column;}
 #fields-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;display:none;flex-direction:column;gap:5px;}
@@ -576,116 +586,141 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <div class="field-list" id="field-list-panel"></div>
       <button class="add-field-btn" onclick="openFieldModal()" style="margin-top:6px"><span class="material-icons-round mi">add</span> Add field</button>
     </div>
-    <div id="pref-scroll" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px">
-      <!-- Design settings -->
-      <div class="cg" style="margin-top:4px">
-        <div class="bk-section-label" style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Design</div>
-        <div class="cg-row">
-          <label class="cl">Logo</label>
-          <button class="btn btn-outline btn-sm" style="width:100%" onclick="openPrefCenterImagePicker('logoUrl')"><span class="material-icons-round mi">image</span> <span id="pc-logo-label">Choose logo…</span></button>
-        </div>
-        <div class="cg-row" style="margin-top:6px">
-          <label class="cl">Logo width (px)</label>
-          <input type="number" id="pc-logo-width" min="40" max="500" placeholder="160" oninput="setPcDesign('logoWidth',this.value+'px')">
-        </div>
-        <div class="cg-row" style="margin-top:6px">
-          <label class="cl">Background image</label>
-          <button class="btn btn-outline btn-sm" style="width:100%" onclick="openPrefCenterImagePicker('bgImage')"><span class="material-icons-round mi">wallpaper</span> <span id="pc-bg-label">Choose image…</span></button>
-        </div>
-        <div id="pc-overlay-row" class="cg-row" style="margin-top:6px;display:none">
-          <label class="cl">Overlay colour &amp; opacity</label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <input type="color" id="pc-overlay-color" value="#000000" oninput="setPcDesign('bgOverlayColor',this.value)" title="Overlay colour" style="width:34px;height:28px;padding:2px;flex-shrink:0;cursor:pointer">
-            <input type="range" id="pc-overlay-range" min="0" max="1" step="0.05" style="flex:1" oninput="setPcDesign('bgOverlay',parseFloat(this.value));document.getElementById('pc-overlay-val').textContent=Math.round(this.value*100)+'%'">
-            <span id="pc-overlay-val" style="font-size:0.78rem;color:var(--ink3);width:32px">40%</span>
-          </div>
-        </div>
-        <div id="pc-color-rows" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
-          <!-- colour rows injected by buildPcColorPickers() -->
-        </div>
-        <div class="cg-row" style="margin-top:6px">
-          <label class="cl">Card max width</label>
-          <input type="text" id="pc-card-maxwidth" placeholder="480px" oninput="setPcDesign('cardMaxWidth',this.value)">
-        </div>
-        <div class="cg-row" style="margin-top:6px">
-          <label class="cl">Card padding</label>
-          <input type="text" id="pc-card-padding" placeholder="40px" oninput="setPcDesign('cardPadding',this.value)">
-        </div>
-        <div class="cg-row" style="margin-top:6px">
-          <label class="cl">Card border radius</label>
-          <input type="text" id="pc-card-radius" placeholder="12px" oninput="setPcDesign('cardRadius',this.value)">
-        </div>
-      </div>
+    <div id="pref-scroll" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 12px;gap:0">
 
-      <!-- Page Heading — independent block card -->
-      <div class="bk" style="margin-top:12px">
-        <div class="bk-head" style="cursor:default" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-          <span class="material-icons-round bk-icon">title</span>
-          <span class="bk-title">Page heading &amp; subtext</span>
-          <span class="material-icons-round bk-chevron" style="margin-left:auto">expand_more</span>
+      <!-- ── STYLING section (collapsible, collapsed by default) ────────────── -->
+      <div class="pc-section" id="pcs-styling">
+        <div class="pc-section-head" onclick="this.closest('.pc-section').classList.toggle('open')">
+          <span class="material-icons-round mi">palette</span>
+          <span>Styling</span>
+          <span class="material-icons-round pc-s-chevron">expand_more</span>
         </div>
-        <div class="bk-body" style="display:block">
-          <div class="cg"><label class="cl">Heading</label>
-            <input type="text" id="pc-heading" placeholder="Email Preferences" oninput="setPcDesign('pageHeading',this.value)">
+        <div class="pc-section-body">
+          <!-- Logo -->
+          <div class="cg-row">
+            <label class="cl">Logo</label>
+            <button class="btn btn-outline btn-sm" style="width:100%" onclick="openPrefCenterImagePicker('logoUrl')"><span class="material-icons-round mi">image</span> <span id="pc-logo-label">Choose logo…</span></button>
           </div>
-          <div class="cg" style="margin-top:6px"><label class="cl">Subtext</label>
-            <textarea id="pc-subtext" rows="2" placeholder="Manage your subscription preferences below." oninput="setPcDesign('subText',this.value)" style="resize:vertical"></textarea>
+          <div class="cg-row" style="margin-top:6px">
+            <label class="cl">Logo width (px)</label>
+            <input type="number" id="pc-logo-width" min="40" max="500" placeholder="160" oninput="setPcDesign('logoWidth',this.value+'px')">
           </div>
-        </div>
-      </div>
-
-      <!-- Content blocks ABOVE actions -->
-      <div class="cg" style="margin-top:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div class="bk-section-label" style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em">Before actions</div>
-          <div style="position:relative">
-            <button class="btn btn-outline btn-sm" onclick="togglePcAddMenu(this,'pc-add-menu')"><span class="material-icons-round mi">add</span> Add block</button>
-            <div id="pc-add-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:200;min-width:160px;padding:4px 0">
-              <button class="pc-add-item" onclick="addPcBlock('heading','before')"><span class="material-icons-round mi">title</span> Heading</button>
-              <button class="pc-add-item" onclick="addPcBlock('paragraph','before')"><span class="material-icons-round mi">notes</span> Paragraph</button>
-              <button class="pc-add-item" onclick="addPcBlock('image','before')"><span class="material-icons-round mi">image</span> Image</button>
-              <button class="pc-add-item" onclick="addPcBlock('button','before')"><span class="material-icons-round mi">smart_button</span> Button</button>
-              <button class="pc-add-item" onclick="addPcBlock('wysiwyg','before')"><span class="material-icons-round mi">format_color_text</span> Rich text</button>
-              <button class="pc-add-item" onclick="addPcBlock('spacer','before')"><span class="material-icons-round mi">space_bar</span> Spacer</button>
-              <button class="pc-add-item" onclick="addPcBlock('divider','before')"><span class="material-icons-round mi">horizontal_rule</span> Divider</button>
+          <!-- Background -->
+          <div class="cg-row" style="margin-top:10px">
+            <label class="cl">Background image</label>
+            <button class="btn btn-outline btn-sm" style="width:100%" onclick="openPrefCenterImagePicker('bgImage')"><span class="material-icons-round mi">wallpaper</span> <span id="pc-bg-label">Choose image…</span></button>
+          </div>
+          <div id="pc-overlay-row" class="cg-row" style="margin-top:6px;display:none">
+            <label class="cl">Overlay colour &amp; opacity</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="color" id="pc-overlay-color" value="#000000" oninput="setPcDesign('bgOverlayColor',this.value)" title="Overlay colour" style="width:34px;height:28px;padding:2px;flex-shrink:0;cursor:pointer">
+              <input type="range" id="pc-overlay-range" min="0" max="1" step="0.05" style="flex:1" oninput="setPcDesign('bgOverlay',parseFloat(this.value));document.getElementById('pc-overlay-val').textContent=Math.round(this.value*100)+'%'">
+              <span id="pc-overlay-val" style="font-size:0.78rem;color:var(--ink3);width:32px">40%</span>
+            </div>
+          </div>
+          <!-- Colours -->
+          <div id="pc-color-rows" style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+            <!-- colour rows injected by buildPcColorPickers() -->
+          </div>
+          <!-- Card sizing -->
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border2)">
+            <div class="cl" style="margin-bottom:6px">Card sizing</div>
+            <div class="cg-row">
+              <label class="cl">Max width</label>
+              <input type="text" id="pc-card-maxwidth" placeholder="480px" oninput="setPcDesign('cardMaxWidth',this.value)">
+            </div>
+            <div class="cg-row" style="margin-top:6px">
+              <label class="cl">Padding</label>
+              <input type="text" id="pc-card-padding" placeholder="40px" oninput="setPcDesign('cardPadding',this.value)">
+            </div>
+            <div class="cg-row" style="margin-top:6px">
+              <label class="cl">Border radius</label>
+              <input type="text" id="pc-card-radius" placeholder="12px" oninput="setPcDesign('cardRadius',this.value)">
             </div>
           </div>
         </div>
-        <div id="pc-block-list" style="display:flex;flex-direction:column;gap:6px"></div>
-        <div id="pc-block-empty" style="font-size:0.8rem;color:var(--ink3);text-align:center;padding:10px 0;display:none">No blocks above actions.</div>
       </div>
 
-      <!-- locked actions block (styled like a bk card) -->
-      <div class="bk bk-form" style="margin-top:10px;cursor:default">
-        <div class="bk-head" style="cursor:default">
-          <span class="material-icons-round bk-lock">lock</span>
-          <span class="material-icons-round bk-icon">manage_accounts</span>
-          <span class="bk-title">Actions block</span>
+      <!-- ── LAYOUT section (collapsible, open by default) ─────────────────── -->
+      <div class="pc-section open" id="pcs-layout">
+        <div class="pc-section-head" onclick="this.closest('.pc-section').classList.toggle('open')">
+          <span class="material-icons-round mi">view_agenda</span>
+          <span>Layout</span>
+          <span class="material-icons-round pc-s-chevron">expand_more</span>
         </div>
-        <div class="bk-body" style="display:block;font-size:0.78rem;color:var(--ink3);line-height:1.5">
-          Unsubscribe / resubscribe / delete account buttons — always present, not editable.
-        </div>
-      </div>
+        <div class="pc-section-body" style="padding:8px 10px 10px">
 
-      <!-- Content blocks AFTER actions -->
-      <div class="cg" style="margin-top:10px;padding-bottom:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div class="bk-section-label" style="font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em">After actions</div>
-          <div style="position:relative">
-            <button class="btn btn-outline btn-sm" onclick="togglePcAddMenu(this,'pc-add-menu-after')"><span class="material-icons-round mi">add</span> Add block</button>
-            <div id="pc-add-menu-after" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:200;min-width:160px;padding:4px 0">
-              <button class="pc-add-item" onclick="addPcBlock('heading','after')"><span class="material-icons-round mi">title</span> Heading</button>
-              <button class="pc-add-item" onclick="addPcBlock('paragraph','after')"><span class="material-icons-round mi">notes</span> Paragraph</button>
-              <button class="pc-add-item" onclick="addPcBlock('image','after')"><span class="material-icons-round mi">image</span> Image</button>
-              <button class="pc-add-item" onclick="addPcBlock('button','after')"><span class="material-icons-round mi">smart_button</span> Button</button>
-              <button class="pc-add-item" onclick="addPcBlock('wysiwyg','after')"><span class="material-icons-round mi">format_color_text</span> Rich text</button>
-              <button class="pc-add-item" onclick="addPcBlock('spacer','after')"><span class="material-icons-round mi">space_bar</span> Spacer</button>
-              <button class="pc-add-item" onclick="addPcBlock('divider','after')"><span class="material-icons-round mi">horizontal_rule</span> Divider</button>
+          <!-- Page Heading block — with visibility toggle -->
+          <div class="bk" style="margin-bottom:8px">
+            <div class="bk-head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+              <span class="material-icons-round bk-icon">title</span>
+              <span class="bk-title">Page heading &amp; subtext</span>
+              <span class="material-icons-round bk-vis on" id="pc-heading-vis-btn"
+                onclick="event.stopPropagation();togglePcHeadingVis()"
+                title="Show / hide heading in page">visibility</span>
+              <span class="material-icons-round bk-chevron" style="margin-left:0">expand_more</span>
+            </div>
+            <div class="bk-body" style="display:block">
+              <div class="cg"><label class="cl">Heading</label>
+                <input type="text" id="pc-heading" placeholder="Email Preferences" oninput="setPcDesign('pageHeading',this.value)">
+              </div>
+              <div class="cg" style="margin-top:6px"><label class="cl">Subtext</label>
+                <textarea id="pc-subtext" rows="2" placeholder="Manage your subscription preferences below." oninput="setPcDesign('subText',this.value)" style="resize:vertical"></textarea>
+              </div>
             </div>
           </div>
+
+          <!-- Content blocks ABOVE actions -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <span class="bk-section-label" style="font-size:0.7rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em">Before actions</span>
+            <div style="position:relative">
+              <button class="btn btn-outline btn-sm" onclick="togglePcAddMenu(this,'pc-add-menu')"><span class="material-icons-round mi">add</span> Add block</button>
+              <div id="pc-add-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:200;min-width:160px;padding:4px 0">
+                <button class="pc-add-item" onclick="addPcBlock('heading','before')"><span class="material-icons-round mi">title</span> Heading</button>
+                <button class="pc-add-item" onclick="addPcBlock('paragraph','before')"><span class="material-icons-round mi">notes</span> Paragraph</button>
+                <button class="pc-add-item" onclick="addPcBlock('image','before')"><span class="material-icons-round mi">image</span> Image</button>
+                <button class="pc-add-item" onclick="addPcBlock('button','before')"><span class="material-icons-round mi">smart_button</span> Button</button>
+                <button class="pc-add-item" onclick="addPcBlock('wysiwyg','before')"><span class="material-icons-round mi">format_color_text</span> Rich text</button>
+                <button class="pc-add-item" onclick="addPcBlock('spacer','before')"><span class="material-icons-round mi">space_bar</span> Spacer</button>
+                <button class="pc-add-item" onclick="addPcBlock('divider','before')"><span class="material-icons-round mi">horizontal_rule</span> Divider</button>
+              </div>
+            </div>
+          </div>
+          <div id="pc-block-list" style="display:flex;flex-direction:column;gap:5px;margin-bottom:6px"></div>
+          <div id="pc-block-empty" style="font-size:0.78rem;color:var(--ink3);text-align:center;padding:8px 0;display:none">No blocks above actions.</div>
+
+          <!-- Locked actions block -->
+          <div class="bk bk-form" style="margin:6px 0;cursor:default">
+            <div class="bk-head" style="cursor:default">
+              <span class="material-icons-round bk-lock">lock</span>
+              <span class="material-icons-round bk-icon">manage_accounts</span>
+              <span class="bk-title">Actions block</span>
+            </div>
+            <div class="bk-body" style="display:block;font-size:0.78rem;color:var(--ink3);line-height:1.5">
+              Unsubscribe / resubscribe / delete buttons — always present.
+            </div>
+          </div>
+
+          <!-- Content blocks AFTER actions -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:6px 0 5px">
+            <span class="bk-section-label" style="font-size:0.7rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em">After actions</span>
+            <div style="position:relative">
+              <button class="btn btn-outline btn-sm" onclick="togglePcAddMenu(this,'pc-add-menu-after')"><span class="material-icons-round mi">add</span> Add block</button>
+              <div id="pc-add-menu-after" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:200;min-width:160px;padding:4px 0">
+                <button class="pc-add-item" onclick="addPcBlock('heading','after')"><span class="material-icons-round mi">title</span> Heading</button>
+                <button class="pc-add-item" onclick="addPcBlock('paragraph','after')"><span class="material-icons-round mi">notes</span> Paragraph</button>
+                <button class="pc-add-item" onclick="addPcBlock('image','after')"><span class="material-icons-round mi">image</span> Image</button>
+                <button class="pc-add-item" onclick="addPcBlock('button','after')"><span class="material-icons-round mi">smart_button</span> Button</button>
+                <button class="pc-add-item" onclick="addPcBlock('wysiwyg','after')"><span class="material-icons-round mi">format_color_text</span> Rich text</button>
+                <button class="pc-add-item" onclick="addPcBlock('spacer','after')"><span class="material-icons-round mi">space_bar</span> Spacer</button>
+                <button class="pc-add-item" onclick="addPcBlock('divider','after')"><span class="material-icons-round mi">horizontal_rule</span> Divider</button>
+              </div>
+            </div>
+          </div>
+          <div id="pc-block-list-after" style="display:flex;flex-direction:column;gap:5px"></div>
+          <div id="pc-block-empty-after" style="font-size:0.78rem;color:var(--ink3);text-align:center;padding:8px 0;display:none">No blocks after actions.</div>
+
         </div>
-        <div id="pc-block-list-after" style="display:flex;flex-direction:column;gap:6px"></div>
-        <div id="pc-block-empty-after" style="font-size:0.8rem;color:var(--ink3);text-align:center;padding:10px 0;display:none">No blocks after actions.</div>
       </div>
     </div>
     <!-- Email settings panel (shown when Email bl-tab is active) -->
@@ -2365,7 +2400,7 @@ async function openFormEditor(slug){
   const vs=document.getElementById('view-site-btn');if(vs){vs.style.display='';vs.onclick=()=>window.open('/'+slug,'_blank');}
   // Update preview iframes (append ?_preview=1 so admin loads don't count as visits)
   const pf=document.getElementById('preview-frame');if(pf)pf.src='/'+slug+'?_preview=1';
-  const dpf=document.getElementById('design-preview-frame');if(dpf)dpf.src='/'+slug+'?_preview=1&_generic=1';
+  // design-preview-frame uses /branding-preview (slug-independent) — updated on tab switch only
   const epf=document.getElementById('embed-preview-frame');if(epf)epf.src='/'+slug+'/embed';
   // Populate panels and switch to Build
   switchPanelTab('form');
@@ -3352,8 +3387,22 @@ function populatePrefCenterPanel(){
   // Text
   const ph=document.getElementById('pc-heading');if(ph)ph.value=pc.pageHeading||'';
   const ps=document.getElementById('pc-subtext');if(ps)ps.value=pc.subText||'';
+  // Heading visibility toggle
+  const hvBtn=document.getElementById('pc-heading-vis-btn');
+  if(hvBtn){
+    hvBtn.textContent=pc.hideHeading?'visibility_off':'visibility';
+    hvBtn.classList.toggle('on',!pc.hideHeading);
+  }
   buildPcColorPickers();
   renderPcBlockList();
+}
+
+function togglePcHeadingVis(){
+  const pc=_pc();if(!pc)return;
+  pc.hideHeading=!pc.hideHeading;
+  const btn=document.getElementById('pc-heading-vis-btn');
+  if(btn){btn.textContent=pc.hideHeading?'visibility_off':'visibility';btn.classList.toggle('on',!pc.hideHeading);}
+  schedulePreview();
 }
 
 function setPcDesign(key,val){
@@ -4412,12 +4461,9 @@ function switchTab(tab,btn){
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help')switchInnerTab('help');
   if(tab==='design'){
-    // Populate preview frame
+    // Populate preview frame — always use branding-preview (no slug dependency)
     const dpf=document.getElementById('design-preview-frame');
-    if(dpf&&!_editingTpl){
-      const previewSlug=currentFormSlug||(formsIndex[0]?.slug);
-      if(previewSlug)dpf.src='/'+previewSlug+'?_preview=1&_generic=1';
-    }
+    if(dpf&&!_editingTpl)dpf.src='/branding-preview?_t='+Date.now();
     loadDesignTemplates().then(()=>{
       populateDesignTplSelect();
       const empty=document.getElementById('dtpl-empty');
@@ -4744,7 +4790,7 @@ function enterTplEdit(tpl){
   const tplName=document.getElementById('tbar-tpl-name');if(tplName)tplName.textContent=tpl.name;
   buildFontPickers();buildPalettes();rebuildDesignColorPickers();renderBrandColorList();
   _populateDesignNonColorControls();
-  if(currentFormSlug)scheduleDesignTplPreview();
+  scheduleDesignTplPreview(); // uses /branding-preview — no slug needed
 }
 
 function exitTplEdit(){
@@ -4759,7 +4805,7 @@ function exitTplEdit(){
   // Topbar: restore form save button, hide template actions
   const tbarTpl=document.getElementById('tbar-tpl-btns');if(tbarTpl)tbarTpl.style.display='none';
   if(currentFormSlug){const sb=document.getElementById('save-btn');if(sb)sb.style.display='';}
-  if(currentFormSlug){const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/'+currentFormSlug+'?_preview=1&_generic=1';}
+  const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/branding-preview?_t='+Date.now();
 }
 
 async function saveTplFromDesignTab(){
@@ -4810,8 +4856,8 @@ function scheduleDesignTplPreview(){
   clearTimeout(_tplPreviewTimer);
   _tplPreviewTimer=setTimeout(()=>{
     const f2=document.getElementById('design-preview-frame');
-    if(f2&&currentFormSlug&&_editingTpl)
-      f2.src='/'+currentFormSlug+'?_tplPreview='+_editingTpl.id+'&_generic=1&_t='+Date.now();
+    if(f2&&_editingTpl)
+      f2.src='/branding-preview?_tplPreview='+_editingTpl.id+'&_t='+Date.now();
   },600);
 }
 

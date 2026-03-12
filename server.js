@@ -157,7 +157,7 @@ const UPLOADS_DIR      = path.join(__dirname, 'public', 'uploads'); // legacy �
 const FONTS_DIR        = path.join(UPLOADS_DIR, 'fonts');           // legacy — used only by import script
 
 // Slugs that cannot be used as form slugs (they're real routes)
-const RESERVED_SLUGS = new Set(['admin','auth','api','privacy','unsubscribe','delete-data','preferences','embed','public','uploads','assets']);
+const RESERVED_SLUGS = new Set(['admin','auth','api','privacy','unsubscribe','delete-data','preferences','embed','public','uploads','assets','branding-preview']);
 
 // ── OIDC client (initialised async at startup) ────────────────────────────────
 let oidcClient = null;
@@ -1179,6 +1179,27 @@ app.put('/api/admin/design-templates/:id', adminAuth, async (req, res) => {
     const tmpl = templates.find(t => t.id === req.params.id);
     res.json(tmpl || { id: req.params.id });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Branding tab preview — standalone dummy form, no form slug required
+// Uses GENERIC_PREVIEW_SECTIONS/FIELDS with default or template design.
+app.get('/branding-preview', requireAdmin, async (req, res) => {
+  try {
+    const [sharedFonts, templates] = await Promise.all([readSharedFonts(), readDesignTemplates()]);
+    // Start from a clean default config so no real form data leaks in
+    let formCfg = defaultFormConfig('_preview', 'Preview');
+    formCfg = { ...formCfg, sections: GENERIC_PREVIEW_SECTIONS, fields: GENERIC_PREVIEW_FIELDS };
+    // Apply template design if requested
+    if (req.query._tplPreview) {
+      const tpl = templates.find(t => t.id === req.query._tplPreview);
+      if (tpl && tpl.design) {
+        formCfg = { ...formCfg, design: { ...formCfg.design, ...tpl.design, customFonts: [] } };
+      }
+    }
+    res.send(renderPublicPage(formCfg, sharedFonts, templates));
+  } catch (e) {
+    res.status(500).send('Preview error: ' + e.message);
+  }
 });
 
 // Public form page
@@ -2377,8 +2398,7 @@ ${customFontFaceCSS(cfg, sharedFonts)}
 ${overlayDiv}
 <div class="pc-wrap"><div class="card">
   ${logoUrl ? `<div class="pc-logo"><img src="${logoUrl}" alt="${s.title||''}"></div>` : ''}
-  <h1 class="pc-title">${escapeHtml(heading)}</h1>
-  <p class="pc-subtext">${escapeHtml(subText)}</p>
+  ${!pc.hideHeading ? `<h1 class="pc-title">${escapeHtml(heading)}</h1><p class="pc-subtext">${escapeHtml(subText)}</p>` : ''}
   ${message ? `<p class="${success ? 'msg-success' : 'msg-error'}">${escapeHtml(message)}</p>` : ''}
   ${email ? `<p style="font-size:0.85rem;opacity:.6;margin-bottom:16px">Managing preferences for: <strong>${escapeHtml(email)}</strong></p>` : ''}
   ${sectionsHtml}
