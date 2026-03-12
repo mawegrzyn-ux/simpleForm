@@ -4370,6 +4370,9 @@ function switchTab(tab,btn){
   }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const p=document.getElementById('tab-'+tab);if(p)p.classList.add('active');
+  // Hide form sub-nav when in Branding/Help/Forms — only show for form-specific tabs
+  const fsn=document.getElementById('form-subnav');
+  if(fsn&&currentFormSlug)fsn.style.display=(tab==='design'||tab==='help'||tab==='forms')?'none':'flex';
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
   if(tab==='email')populateEmailTab();
