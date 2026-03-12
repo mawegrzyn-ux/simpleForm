@@ -1328,6 +1328,34 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       </div>
     </div>
 
+    <!-- RECENT CHANGES -->
+    <div class="help-group" data-tags="changelog recent changes updates">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">new_releases</span> Recent Changes
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>2026-03-12 — Field types &amp; form logic</h3>
+        <ul>
+          <li>✅ <strong>Year + Month + Day picker</strong> — three-drum scroll picker (day / month / year) submits as <code>YYYY-MM-DD</code></li>
+          <li>✅ <strong>Icon / tile selector</strong> — horizontal-scroll or grid layout of selectable tiles; supports Material Icons, emoji and image (via media library); single or multi-select; configurable tile size, highlight style (border / fill) and highlight colour</li>
+          <li>✅ <strong>Icon selector — grid layout</strong> — fixed-column grid mode with row-first or column-first fill direction; columns 1–12</li>
+          <li>✅ <strong>Icon selector — Material icon picker</strong> — searchable modal grid of 180+ Material Icons; click to insert into tile</li>
+          <li>✅ <strong>Icon selector — media picker for image tiles</strong> — image-type tiles open the media library picker; thumbnail preview in editor</li>
+          <li>✅ <strong>Submission deduplication</strong> — Settings tab: toggle "allow duplicate emails" and select which combination of fields forms the unique key (e.g. email + first name)</li>
+        </ul>
+        <h3>2026-03-12 — Preview &amp; UX fixes</h3>
+        <ul>
+          <li>✅ <strong>Email template — body font size</strong> — size selector (13–20 px) applied to email body text</li>
+          <li>✅ <strong>Email template — branding colour swatches</strong> — form palette colours shown as quick-pick swatches on all email colour pickers</li>
+          <li>✅ <strong>Branding preview — live fonts</strong> — <code>/branding-preview?slug=</code> loads actual form custom fonts instead of defaults</li>
+          <li>✅ <strong>Preview system redesign</strong> — template edits auto-save to DB before reload; eliminated double-save on manual save; separated <code>_reloadDesignFrame()</code> from <code>_reloadAllFrames()</code></li>
+          <li>✅ <strong>Preference centre crash fix</strong> — <code>findAllSubscriptions()</code> now properly awaited before passing to renderer</li>
+          <li>✅ <strong>CSP font-src</strong> — added <code>https://*.amazonaws.com</code> so custom fonts hosted on S3 load correctly</li>
+        </ul>
+      </div>
+    </div>
+
     <!-- ENTERPRISE ROADMAP -->
     <div class="help-group" data-tags="roadmap enterprise future plan sso saml postgres redis s3 api webhooks gdpr">
       <div class="help-group-head" onclick="toggleHelp(this)">
@@ -1632,7 +1660,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     <!-- FORM BUILDER -->
-    <div class="help-group" data-tags="build section hero form container content block field wysiwyg divider spacer video spin wheel confirmation">
+    <div class="help-group" data-tags="build section hero form container content block field wysiwyg divider spacer video spin wheel confirmation iconselect yearmonthday tile icon grid picker">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">edit</span> Form Builder
         <span class="material-icons-round mi help-chevron">expand_more</span>
@@ -1657,13 +1685,15 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <ul>
           <li><strong>Text, Email, Phone, Number</strong> — standard single-line inputs</li>
           <li><strong>Textarea</strong> — multi-line text</li>
-          <li><strong>Select, Checkbox, Radio</strong> — choice inputs</li>
-          <li><strong>Date, Year, Year+Month</strong> — date / partial-date pickers</li>
-          <li><strong>Age</strong> — age input with min/max validation</li>
-          <li><strong>Slider</strong> — linear, angled or arc style numeric slider</li>
-          <li><strong>Hidden</strong> — pre-filled value not shown to the user</li>
+          <li><strong>Select, Checkbox</strong> — choice inputs</li>
+          <li><strong>Date</strong> — native browser date picker with optional range or specific-date restrictions</li>
+          <li><strong>Year, Year+Month</strong> — scroll-drum partial-date pickers</li>
+          <li><strong>Year+Month+Day</strong> — three-drum scroll picker (day / month / year); submits as <code>YYYY-MM-DD</code></li>
+          <li><strong>Age</strong> — numeric age input with min/max year range validation</li>
+          <li><strong>Slider</strong> — linear, angled or arc style numeric slider with custom knob icon and labels</li>
+          <li><strong>Icon / tile selector</strong> — horizontal-scroll or grid of clickable tiles; each tile can show a Material Icon, emoji or image; single or multi-select; configurable tile size, highlight style and colour; grid mode supports row-first or column-first fill with 1–12 columns</li>
         </ul>
-        <p>All non-system fields support: label, placeholder, required toggle, conditional visibility (show/hide based on another field's value).</p>
+        <p>All non-system fields support: label, placeholder, required toggle, and conditional visibility (show/hide based on another field's value).</p>
         <h3>Container items</h3>
         <p>Inside a Container block you can drag-and-drop items. Click any item's <strong>edit pencil</strong> to open the item editor modal and customise appearance — colour overrides, font, size, alignment. The <strong>Submit</strong> item inside a container respects custom button background and text colour.</p>
         <h3>Section colours</h3>
@@ -1796,7 +1826,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     <!-- SETTINGS -->
-    <div class="help-group" data-tags="settings site captcha privacy hcaptcha cookie domain slug">
+    <div class="help-group" data-tags="settings site captcha privacy hcaptcha cookie domain slug deduplication duplicate unique key">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">settings</span> Form Settings
         <span class="material-icons-round mi help-chevron">expand_more</span>
@@ -1813,6 +1843,13 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <p>Enable bot protection per-form. Enter your <strong>hCaptcha site key</strong> and <strong>secret key</strong> (from hcaptcha.com). When enabled, a CAPTCHA challenge appears above the submit button.</p>
         <h3>Design template assignment</h3>
         <p>Link a design template to a form here. The live form will use the template's visual design while keeping form-specific settings (slug, fields, sections) intact.</p>
+        <h3>Submission deduplication</h3>
+        <p>By default SignFlow prevents the same email from subscribing twice. The <strong>Submission deduplication</strong> card lets you change this behaviour:</p>
+        <ul>
+          <li><strong>Allow duplicate emails</strong> — when toggled on, the same email can submit multiple times as long as the chosen <em>key fields</em> differ</li>
+          <li><strong>Unique key fields</strong> — tick which fields together form the uniqueness check (e.g. <em>Email + First name</em>). A submission is blocked only when every ticked field matches an existing active subscriber exactly.</li>
+        </ul>
+        <p>Example: with <em>Email + First name</em> as the key, <code>alice@example.com / Alice</code> and <code>alice@example.com / Bob</code> are treated as two distinct subscribers.</p>
       </div>
     </div>
 

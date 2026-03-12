@@ -4,7 +4,24 @@
 > Self-hosted on your own infrastructure. No SaaS lock-in. Full data ownership.
 
 **Live demo:** wingvibes.com | **Admin:** wingvibes.com/admin
-**Stack:** Node.js 20 · Express 4 · Vanilla JS SPA · JSON flat-file storage · Auth0 OIDC · PM2 · Nginx · AWS Lightsail
+**Stack:** Node.js 20 · Express 4 · Vanilla JS SPA · PostgreSQL 16 · Amazon S3 · Auth0 OIDC · PM2 · Nginx · AWS Lightsail
+
+---
+
+## Changelog
+
+### 2026-03-12
+- **New field — Year+Month+Day picker**: three scroll-drum date picker submitting `YYYY-MM-DD`
+- **New field — Icon / tile selector (`iconselect`)**: horizontal-scroll or grid layout of selectable tiles (Material Icons, emoji, or image via media library); single or multi-select; configurable tile size, highlight style (border/fill), highlight colour
+- **Icon selector — grid layout**: fixed-column grid with row-first or column-first fill, 1–12 columns
+- **Icon selector — Material icon picker**: searchable modal grid of 180+ Material Icons
+- **Icon selector — media picker for image tiles**: image tiles use the media library; thumbnail previewed in editor
+- **Submission deduplication**: Settings tab toggle to allow duplicate emails; configure a multi-field unique key (e.g. email + first name); server-side query built dynamically from selected fields
+- **Email template**: body font size selector (13–20 px); branding colour swatches on all colour pickers
+- **Branding preview**: `?slug=` param loads actual form custom fonts for accurate preview
+- **Preview system**: template edits auto-save before reload; removed double-save; `_reloadDesignFrame()` / `_reloadAllFrames()` helpers
+- **Preference centre crash fix**: `findAllSubscriptions()` properly awaited in GET/POST `/preferences` handlers
+- **CSP fix**: `font-src` extended with `https://*.amazonaws.com` so S3-hosted custom fonts load
 
 ---
 
@@ -48,7 +65,7 @@ SignFlow is a self-hosted platform for building, managing, and embedding beautif
 |---|---|
 | Visual drag-and-drop editor | Live WYSIWYG with instant iframe preview |
 | Block types | Field, Submit, Heading, Paragraph, Image, Spacer, Divider, WYSIWYG rich text, Video, Container (1- or 2-column) |
-| Field types | Text, Email, Phone, Dropdown, Checkbox, Textarea, Date, Age, Year, Year+Month, Slider (linear / angled / arc) |
+| Field types | Text, Email, Phone, Dropdown, Checkbox, Textarea, Date, Age, Year, Year+Month, Year+Month+Day, Slider (linear / angled / arc), Icon/tile selector (scroll or grid, Material Icons / emoji / image, single/multi-select) |
 | Confirmation section | Separate post-submit block layout shown after successful signup |
 | Spin-wheel section | Gamified prize wheel section on the form |
 | Per-block formatting | Label colour, text colour, field background, font family, font size per field block; button colour per submit block |
@@ -84,6 +101,7 @@ SignFlow is a self-hosted platform for building, managing, and embedding beautif
 | Export flag management | Clear export flag per-row or bulk "Clear all" |
 | Admin unsubscribe | One-click unsubscribe per row; reversal (re-activate) available |
 | GDPR delete | Hard-delete individual subscriber records |
+| Deduplication control | Settings tab: allow duplicate emails with configurable multi-field unique key (e.g. email + first name) |
 
 ### Embed & distribution
 | Feature | Details |
@@ -857,27 +875,25 @@ Current JSON flat files will not scale past ~50k subscribers per form without no
 
 | Function | Description |
 |---|---|
-| `migrateIfNeeded()` | On startup: converts legacy single-form data to multi-form layout |
-| `defaultFormConfig()` | Returns template for a new form with all default values |
-| `readFormConfig(slug)` | Reads `data/forms/{slug}.json` |
-| `writeFormConfig(slug, cfg)` | Writes form config; creates directory if needed |
-| `readFormSubscribers(slug)` | Reads `data/subscribers-{slug}.json` |
-| `writeFormSubscribers(slug, subs)` | Writes subscriber array |
-| `renderPublicPage(cfg)` | Returns full HTML for public-facing form page |
-| `renderEmbedPage(cfg)` | Returns full HTML for iframe embed version |
-| `renderBlockElement(el, cfg)` | Renders a single top-level section block to HTML |
-| `renderCntItem(item, cfg, d)` | Renders an item inside a container column |
-| `renderFormField(field, cfg)` | Renders a single form field element |
-| `sendWelcomeEmail(cfg, subscriber)` | Sends HTML welcome email via Nodemailer |
+| `defaultFormConfig()` | Returns template for a new form with all default values (includes `allowDuplicateEmail`, `uniqueKeyFields`) |
+| `readFormConfig(slug)` | Reads form config from PostgreSQL `forms` table |
+| `writeFormConfig(slug, cfg)` | Upserts form config in `forms` table |
+| `renderPublicPage(cfg, sharedFonts, templates)` | Returns full HTML for public-facing form page |
+| `renderEmbedPage(cfg, sharedFonts)` | Returns full HTML for iframe embed version |
+| `renderBlockElement(el, cfg)` | Renders a single top-level section block to HTML (WYSIWYG output sanitised via `sanitize-html`) |
+| `renderFormField(field, cfg)` | Renders a single form field element; supports text, select, checkbox, textarea, age, date, year, yearmonth, yearmonthday, slider, iconselect |
+| `sliderPickerCSS(accent)` | Generates CSS for all custom field types (picker drums, sliders, icon tiles, grid layout) |
+| `sliderPickerJS()` | Generates client JS for picker drums (year/month/day), sliders (linear/angled/arc) and icon tile selection |
+| `sendWelcomeEmail(cfg, subscriber)` | Sends HTML welcome email via Nodemailer; respects `bodyFontSize` design token |
 | `replaceMergeTags(text, cfg, sub, url)` | Replaces `{{tag}}` placeholders in email subject/body |
-| `customFontFaceCSS(cfg)` | Generates `@font-face` CSS for all custom fonts (shared + form) |
-| `googleFontTag(cfg, d)` | Generates Google Fonts `<link>` tag, skipping custom font names |
-| `readSharedMedia()` / `writeSharedMedia()` | CRUD for shared media library |
-| `readSharedFonts()` / `writeSharedFonts()` | CRUD for shared fonts library |
+| `customFontFaceCSS(cfg, sharedFonts)` | Generates `@font-face` CSS for all custom fonts (shared + form) |
+| `googleFontTag(cfg, sharedFonts, effectiveDesign)` | Generates Google Fonts `<link>` tag, skipping custom font names |
+| `readSharedFonts()` | Fetches shared font records from PostgreSQL |
 | `findSubscriberByToken(slug, token)` | Looks up subscriber by unsubscribe token |
+| `findAllSubscriptions(email)` | Returns all active/inactive subscriptions for an email across all forms |
 | `adminAuth` middleware | Verifies Auth0 session + `signflow-admin` role |
-| `requireAuth` middleware | Redirects to Auth0 login if no session |
-| `submitLimiter` | express-rate-limit: 10 subs/15min/IP |
+| `submitLimiter` | express-rate-limit: 10 subs/15min per IP+slug; dynamic duplicate check uses `cfg.site.uniqueKeyFields` |
+| `authLimiter` | express-rate-limit: 20 attempts/15min on `/auth/login` and `/auth/callback` |
 
 ---
 
@@ -904,8 +920,17 @@ Current JSON flat files will not scale past ~50k subscribers per form without no
 | `addBlock(type, sectionId)` | Adds a new block to a section |
 | `deleteBlock(sectionId, blockId)` | Removes a block |
 | `moveBlock(dir, sectionId, blockId)` | Moves block up/down within section |
-| `openFieldModal(fieldId)` | Opens field editor modal |
-| `saveFieldModal()` | Saves field edits back to `cfg.fields` |
+| `openFieldModal(fieldId)` | Opens field editor modal; populates type-specific groups including `iconselect` and `yearmonthday` |
+| `saveField()` | Saves field edits back to `cfg.fields`; collects all type-specific props |
+| `iselRenderItems()` | Re-renders the icon selector tile list in the field modal |
+| `iselAddItem()` | Appends a blank tile row to `_iselItems` |
+| `iselOnLayoutChange()` | Shows/hides grid options (columns, fill direction) based on layout mode |
+| `openIconPicker(rowIdx)` | Opens the Material icon picker modal for tile row `rowIdx` |
+| `filterIconGrid(q)` | Filters the 180+ icon grid by search query |
+| `selectPickerIcon(name)` | Inserts selected icon name into the tile row and closes picker |
+| `toggleDupKeyFields()` | Shows/hides key-field checkboxes based on "allow duplicate emails" toggle |
+| `renderDupKeyCheckboxes()` | Renders form field checkboxes for the unique-key selector |
+| `toggleDupKeyField(cb)` | Adds/removes a field ID from `cfg.site.uniqueKeyFields` |
 | `openFormatModal(type, id)` | Opens formatting modal for field/submit blocks |
 | `saveFormatModal()` | Saves format overrides back to block element |
 | `openEmailBodyWysiwyg()` | Opens rich text modal for email HTML body |
@@ -923,4 +948,4 @@ Current JSON flat files will not scale past ~50k subscribers per form without no
 
 ---
 
-*Last updated: 2026-03-11 · SignFlow v2.0 (multi-form)*
+*Last updated: 2026-03-12 · SignFlow v2.1*
