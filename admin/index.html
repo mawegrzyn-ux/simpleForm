@@ -4160,24 +4160,22 @@ function renderFieldList(){
     const list=document.getElementById(listId);if(!list)return;list.innerHTML='';
     (cfg.fields||[]).forEach(f=>{
       const condCount=(f.conditions||[]).length;
-      const item=document.createElement('div');item.className='fi';item.draggable=!f.system;item.dataset.id=f.id;
+      const item=document.createElement('div');item.className='fi';item.draggable=true;item.dataset.id=f.id;
       item.innerHTML=`
-        <span class="material-icons-round dh" style="${f.system?'visibility:hidden':''}">drag_indicator</span>
+        <span class="material-icons-round dh">drag_indicator</span>
         <div class="fi-info">
           <div class="fi-label">${f.label}</div>
-          <div class="fi-meta">${f.type} · ${f.required?'Required':'Optional'}${f.system?' · System':''}${condCount?' · '+condCount+' condition'+(condCount>1?'s':''):''}</div>
+          <div class="fi-meta">${f.type} · ${f.required?'Required':'Optional'}${condCount?' · '+condCount+' condition'+(condCount>1?'s':''):''}</div>
         </div>
         <div class="fi-acts">
           <button class="ibtn" onclick="openFieldModal('${f.id}')" title="Edit"><span class="material-icons-round mi">edit</span></button>
           ${!f.system?`<button class="ibtn danger" onclick="deleteField('${f.id}')" title="Delete"><span class="material-icons-round mi">delete</span></button>`:''}
         </div>`;
-      if(!f.system){
-        item.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',f.id);item.classList.add('dragging');});
-        item.addEventListener('dragend',()=>item.classList.remove('dragging'));
-        item.addEventListener('dragover',e=>{e.preventDefault();item.classList.add('drag-over');});
-        item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
-        item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');dropField(e.dataTransfer.getData('text/plain'),f.id);});
-      }
+      item.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',f.id);item.classList.add('dragging');});
+      item.addEventListener('dragend',()=>item.classList.remove('dragging'));
+      item.addEventListener('dragover',e=>{e.preventDefault();item.classList.add('drag-over');});
+      item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+      item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');dropField(e.dataTransfer.getData('text/plain'),f.id);});
       list.appendChild(item);
     });
   });
