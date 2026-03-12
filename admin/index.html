@@ -263,6 +263,9 @@ tr:hover td{background:#FAFAF8;}
 .etpl-tag-chip{padding:3px 8px;border-radius:12px;background:var(--accent);color:#fff;font-size:0.72rem;font-family:monospace;cursor:pointer;border:none;transition:opacity .15s;}
 .etpl-tag-chip:hover{opacity:.8;}
 .etpl-merge{background:#e8f0fe;color:#1558d6;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:0.85em;}
+.etpl-swatch-row{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;}
+.etpl-swatch{width:16px;height:16px;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,.15);flex-shrink:0;transition:transform 120ms;}
+.etpl-swatch:hover{transform:scale(1.25);}
 .pagination{display:flex;align-items:center;gap:3px;}
 .page-btn{width:28px;height:28px;border:1.5px solid var(--border);border-radius:6px;background:var(--panel);cursor:pointer;font-size:0.8rem;font-family:var(--font);color:var(--ink2);display:flex;align-items:center;justify-content:center;transition:all 120ms;}
 .page-btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -336,6 +339,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #tab-design{flex-direction:row;overflow:hidden;}
 #design-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
 #design-panel .page-body{max-width:none;padding:24px 20px;}
+#tab-subscribers .page-body{max-width:none;}
 #tab-pfsettings{flex-direction:row;overflow:hidden;}
 #settings-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
 #settings-panel .page-body{max-width:none;padding:24px 20px;}
@@ -738,13 +742,18 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       </div>
       <div class="card" style="padding:16px">
         <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">palette</span> Template Style</div>
-        <div class="cg"><label class="cl">Background</label><input type="color" id="etpl-bgColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"></div>
-        <div class="cg"><label class="cl">Card background</label><input type="color" id="etpl-cardBg" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"></div>
-        <div class="cg"><label class="cl">Text colour</label><input type="color" id="etpl-textColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"></div>
-        <div class="cg"><label class="cl">Heading colour</label><input type="color" id="etpl-headingColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"></div>
+        <div class="cg"><label class="cl">Background</label><input type="color" id="etpl-bgColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"><div id="etpl-bgColor-swatches" class="etpl-swatch-row"></div></div>
+        <div class="cg"><label class="cl">Card background</label><input type="color" id="etpl-cardBg" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"><div id="etpl-cardBg-swatches" class="etpl-swatch-row"></div></div>
+        <div class="cg"><label class="cl">Text colour</label><input type="color" id="etpl-textColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"><div id="etpl-textColor-swatches" class="etpl-swatch-row"></div></div>
+        <div class="cg"><label class="cl">Heading colour</label><input type="color" id="etpl-headingColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"><div id="etpl-headingColor-swatches" class="etpl-swatch-row"></div></div>
         <div class="cg"><label class="cl">Body font</label>
           <select id="etpl-bodyFont" onchange="updateEtplDesign()">
             <option>Lato</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Source Sans Pro</option><option>Georgia</option><option>Merriweather</option><option>Playfair Display</option>
+          </select>
+        </div>
+        <div class="cg"><label class="cl">Body font size</label>
+          <select id="etpl-bodyFontSize" onchange="updateEtplDesign()">
+            <option value="13px">13px — Small</option><option value="14px">14px</option><option value="15px">15px</option><option value="16px" selected>16px</option><option value="18px">18px — Large</option><option value="20px">20px — XL</option>
           </select>
         </div>
         <div class="cg"><label class="cl">Heading font</label>
@@ -2512,7 +2521,7 @@ async function refreshPreview(){
   await adminFetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
   const f=document.getElementById('preview-frame');
   if(f){if(_panelTab==='response'){f.src='/'+currentFormSlug+'/confirmation-preview?_t='+Date.now();}else{f.src=f.src;}}
-  const f2=document.getElementById('design-preview-frame');if(f2)f2.src=f2.src;
+  const f2=document.getElementById('design-preview-frame');if(f2){const _sp=currentFormSlug?'&slug='+currentFormSlug:'';f2.src='/branding-preview?_t='+Date.now()+_sp;}
   const f3=document.getElementById('settings-preview-frame');if(f3&&f3.src!=='about:blank')f3.src=f3.src;
 }
 function setPreviewSize(s,btn){
@@ -4463,7 +4472,7 @@ function switchTab(tab,btn){
   if(tab==='design'){
     // Populate preview frame — always use branding-preview (no slug dependency)
     const dpf=document.getElementById('design-preview-frame');
-    if(dpf&&!_editingTpl)dpf.src='/branding-preview?_t='+Date.now();
+    if(dpf&&!_editingTpl){const _sp=currentFormSlug?'&slug='+currentFormSlug:'';dpf.src='/branding-preview?_t='+Date.now()+_sp;}
     loadDesignTemplates().then(()=>{
       populateDesignTplSelect();
       const empty=document.getElementById('dtpl-empty');
@@ -4614,14 +4623,30 @@ function populateEmailTab(){
   _etplSetControl('etpl-textColor',   ed.textColor||'#333333');
   _etplSetControl('etpl-headingColor',ed.headingColor||'#1a1a2e');
   _etplSetControl('etpl-bodyFont',    ed.bodyFont||'Lato');
+  _etplSetControl('etpl-bodyFontSize',ed.bodyFontSize||'16px');
   _etplSetControl('etpl-headingFont', ed.headingFont||'Playfair Display');
   _etplSetControl('etpl-maxWidth',    ed.maxWidth||'600px');
   _etplSetControl('etpl-padding',     ed.padding||'40px');
   _etplSetControl('etpl-borderRadius',ed.borderRadius||'8px');
+  _renderEtplBrandSwatches();
   applyEtplDesign();
   toggleEmailFields();
   document.getElementById('etpl-tag-menu-subject')?.classList.remove('open');
   document.getElementById('etpl-tag-menu-body')?.classList.remove('open');
+}
+function _renderEtplBrandSwatches(){
+  if(!cfg?.design)return;
+  const d=cfg.design;
+  // Collect unique brand colours from design + custom brand palette
+  const raw=[d.primaryColor,d.accentColor,d.backgroundColor,d.textColor,d.btnBg,
+    ...(d.brandColors||[]).map(b=>b.color),'#ffffff','#f4f4f4','#333333','#000000'];
+  const colors=[...new Set(raw.filter(c=>c&&/^#[0-9a-fA-F]{3,6}$/.test(c)))].slice(0,10);
+  ['bgColor','cardBg','textColor','headingColor'].forEach(field=>{
+    const row=document.getElementById('etpl-'+field+'-swatches');
+    if(!row)return;
+    row.innerHTML=colors.map(c=>`<span class="etpl-swatch" style="background:${c}" title="${c}"
+      onclick="document.getElementById('etpl-${field}').value='${c}';updateEtplDesign()"></span>`).join('');
+  });
 }
 // Legacy — redirect to Email panel tab in Build
 function openEmailTemplateModal(){ switchTab('build',null); switchPanelTab('email'); }
@@ -4650,6 +4675,7 @@ function updateEtplDesign(){
   ed.textColor    =document.getElementById('etpl-textColor')?.value||ed.textColor;
   ed.headingColor =document.getElementById('etpl-headingColor')?.value||ed.headingColor;
   ed.bodyFont     =document.getElementById('etpl-bodyFont')?.value||ed.bodyFont;
+  ed.bodyFontSize =document.getElementById('etpl-bodyFontSize')?.value||ed.bodyFontSize;
   ed.headingFont  =document.getElementById('etpl-headingFont')?.value||ed.headingFont;
   ed.maxWidth     =document.getElementById('etpl-maxWidth')?.value||ed.maxWidth;
   ed.padding      =document.getElementById('etpl-padding')?.value||ed.padding;
@@ -4672,6 +4698,7 @@ function applyEtplDesign(){
   if(wysi){
     wysi.style.color=ed.textColor||'#333333';
     wysi.style.fontFamily=`'${ed.bodyFont||'Lato'}',sans-serif`;
+    wysi.style.fontSize=ed.bodyFontSize||'16px';
   }
 }
 function etplFmt(cmd,val){
@@ -4805,7 +4832,7 @@ function exitTplEdit(){
   // Topbar: restore form save button, hide template actions
   const tbarTpl=document.getElementById('tbar-tpl-btns');if(tbarTpl)tbarTpl.style.display='none';
   if(currentFormSlug){const sb=document.getElementById('save-btn');if(sb)sb.style.display='';}
-  const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/branding-preview?_t='+Date.now();
+  const f2=document.getElementById('design-preview-frame');if(f2){const _sp=currentFormSlug?'&slug='+currentFormSlug:'';f2.src='/branding-preview?_t='+Date.now()+_sp;}
 }
 
 async function saveTplFromDesignTab(){

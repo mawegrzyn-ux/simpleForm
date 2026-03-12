@@ -119,6 +119,7 @@ async function sendWelcomeEmail(cfg, subscriber) {
   const cardBg     = ed.cardBg     || '#ffffff';
   const textColor  = ed.textColor  || '#333333';
   const bodyFont   = ed.bodyFont   || s.bodyFont || 'Lato';
+  const bodyFontSize = ed.bodyFontSize || '16px';
   const maxWidth   = ed.maxWidth   || '600px';
   const padding    = ed.padding    || '40px';
   const radius     = ed.borderRadius || '8px';
@@ -134,7 +135,7 @@ async function sendWelcomeEmail(cfg, subscriber) {
 </head><body style="margin:0;padding:0;background:${bgColor}">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 16px">
 <table width="${maxWidth}" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}">
-<tr><td style="background:${cardBg};border-radius:${radius};padding:${padding};color:${textColor};font-family:'${bodyFont}',Helvetica,Arial,sans-serif;line-height:1.6">
+<tr><td style="background:${cardBg};border-radius:${radius};padding:${padding};color:${textColor};font-family:'${bodyFont}',Helvetica,Arial,sans-serif;font-size:${bodyFontSize};line-height:1.6">
 ${bodyHtml}
 ${footer}
 </td></tr></table></td></tr></table>
@@ -597,8 +598,8 @@ app.get('/preferences', async (req, res) => {
     if (found) cfg = await readFormConfig(found.slug);
     else { const idx = await readFormsIndex(); cfg = idx.length ? await readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
   } catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
-  const sharedFonts = await readSharedFonts();
-  res.send(renderPreferencePage(cfg, { token, email, found }, sharedFonts));
+  const [sharedFonts, allSubs] = await Promise.all([readSharedFonts(), email ? findAllSubscriptions(email) : Promise.resolve([])]);
+  res.send(renderPreferencePage(cfg, { token, email, found, allSubs }, sharedFonts));
 });
 
 // Preference centre — POST: perform action
@@ -633,8 +634,8 @@ app.post('/preferences', async (req, res) => {
   } else {
     message = 'Unknown action.';
   }
-  const sharedFonts = await readSharedFonts();
-  res.send(renderPreferencePage(cfg, { token, email, found: success ? null : found, message, success }, sharedFonts));
+  const [sharedFonts, allSubs] = await Promise.all([readSharedFonts(), email ? findAllSubscriptions(email) : Promise.resolve([])]);
+  res.send(renderPreferencePage(cfg, { token, email, found: success ? null : found, message, success, allSubs }, sharedFonts));
 });
 
 // Backward compat: /unsubscribe redirects to /preferences
@@ -1182,18 +1183,24 @@ app.put('/api/admin/design-templates/:id', adminAuth, async (req, res) => {
 });
 
 // Branding tab preview — standalone dummy form, no form slug required
-// Uses GENERIC_PREVIEW_SECTIONS/FIELDS with default or template design.
+// Uses GENERIC_PREVIEW_SECTIONS/FIELDS with selected form's design (or defaults).
 app.get('/branding-preview', adminAuth, async (req, res) => {
   try {
     const [sharedFonts, templates] = await Promise.all([readSharedFonts(), readDesignTemplates()]);
-    // Start from a clean default config so no real form data leaks in
     let formCfg = defaultFormConfig('_preview', 'Preview');
+    // If a real form slug is provided, inherit its design (fonts, colours, etc.)
+    if (req.query.slug) {
+      try {
+        const realCfg = await readFormConfig(req.query.slug);
+        if (realCfg && realCfg.design) formCfg = { ...formCfg, design: { ...realCfg.design } };
+      } catch (_) { /* slug not found — fall back to defaults */ }
+    }
     formCfg = { ...formCfg, sections: GENERIC_PREVIEW_SECTIONS, fields: GENERIC_PREVIEW_FIELDS };
-    // Apply template design if requested
+    // Apply template design if requested (preserve per-form custom fonts)
     if (req.query._tplPreview) {
       const tpl = templates.find(t => t.id === req.query._tplPreview);
       if (tpl && tpl.design) {
-        formCfg = { ...formCfg, design: { ...formCfg.design, ...tpl.design, customFonts: [] } };
+        formCfg = { ...formCfg, design: { ...formCfg.design, ...tpl.design, customFonts: (formCfg.design || {}).customFonts || [] } };
       }
     }
     res.send(renderPublicPage(formCfg, sharedFonts, templates));
@@ -2294,7 +2301,7 @@ function renderPrefCenterBlock(block) {
   }
 }
 
-function renderPreferencePage(cfg, { token, email, found, message, success } = {}, sharedFonts = []) {
+function renderPreferencePage(cfg, { token, email, found, message, success, allSubs } = {}, sharedFonts = []) {
   const d  = cfg.design || {};
   const s  = cfg.site   || {};
   const pc = cfg.preferenceCenter || {};
@@ -2328,11 +2335,10 @@ function renderPreferencePage(cfg, { token, email, found, message, success } = {
     }
   }
 
-  // Subscription list
-  let allSubs = [];
-  if (email) { try { allSubs = findAllSubscriptions(email); } catch(e) {} }
-  const foundFormName = found ? (allSubs.find(x => x.slug === found.slug) || {}).formName || found.slug : '';
-  const subsListHtml = allSubs.length ? allSubs.map(({ formName, sub }) => `
+  // Subscription list — allSubs must be pre-fetched by the async caller (never call async here)
+  const subs = Array.isArray(allSubs) ? allSubs : [];
+  const foundFormName = found ? (subs.find(x => x.slug === found.slug) || {}).formName || found.slug : '';
+  const subsListHtml = subs.length ? subs.map(({ formName, sub }) => `
     <div class="sub-item">
       <span class="sub-name">${escapeHtml(formName)}</span>
       <span class="badge ${escapeHtml(sub.status)}">${escapeHtml(sub.status)}</span>
