@@ -1990,6 +1990,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <option value="checkbox">Checkbox</option><option value="date">Date (native)</option>
         <option value="age">Age (range-limited)</option><option value="slider">Slider</option>
         <option value="year">Year picker</option><option value="yearmonth">Year + Month picker</option>
+        <option value="yearmonthday">Year + Month + Day picker</option>
         <option value="iconselect">Icon / tile selector</option>
       </select>
     </div>
@@ -2078,6 +2079,23 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </div>
         <div style="flex:1"><label class="cl">Highlight colour</label>
           <input type="color" id="modal-isel-color" value="#e94560" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+        </div>
+      </div>
+      <div class="cr" style="gap:8px;margin-bottom:4px">
+        <div style="flex:1"><label class="cl">Layout</label>
+          <select id="modal-isel-layout" onchange="iselOnLayoutChange()">
+            <option value="scroll">Horizontal scroll</option>
+            <option value="grid">Grid</option>
+          </select>
+        </div>
+      </div>
+      <div id="modal-isel-grid-opts" class="cr" style="display:none;gap:8px;margin-bottom:4px">
+        <div style="flex:1"><label class="cl">Columns</label><input type="number" id="modal-isel-cols" value="4" min="1" max="12"></div>
+        <div style="flex:1"><label class="cl">Fill direction</label>
+          <select id="modal-isel-flow">
+            <option value="row">Left → Right, then down</option>
+            <option value="col">Down first, then right</option>
+          </select>
         </div>
       </div>
       <div class="cr" style="gap:16px;flex-wrap:wrap">
@@ -4325,7 +4343,7 @@ function openFieldModal(fieldId){
     document.getElementById('modal-id').disabled=f.system;document.getElementById('modal-type').disabled=f.system;
     if(f.type==='age'){sv('modal-age-min',f.minAge||'');sv('modal-age-max',f.maxAge||'');}
     if(f.type==='date'){sv('modal-date-mode',f.dateMode||'free');sv('modal-date-min',f.minDate||'');sv('modal-date-max',f.maxDate||'');sv('modal-date-specific',(f.allowedDates||[]).join('\n'));}
-    if(f.type==='year'||f.type==='yearmonth'){sv('modal-year-min',f.minYear||'');sv('modal-year-max',f.maxYear||'');}
+    if(f.type==='year'||f.type==='yearmonth'||f.type==='yearmonthday'){sv('modal-year-min',f.minYear||'');sv('modal-year-max',f.maxYear||'');}
     if(f.type==='slider'){
       sv('modal-slider-min',f.min??0);sv('modal-slider-max',f.max??100);sv('modal-slider-step',f.step??1);sv('modal-slider-default',f.defaultValue??50);
       sv('modal-slider-track',f.trackStyle||'linear');sv('modal-slider-mode',f.slideMode||'smooth');sv('modal-slider-icon',f.knobIcon||'●');
@@ -4337,6 +4355,7 @@ function openFieldModal(fieldId){
     if(f.type==='iconselect'){
       _iselItems=JSON.parse(JSON.stringify(f.iselItems||[]));iselRenderItems();
       sv('modal-isel-size',f.iselTileSize||64);sv('modal-isel-selstyle',f.iselSelStyle||'border');
+      sv('modal-isel-layout',f.iselLayout||'scroll');sv('modal-isel-cols',f.iselColumns||4);sv('modal-isel-flow',f.iselFlow||'row');
       document.getElementById('modal-isel-color').value=f.iselSelColor||'#e94560';
       document.getElementById('modal-isel-multi').checked=!!f.iselMulti;
       document.getElementById('modal-isel-labels').checked=f.iselShowLabels!==false;
@@ -4348,7 +4367,7 @@ function openFieldModal(fieldId){
     document.getElementById('modal-required').checked=false;
     document.getElementById('modal-id').disabled=false;document.getElementById('modal-type').disabled=false;
     document.getElementById('modal-slider-showval').checked=true;
-    _iselItems=[];iselRenderItems();sv('modal-isel-size','64');sv('modal-isel-selstyle','border');
+    _iselItems=[];iselRenderItems();sv('modal-isel-size','64');sv('modal-isel-selstyle','border');sv('modal-isel-layout','scroll');sv('modal-isel-cols','4');sv('modal-isel-flow','row');
     document.getElementById('modal-isel-color').value='#e94560';
     document.getElementById('modal-isel-multi').checked=false;document.getElementById('modal-isel-labels').checked=true;
     renderConditions([]);
@@ -4361,13 +4380,14 @@ function closeFieldModal(){document.getElementById('field-modal').classList.remo
 function onModalTypeChange(){
   const t=document.getElementById('modal-type').value;
   document.getElementById('modal-options-group').style.display=t==='select'?'block':'none';
-  document.getElementById('modal-placeholder-group').style.display=['checkbox','age','slider','year','yearmonth','iconselect'].includes(t)?'none':'block';
+  document.getElementById('modal-placeholder-group').style.display=['checkbox','age','slider','year','yearmonth','yearmonthday','iconselect'].includes(t)?'none':'block';
   document.getElementById('modal-age-group').style.display=t==='age'?'block':'none';
   document.getElementById('modal-date-group').style.display=t==='date'?'block':'none';
-  document.getElementById('modal-year-group').style.display=['year','yearmonth'].includes(t)?'block':'none';
+  document.getElementById('modal-year-group').style.display=['year','yearmonth','yearmonthday'].includes(t)?'block':'none';
   document.getElementById('modal-slider-group').style.display=t==='slider'?'block':'none';
   document.getElementById('modal-isel-group').style.display=t==='iconselect'?'block':'none';
   if(t==='date')onDateModeChange();
+  if(t==='iconselect')iselOnLayoutChange();
 }
 function onDateModeChange(){
   const m=document.getElementById('modal-date-mode').value;
@@ -4390,7 +4410,7 @@ function saveField(){
   if(type==='select')field.options=options;
   if(type==='age'){field.minAge=parseInt(document.getElementById('modal-age-min').value)||0;field.maxAge=parseInt(document.getElementById('modal-age-max').value)||120;}
   if(type==='date'){field.dateMode=document.getElementById('modal-date-mode').value;field.minDate=document.getElementById('modal-date-min').value||'';field.maxDate=document.getElementById('modal-date-max').value||'';field.allowedDates=document.getElementById('modal-date-specific').value.split('\n').map(d=>d.trim()).filter(Boolean);}
-  if(type==='year'||type==='yearmonth'){field.minYear=parseInt(document.getElementById('modal-year-min').value)||1920;field.maxYear=parseInt(document.getElementById('modal-year-max').value)||new Date().getFullYear();}
+  if(type==='year'||type==='yearmonth'||type==='yearmonthday'){field.minYear=parseInt(document.getElementById('modal-year-min').value)||1920;field.maxYear=parseInt(document.getElementById('modal-year-max').value)||new Date().getFullYear();}
   if(type==='slider'){
     field.min=parseFloat(document.getElementById('modal-slider-min').value)||0;
     field.max=parseFloat(document.getElementById('modal-slider-max').value)||100;
@@ -4413,6 +4433,9 @@ function saveField(){
     field.iselTileSize=parseInt(document.getElementById('modal-isel-size').value)||64;
     field.iselSelStyle=document.getElementById('modal-isel-selstyle').value;
     field.iselSelColor=document.getElementById('modal-isel-color').value;
+    field.iselLayout=document.getElementById('modal-isel-layout').value;
+    field.iselColumns=parseInt(document.getElementById('modal-isel-cols').value)||4;
+    field.iselFlow=document.getElementById('modal-isel-flow').value;
   }
   field.conditions=collectConditions();
   if(editingFieldId){const idx=cfg.fields.findIndex(f=>f.id===editingFieldId);cfg.fields[idx]={...cfg.fields[idx],...field};}
@@ -4444,6 +4467,11 @@ function iselRenderItems(){
   });
 }
 function iselAddItem(){_iselItems.push({iconType:'material',icon:'',value:'',label:''});iselRenderItems();}
+function iselOnLayoutChange(){
+  const isGrid=document.getElementById('modal-isel-layout')?.value==='grid';
+  const opts=document.getElementById('modal-isel-grid-opts');
+  if(opts)opts.style.display=isGrid?'flex':'none';
+}
 
 // ── Conditions ──
 let _conditions=[];

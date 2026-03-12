@@ -1517,14 +1517,44 @@ function renderFormField(f, cfg) {
       <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${midY}-01"></div>`;
   }
 
+  // ── yearmonthday ──
+  if (f.type === 'yearmonthday') {
+    const minY  = f.minYear || 1920;
+    const maxY  = f.maxYear || new Date().getFullYear();
+    const midY  = Math.round((minY + maxY) / 2);
+    const years = [];
+    for (let y = maxY; y >= minY; y--) years.push(y);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const days   = [];
+    for (let d = 1; d <= 31; d++) days.push(d);
+    return `<div class="sf-field sf-field--picker"${condAttr}>
+      <label>${escapeHtml(f.label)}${req}</label>
+      <div class="sf-picker-wrap sf-picker-triple">
+        <div class="sf-picker-drum" id="sf_drum_d_${f.id}">
+          ${days.map(d => `<div class="sf-pick-item" data-val="${String(d).padStart(2,'0')}">${d}</div>`).join('')}
+        </div>
+        <div class="sf-picker-drum" id="sf_drum_m_${f.id}">
+          ${months.map((m,i) => `<div class="sf-pick-item" data-val="${String(i+1).padStart(2,'0')}">${m}</div>`).join('')}
+        </div>
+        <div class="sf-picker-drum" id="sf_drum_y_${f.id}">
+          ${years.map(y => `<div class="sf-pick-item" data-val="${y}">${y}</div>`).join('')}
+        </div>
+        <div class="sf-picker-overlay"></div>
+      </div>
+      <input type="hidden" id="sf_${f.id}" name="${f.id}" value="${midY}-01-01"></div>`;
+  }
+
   // ── iconselect ──
   if (f.type === 'iconselect') {
-    const items     = f.iselItems     || [];
-    const multi     = f.iselMulti     || false;
-    const showLbls  = f.iselShowLabels !== false;
-    const tileSize  = f.iselTileSize  || 64;
-    const selStyle  = f.iselSelStyle  || 'border';
-    const selColor  = f.iselSelColor  || accent;
+    const items      = f.iselItems      || [];
+    const multi      = f.iselMulti      || false;
+    const showLbls   = f.iselShowLabels !== false;
+    const tileSize   = f.iselTileSize   || 64;
+    const selStyle   = f.iselSelStyle   || 'border';
+    const selColor   = f.iselSelColor   || accent;
+    const layout     = f.iselLayout     || 'scroll';   // 'scroll' | 'grid'
+    const columns    = f.iselColumns    || 4;
+    const flow       = f.iselFlow       || 'row';      // 'row' | 'col'
 
     const tilesHtml = items.map(item => {
       let iconHtml = '';
@@ -1539,10 +1569,24 @@ function renderFormField(f, cfg) {
       return `<div class="sf-isel-tile" data-val="${escapeHtml(item.value || '')}" role="option" aria-selected="false" tabindex="0">${iconHtml}${lblHtml}</div>`;
     }).join('');
 
+    // Grid layout extras
+    let wrapClass = 'sf-isel-wrap';
+    let trackClass = 'sf-isel-track';
+    let gridVars = '';
+    if (layout === 'grid') {
+      wrapClass += ' sf-isel-grid';
+      gridVars = `;--sf-isel-cols:${columns}`;
+      if (flow === 'col') {
+        const nRows = Math.ceil(items.length / columns);
+        gridVars += `;--sf-isel-rows:${nRows}`;
+        trackClass += ' sf-isel-track-col';
+      }
+    }
+
     return `<div class="sf-field sf-field--isel"${condAttr}>
       <label>${escapeHtml(f.label)}${req}</label>
-      <div class="sf-isel-wrap" data-multi="${multi}" data-sel-style="${selStyle}" style="--sf-isel-accent:${selColor};--sf-isel-size:${tileSize}px">
-        <div class="sf-isel-track">${tilesHtml}</div>
+      <div class="${wrapClass}" data-multi="${multi}" data-sel-style="${selStyle}" style="--sf-isel-accent:${selColor};--sf-isel-size:${tileSize}px${gridVars}">
+        <div class="${trackClass}">${tilesHtml}</div>
         <input type="hidden" id="sf_${f.id}" name="${f.id}" value="" ${f.required ? 'required' : ''}>
       </div></div>`;
   }
@@ -1623,11 +1667,14 @@ function renderFormField(f, cfg) {
 // ── Slider + picker CSS (injected into page <style>) ─────────────────────────
 function sliderPickerCSS(accent) {
   return `
-  /* Picker (year / yearmonth) */
+  /* Picker (year / yearmonth / yearmonthday) */
   .sf-field--picker .sf-picker-wrap{position:relative;height:120px;overflow:hidden;border:2px solid #e0e0e0;border-radius:8px;background:#fafafa;user-select:none;}
-  .sf-picker-dual{display:flex;}
-  .sf-picker-dual .sf-picker-drum{flex:1;border-right:1px solid #e0e0e0;}
-  .sf-picker-dual .sf-picker-drum:last-child{border-right:none;}
+  .sf-picker-dual,.sf-picker-triple{display:flex;}
+  .sf-picker-dual .sf-picker-drum,.sf-picker-triple .sf-picker-drum{flex:1;border-right:1px solid #e0e0e0;}
+  .sf-picker-dual .sf-picker-drum:last-child,.sf-picker-triple .sf-picker-drum:last-child{border-right:none;}
+  .sf-picker-triple .sf-picker-drum:first-child{flex:0 0 22%;max-width:22%;}
+  .sf-picker-triple .sf-picker-drum:nth-child(2){flex:0 0 30%;max-width:30%;}
+  .sf-picker-triple .sf-picker-drum:nth-child(3){flex:1;}
   .sf-picker-drum{overflow-y:scroll;height:100%;scrollbar-width:none;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;}
   .sf-picker-drum::-webkit-scrollbar{display:none;}
   .sf-pick-item{height:40px;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#555;scroll-snap-align:center;cursor:pointer;}
@@ -1675,17 +1722,22 @@ function sliderPickerCSS(accent) {
   .sf-isel-emoji{font-size:calc(var(--sf-isel-size,64px)*0.40);}
   .sf-isel-img{width:calc(var(--sf-isel-size,64px)*0.55);height:calc(var(--sf-isel-size,64px)*0.55);object-fit:contain;}
   .sf-isel-lbl{font-size:11px;margin-top:3px;text-align:center;max-width:calc(var(--sf-isel-size,64px) - 6px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;line-height:1.2;}
-  .sf-isel-lbl-hide{display:none;}`;
+  .sf-isel-lbl-hide{display:none;}
+  /* Grid layout */
+  .sf-isel-grid{overflow-x:visible;}
+  .sf-isel-grid .sf-isel-track{display:grid;grid-template-columns:repeat(var(--sf-isel-cols,4),var(--sf-isel-size,64px));width:auto;}
+  .sf-isel-grid .sf-isel-track-col{grid-auto-flow:column;grid-template-rows:repeat(var(--sf-isel-rows,4),var(--sf-isel-size,64px));grid-template-columns:unset;}`;
 }
 
 // ── Slider + picker JS (injected at end of page <script>) ────────────────────
 function sliderPickerJS() {
   return `
 (function(){
-  /* ── Picker drums (year / yearmonth) ── */
+  /* ── Picker drums (year / yearmonth / yearmonthday) ── */
   document.querySelectorAll('.sf-picker-drum').forEach(function(drum){
     var inp=drum.closest('.sf-field--picker').querySelector('input[type=hidden]');
     var isMonth=drum.id&&drum.id.includes('_m_');
+    var isDay  =drum.id&&drum.id.includes('_d_');
     var items=drum.querySelectorAll('.sf-pick-item');
     var itemH=40;
     // scroll to middle item initially
@@ -1696,12 +1748,16 @@ function sliderPickerJS() {
       idx=Math.max(0,Math.min(items.length-1,idx));
       items.forEach(function(el,i){el.classList.toggle('active',i===idx);});
       var val=items[idx]?items[idx].dataset.val:'';
-      if(isMonth){
-        var cur=inp.value||'';var parts=cur.split('-');
-        inp.value=(parts[0]||new Date().getFullYear())+'-'+val;
+      var cur=inp.value||'';var p=cur.split('-');
+      // p[0]=YYYY  p[1]=MM  p[2]=DD (optional)
+      if(isDay){
+        inp.value=(p[0]||new Date().getFullYear())+'-'+(p[1]||'01')+'-'+val;
+      } else if(isMonth){
+        inp.value=(p[0]||new Date().getFullYear())+'-'+val+(p[2]?'-'+p[2]:'');
       } else {
-        var cur2=inp.value||'';
-        if(cur2.includes('-')){var p2=cur2.split('-');inp.value=val+'-'+(p2[1]||'01');}
+        // year drum
+        if(p.length>=3) inp.value=val+'-'+(p[1]||'01')+'-'+(p[2]||'01');
+        else if(p.length===2) inp.value=val+'-'+(p[1]||'01');
         else inp.value=val;
       }
     }
