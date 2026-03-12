@@ -1183,7 +1183,7 @@ app.put('/api/admin/design-templates/:id', adminAuth, async (req, res) => {
 
 // Branding tab preview — standalone dummy form, no form slug required
 // Uses GENERIC_PREVIEW_SECTIONS/FIELDS with default or template design.
-app.get('/branding-preview', requireAdmin, async (req, res) => {
+app.get('/branding-preview', adminAuth, async (req, res) => {
   try {
     const [sharedFonts, templates] = await Promise.all([readSharedFonts(), readDesignTemplates()]);
     // Start from a clean default config so no real form data leaks in
