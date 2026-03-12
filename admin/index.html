@@ -1990,6 +1990,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <option value="checkbox">Checkbox</option><option value="date">Date (native)</option>
         <option value="age">Age (range-limited)</option><option value="slider">Slider</option>
         <option value="year">Year picker</option><option value="yearmonth">Year + Month picker</option>
+        <option value="iconselect">Icon / tile selector</option>
       </select>
     </div>
     <div class="cg" id="modal-options-group" style="display:none"><label class="cl">Options (one per line)</label><textarea id="modal-options" rows="4" placeholder="Option 1&#10;Option 2"></textarea></div>
@@ -2055,6 +2056,39 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <label class="tgl-lbl">Show value</label>
         </div>
         <div style="flex:1"><label class="cl">Value font size (px)</label><input type="number" id="modal-slider-val-size" value="14" min="8" max="32"></div>
+      </div>
+    </div>
+    <!-- Icon Select options -->
+    <div id="modal-isel-group" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <label class="cl" style="margin:0">Tiles</label>
+        <button class="add-field-btn" onclick="iselAddItem()" style="font-size:0.72rem;padding:3px 8px"><span class="material-icons-round mi" style="font-size:14px">add</span> Add tile</button>
+      </div>
+      <div style="font-size:0.68rem;color:var(--ink3);margin-bottom:4px;display:grid;grid-template-columns:88px 78px 1fr 1fr 20px;gap:4px;padding:0 2px">
+        <span>Icon type</span><span>Icon / emoji</span><span>Value (saved)</span><span>Label (shown)</span><span></span>
+      </div>
+      <div id="modal-isel-items" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-bottom:8px;padding-right:2px"></div>
+      <div class="cr" style="gap:8px;margin-bottom:6px">
+        <div style="flex:1"><label class="cl">Tile size (px)</label><input type="number" id="modal-isel-size" value="64" min="40" max="120"></div>
+        <div style="flex:1"><label class="cl">Selected style</label>
+          <select id="modal-isel-selstyle">
+            <option value="border">Border highlight</option>
+            <option value="fill">Fill background</option>
+          </select>
+        </div>
+        <div style="flex:1"><label class="cl">Highlight colour</label>
+          <input type="color" id="modal-isel-color" value="#e94560" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+        </div>
+      </div>
+      <div class="cr" style="gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="tgl"><input type="checkbox" id="modal-isel-multi"><span class="tgl-s"></span></label>
+          <label class="tgl-lbl">Allow multiple selections</label>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="tgl"><input type="checkbox" id="modal-isel-labels" checked><span class="tgl-s"></span></label>
+          <label class="tgl-lbl">Show labels below tiles</label>
+        </div>
       </div>
     </div>
     <div class="cg" style="display:flex;align-items:center;gap:10px;margin-top:8px">
@@ -4300,6 +4334,13 @@ function openFieldModal(fieldId){
       sv('modal-slider-val-size',f.valueSize||14);
       document.getElementById('modal-slider-showval').checked=f.showValue!==false;
     }
+    if(f.type==='iconselect'){
+      _iselItems=JSON.parse(JSON.stringify(f.iselItems||[]));iselRenderItems();
+      sv('modal-isel-size',f.iselTileSize||64);sv('modal-isel-selstyle',f.iselSelStyle||'border');
+      document.getElementById('modal-isel-color').value=f.iselSelColor||'#e94560';
+      document.getElementById('modal-isel-multi').checked=!!f.iselMulti;
+      document.getElementById('modal-isel-labels').checked=f.iselShowLabels!==false;
+    }
     renderConditions(f.conditions||[]);
   }else{
     ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon','modal-slider-min-label','modal-slider-max-label'].forEach(id=>sv(id,''));
@@ -4307,6 +4348,9 @@ function openFieldModal(fieldId){
     document.getElementById('modal-required').checked=false;
     document.getElementById('modal-id').disabled=false;document.getElementById('modal-type').disabled=false;
     document.getElementById('modal-slider-showval').checked=true;
+    _iselItems=[];iselRenderItems();sv('modal-isel-size','64');sv('modal-isel-selstyle','border');
+    document.getElementById('modal-isel-color').value='#e94560';
+    document.getElementById('modal-isel-multi').checked=false;document.getElementById('modal-isel-labels').checked=true;
     renderConditions([]);
   }
   onModalTypeChange();
@@ -4317,11 +4361,12 @@ function closeFieldModal(){document.getElementById('field-modal').classList.remo
 function onModalTypeChange(){
   const t=document.getElementById('modal-type').value;
   document.getElementById('modal-options-group').style.display=t==='select'?'block':'none';
-  document.getElementById('modal-placeholder-group').style.display=['checkbox','age','slider','year','yearmonth'].includes(t)?'none':'block';
+  document.getElementById('modal-placeholder-group').style.display=['checkbox','age','slider','year','yearmonth','iconselect'].includes(t)?'none':'block';
   document.getElementById('modal-age-group').style.display=t==='age'?'block':'none';
   document.getElementById('modal-date-group').style.display=t==='date'?'block':'none';
   document.getElementById('modal-year-group').style.display=['year','yearmonth'].includes(t)?'block':'none';
   document.getElementById('modal-slider-group').style.display=t==='slider'?'block':'none';
+  document.getElementById('modal-isel-group').style.display=t==='iconselect'?'block':'none';
   if(t==='date')onDateModeChange();
 }
 function onDateModeChange(){
@@ -4361,12 +4406,44 @@ function saveField(){
     field.maxLabel=document.getElementById('modal-slider-max-label').value.trim();
     field.valueSize=parseInt(document.getElementById('modal-slider-val-size').value)||14;
   }
+  if(type==='iconselect'){
+    field.iselItems=_iselItems.filter(i=>i.value.trim()).map(i=>({...i,value:i.value.trim(),label:i.label||'',icon:i.icon||''}));
+    field.iselMulti=document.getElementById('modal-isel-multi').checked;
+    field.iselShowLabels=document.getElementById('modal-isel-labels').checked;
+    field.iselTileSize=parseInt(document.getElementById('modal-isel-size').value)||64;
+    field.iselSelStyle=document.getElementById('modal-isel-selstyle').value;
+    field.iselSelColor=document.getElementById('modal-isel-color').value;
+  }
   field.conditions=collectConditions();
   if(editingFieldId){const idx=cfg.fields.findIndex(f=>f.id===editingFieldId);cfg.fields[idx]={...cfg.fields[idx],...field};}
   else cfg.fields.push(field);
   renderFieldList();schedulePreview();closeFieldModal();
 }
 function deleteField(id){if(!confirm('Delete this field?'))return;cfg.fields=cfg.fields.filter(f=>f.id!==id);renderFieldList();schedulePreview();}
+
+// ── Icon Select items editor ──
+let _iselItems=[];
+function iselRenderItems(){
+  const el=document.getElementById('modal-isel-items');if(!el)return;
+  el.innerHTML='';
+  _iselItems.forEach((item,i)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:grid;grid-template-columns:88px 78px 1fr 1fr 24px;gap:4px;align-items:center;';
+    const iconPlaceholder=item.iconType==='material'?'favorite':item.iconType==='image'?'https://…':'😊';
+    row.innerHTML=`
+      <select style="font-size:0.75rem" onchange="_iselItems[${i}].iconType=this.value;iselRenderItems()">
+        <option value="material"${item.iconType==='material'?' selected':''}>Material icon</option>
+        <option value="emoji"${item.iconType==='emoji'?' selected':''}>Emoji</option>
+        <option value="image"${item.iconType==='image'?' selected':''}>Image URL</option>
+      </select>
+      <input type="text" value="${(item.icon||'').replace(/"/g,'&quot;')}" placeholder="${iconPlaceholder}" style="font-size:0.75rem" oninput="_iselItems[${i}].icon=this.value">
+      <input type="text" value="${(item.value||'').replace(/"/g,'&quot;')}" placeholder="value" style="font-size:0.75rem" oninput="_iselItems[${i}].value=this.value">
+      <input type="text" value="${(item.label||'').replace(/"/g,'&quot;')}" placeholder="label" style="font-size:0.75rem" oninput="_iselItems[${i}].label=this.value">
+      <button class="ibtn danger" title="Remove" onclick="_iselItems.splice(${i},1);iselRenderItems()" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">close</span></button>`;
+    el.appendChild(row);
+  });
+}
+function iselAddItem(){_iselItems.push({iconType:'material',icon:'',value:'',label:''});iselRenderItems();}
 
 // ── Conditions ──
 let _conditions=[];
