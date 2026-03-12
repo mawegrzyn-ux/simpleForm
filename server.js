@@ -11,6 +11,9 @@ const multer     = require('multer');
 const session    = require('express-session');
 const { Issuer, generators } = require('openid-client');
 const nodemailer = require('nodemailer');
+const { Pool }   = require('pg');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const multerS3   = require('multer-s3');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +37,16 @@ const SMTP_USER   = process.env.SMTP_USER   || '';
 const SMTP_PASS   = process.env.SMTP_PASS   || '';
 const SMTP_FROM   = process.env.SMTP_FROM   || SMTP_USER; // e.g. "noreply@yourdomain.com"
 const ORIGIN      = process.env.ORIGIN      || `http://localhost:${process.env.PORT || 3000}`;
+
+// ── PostgreSQL pool ────────────────────────────────────────────────────────────
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// ── AWS S3 ─────────────────────────────────────────────────────────────────────
+const s3        = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+const S3_BUCKET = process.env.S3_BUCKET || '';
+function s3PublicUrl(key) {
+  return `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
+}
 
 // Create nodemailer transporter (lazy — only used when SMTP is configured)
 let _mailer = null;
@@ -116,18 +129,13 @@ ${footer}
   });
 }
 
-// ── Paths ─────────────────────────────────────────────────────────────────────
+// ── Paths (data/ kept for import script; uploads now in S3) ───────────────────
 const DATA_DIR         = path.join(__dirname, 'data');
-const CONFIG_FILE      = path.join(DATA_DIR, 'config.json');       // legacy — kept for migration
-const SUBSCRIBERS_FILE = path.join(DATA_DIR, 'subscribers.json'); // legacy — kept for migration
-const FORMS_DIR           = path.join(DATA_DIR, 'forms');
-const FORMS_INDEX_FILE    = path.join(DATA_DIR, 'forms-index.json');
-const DESIGN_TMPL_FILE    = path.join(DATA_DIR, 'design-templates.json');
-const UPLOADS_DIR         = path.join(__dirname, 'public', 'uploads');
-const FONTS_DIR           = path.join(UPLOADS_DIR, 'fonts');
-
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-if (!fs.existsSync(FONTS_DIR))   fs.mkdirSync(FONTS_DIR,   { recursive: true });
+const CONFIG_FILE      = path.join(DATA_DIR, 'config.json');       // legacy — used only by import script
+const SUBSCRIBERS_FILE = path.join(DATA_DIR, 'subscribers.json'); // legacy — used only by import script
+const FORMS_DIR        = path.join(DATA_DIR, 'forms');             // legacy — used only by import script
+const UPLOADS_DIR      = path.join(__dirname, 'public', 'uploads'); // legacy — used only by import script
+const FONTS_DIR        = path.join(UPLOADS_DIR, 'fonts');           // legacy — used only by import script
 
 // Slugs that cannot be used as form slugs (they're real routes)
 const RESERVED_SLUGS = new Set(['admin','auth','api','privacy','unsubscribe','delete-data','preferences','embed','public','uploads','assets']);
@@ -184,7 +192,9 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.set('trust proxy', 1);
+const PgStore = require('connect-pg-simple')(session);
 app.use(session({
+  store: new PgStore({ pool, createTableIfMissing: true }),
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -197,28 +207,28 @@ app.use(session({
 }));
 
 // ── Static files ──────────────────────────────────────────────────────────────
-app.use('/uploads', express.static(UPLOADS_DIR));
+// Note: /uploads is no longer served statically — files are stored in S3 and URLs are direct S3 links.
 app.use('/admin',   express.static(path.join(__dirname, 'admin')));
 
-// ── Multer ────────────────────────────────────────────────────────────────────
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename:    (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`)
-});
+// ── Multer → S3 ───────────────────────────────────────────────────────────────
+const FONT_EXTS = new Set(['.woff','.woff2','.ttf','.otf']);
 const upload = multer({
-  storage,
+  storage: multerS3({
+    s3, bucket: S3_BUCKET,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: (req, file, cb) => cb(null, `uploads/${uuidv4()}${path.extname(file.originalname)}`)
+  }),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Images only'));
   }
 });
-const fontStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, FONTS_DIR),
-  filename:    (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`)
-});
-const FONT_EXTS = new Set(['.woff','.woff2','.ttf','.otf']);
 const uploadFont = multer({
-  storage: fontStorage,
+  storage: multerS3({
+    s3, bucket: S3_BUCKET,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: (req, file, cb) => cb(null, `fonts/${uuidv4()}${path.extname(file.originalname)}`)
+  }),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     FONT_EXTS.has(path.extname(file.originalname).toLowerCase()) ? cb(null, true) : cb(new Error('Font files only'));
@@ -229,59 +239,81 @@ const uploadFont = multer({
 const submitLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10,  message: { error: 'Too many requests' } });
 const adminLimiter  = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 
-// ── Multi-form helpers ────────────────────────────────────────────────────────
-function readFormsIndex() {
-  return JSON.parse(fs.readFileSync(FORMS_INDEX_FILE, 'utf8'));
+// ── Data helpers (PostgreSQL) ─────────────────────────────────────────────────
+
+// Map a subscribers DB row to the camelCase object shape used throughout the app
+function rowToSubscriber(r) {
+  return {
+    id: r.id, email: r.email, status: r.status,
+    subscribedAt: r.subscribed_at ? r.subscribed_at.toISOString() : null,
+    unsubscribedAt: r.unsubscribed_at ? r.unsubscribed_at.toISOString() : null,
+    unsubscribeToken: r.unsubscribe_token,
+    consentGiven: r.consent_given, consentTimestamp: r.consent_timestamp,
+    ipAddress: r.ip_address, customFields: r.custom_fields || {},
+    exported: r.exported || false,
+    exportedAt: r.exported_at ? r.exported_at.toISOString() : null
+  };
 }
-function writeFormsIndex(idx) {
-  fs.writeFileSync(FORMS_INDEX_FILE, JSON.stringify(idx, null, 2));
+
+// Map a media DB row to the shape used by the admin API
+function rowToMedia(r) {
+  return {
+    id: r.id, url: r.url, s3Key: r.s3_key,
+    name: r.original_name, size: r.size, mimeType: r.mime_type,
+    uploadedAt: r.uploaded_at ? r.uploaded_at.toISOString() : null,
+    folder: r.folder || ''
+  };
 }
-function readFormConfig(slug) {
-  const cfg = JSON.parse(fs.readFileSync(path.join(FORMS_DIR, slug + '.json'), 'utf8'));
+
+async function readFormsIndex() {
+  const { rows } = await pool.query('SELECT slug, name, created_at FROM forms ORDER BY created_at ASC');
+  return rows.map(r => ({ slug: r.slug, name: r.name, createdAt: r.created_at ? r.created_at.toISOString() : null }));
+}
+
+async function readFormConfig(slug) {
+  const { rows } = await pool.query('SELECT config FROM forms WHERE slug=$1', [slug]);
+  if (!rows.length) throw new Error(`Form not found: ${slug}`);
+  const cfg = rows[0].config;
   if (ENV_HCAPTCHA_SECRET) cfg.site.hcaptchaSecretKey = ENV_HCAPTCHA_SECRET;
   return cfg;
 }
-function writeFormConfig(slug, cfg) {
-  fs.writeFileSync(path.join(FORMS_DIR, slug + '.json'), JSON.stringify(cfg, null, 2));
-}
-function readFormSubscribers(slug) {
-  const f = path.join(DATA_DIR, `subscribers-${slug}.json`);
-  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : [];
-}
-function writeFormSubscribers(slug, subs) {
-  fs.writeFileSync(path.join(DATA_DIR, `subscribers-${slug}.json`), JSON.stringify(subs, null, 2));
-}
-function readFormMedia(slug) {
-  const f = path.join(DATA_DIR, `media-${slug}.json`);
-  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : [];
-}
-function writeFormMedia(slug, items) {
-  fs.writeFileSync(path.join(DATA_DIR, `media-${slug}.json`), JSON.stringify(items, null, 2));
-}
-const SHARED_MEDIA_FILE = path.join(DATA_DIR, 'media-shared.json');
-function readSharedMedia() {
-  return fs.existsSync(SHARED_MEDIA_FILE) ? JSON.parse(fs.readFileSync(SHARED_MEDIA_FILE, 'utf8')) : [];
-}
-function writeSharedMedia(items) {
-  fs.writeFileSync(SHARED_MEDIA_FILE, JSON.stringify(items, null, 2));
+
+async function writeFormConfig(slug, cfg) {
+  await pool.query('UPDATE forms SET config=$1 WHERE slug=$2', [cfg, slug]);
 }
 
-// ── Shared custom fonts ───────────────────────────────────────────────────────
-const SHARED_FONTS_FILE = path.join(DATA_DIR, 'fonts-shared.json');
-function readSharedFonts() {
-  return fs.existsSync(SHARED_FONTS_FILE) ? JSON.parse(fs.readFileSync(SHARED_FONTS_FILE, 'utf8')) : [];
-}
-function writeSharedFonts(fonts) {
-  fs.writeFileSync(SHARED_FONTS_FILE, JSON.stringify(fonts, null, 2));
+async function readFormSubscribers(slug) {
+  const { rows } = await pool.query(
+    'SELECT * FROM subscribers WHERE form_slug=$1 ORDER BY subscribed_at DESC', [slug]);
+  return rows.map(rowToSubscriber);
 }
 
-// ── Design templates ──────────────────────────────────────────────────────────
-function readDesignTemplates() {
-  if (!fs.existsSync(DESIGN_TMPL_FILE)) return [];
-  return JSON.parse(fs.readFileSync(DESIGN_TMPL_FILE, 'utf8'));
+async function readFormMedia(slug) {
+  const { rows } = await pool.query(
+    'SELECT * FROM media WHERE form_slug=$1 ORDER BY uploaded_at DESC', [slug]);
+  return rows.map(rowToMedia);
 }
-function writeDesignTemplates(templates) {
-  fs.writeFileSync(DESIGN_TMPL_FILE, JSON.stringify(templates, null, 2));
+
+async function readSharedMedia() {
+  const { rows } = await pool.query(
+    'SELECT * FROM media WHERE form_slug IS NULL ORDER BY uploaded_at DESC');
+  return rows.map(rowToMedia);
+}
+
+async function readSharedFonts() {
+  const { rows } = await pool.query('SELECT * FROM fonts ORDER BY uploaded_at DESC');
+  return rows.map(r => ({
+    id: r.id, name: r.name, url: r.url, s3Key: r.s3_key,
+    uploadedAt: r.uploaded_at ? r.uploaded_at.toISOString() : null
+  }));
+}
+
+async function readDesignTemplates() {
+  const { rows } = await pool.query('SELECT * FROM design_templates ORDER BY created_at DESC');
+  return rows.map(r => ({
+    id: r.id, name: r.name, design: r.design,
+    createdAt: r.created_at ? r.created_at.toISOString() : null
+  }));
 }
 
 // Generic sections used when ?_generic=1 is requested (design tab preview)
@@ -365,6 +397,74 @@ function migrateIfNeeded() {
   console.log('✔ Multi-form migration complete.');
 }
 
+// ── Database initialisation ───────────────────────────────────────────────────
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS forms (
+      slug       VARCHAR(100) PRIMARY KEY,
+      name       VARCHAR(255) NOT NULL,
+      created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      config     JSONB        NOT NULL DEFAULT '{}'
+    );
+
+    CREATE TABLE IF NOT EXISTS subscribers (
+      id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+      form_slug         VARCHAR(100) NOT NULL REFERENCES forms(slug) ON DELETE CASCADE,
+      email             VARCHAR(320) NOT NULL,
+      status            VARCHAR(20)  NOT NULL DEFAULT 'active',
+      subscribed_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      unsubscribed_at   TIMESTAMPTZ,
+      unsubscribe_token VARCHAR(255),
+      consent_given     BOOLEAN      NOT NULL DEFAULT FALSE,
+      consent_timestamp VARCHAR(50),
+      ip_address        VARCHAR(45),
+      custom_fields     JSONB        NOT NULL DEFAULT '{}',
+      exported          BOOLEAN      NOT NULL DEFAULT FALSE,
+      exported_at       TIMESTAMPTZ
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_form_email ON subscribers(form_slug, email);
+    CREATE        INDEX IF NOT EXISTS idx_sub_token      ON subscribers(unsubscribe_token);
+    CREATE        INDEX IF NOT EXISTS idx_sub_form_slug  ON subscribers(form_slug);
+
+    CREATE TABLE IF NOT EXISTS media (
+      id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+      form_slug     VARCHAR(100),
+      s3_key        VARCHAR(500) NOT NULL,
+      url           VARCHAR(500) NOT NULL,
+      original_name VARCHAR(255),
+      mime_type     VARCHAR(100),
+      size          INTEGER,
+      folder        VARCHAR(100) NOT NULL DEFAULT '',
+      uploaded_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_media_form_slug ON media(form_slug);
+
+    CREATE TABLE IF NOT EXISTS fonts (
+      id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+      name        VARCHAR(100) NOT NULL UNIQUE,
+      s3_key      VARCHAR(500) NOT NULL,
+      url         VARCHAR(500) NOT NULL,
+      uploaded_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS design_templates (
+      id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+      name       VARCHAR(255) NOT NULL,
+      design     JSONB        NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS analytics (
+      form_slug    VARCHAR(100) NOT NULL REFERENCES forms(slug) ON DELETE CASCADE,
+      key          VARCHAR(50)  NOT NULL,
+      count        BIGINT       NOT NULL DEFAULT 0,
+      last_updated TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (form_slug, key)
+    );
+  `);
+  console.log('✔ Database tables ready');
+}
+
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 // Extracts roles from Auth0 token claims.
 // Auth0 injects roles via a custom namespace action — see setup instructions.
@@ -414,131 +514,123 @@ app.use('/api/admin', (req, res, next) => {
 // ════════════════════════════════════════
 
 // Root → redirect to first form
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   try {
-    const idx = readFormsIndex();
+    const idx = await readFormsIndex();
     if (idx.length) return res.redirect(`/${idx[0].slug}`);
   } catch (e) {}
   res.status(404).send('<p>No forms found. <a href="/admin">Go to admin</a></p>');
 });
 
 // Privacy policy — uses first form for branding
-app.get('/privacy', (req, res) => {
+app.get('/privacy', async (req, res) => {
   try {
-    const idx = readFormsIndex();
-    const cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_', 'SignFlow');
-    res.send(renderPrivacyPage(cfg));
+    const idx = await readFormsIndex();
+    const cfg = idx.length ? await readFormConfig(idx[0].slug) : defaultFormConfig('_', 'SignFlow');
+    const sharedFonts = await readSharedFonts();
+    res.send(renderPrivacyPage(cfg, sharedFonts));
   } catch (e) { res.status(500).send('Error'); }
 });
 
-// Helper: find which form a subscriber token belongs to
-function findSubscriberByToken(email, token) {
+// Helper: find which form a subscriber token belongs to (returns { slug, subscriber })
+async function findSubscriberByToken(email, token) {
   try {
-    const idx = readFormsIndex();
-    for (const { slug } of idx) {
-      const subs = readFormSubscribers(slug);
-      const i = subs.findIndex(s => s.email === decodeURIComponent(email) && s.unsubscribeToken === token);
-      if (i !== -1) return { slug, subs, i };
-    }
-  } catch (e) {}
-  return null;
+    const { rows } = await pool.query(
+      `SELECT * FROM subscribers
+       WHERE email=$1 AND unsubscribe_token=$2
+       LIMIT 1`,
+      [decodeURIComponent(email), token]
+    );
+    if (!rows.length) return null;
+    return { slug: rows[0].form_slug, subscriber: rowToSubscriber(rows[0]) };
+  } catch(e) { return null; }
 }
 
 // Helper: get all subscriptions for an email across all forms
-function findAllSubscriptions(email) {
-  const results = [];
+async function findAllSubscriptions(email) {
   try {
-    const idx = readFormsIndex();
-    for (const { slug } of idx) {
-      const subs = readFormSubscribers(slug);
-      const sub = subs.find(s => s.email === decodeURIComponent(email));
-      if (sub) {
-        let formName = slug;
-        try { formName = readFormConfig(slug).site.title || slug; } catch(e) {}
-        results.push({ slug, sub, formName });
-      }
-    }
-  } catch(e) {}
-  return results;
+    const { rows } = await pool.query(
+      `SELECT s.*, f.slug AS form_slug, f.config->'site'->>'title' AS form_title
+       FROM subscribers s JOIN forms f ON f.slug = s.form_slug
+       WHERE s.email = $1`,
+      [decodeURIComponent(email)]
+    );
+    return rows.map(r => ({
+      slug: r.form_slug, sub: rowToSubscriber(r),
+      formName: r.form_title || r.form_slug
+    }));
+  } catch(e) { return []; }
 }
 
 // Preference centre — GET: show page
-app.get('/preferences', (req, res) => {
+app.get('/preferences', async (req, res) => {
   const { token, email } = req.query;
   let cfg;
-  const found = token && email ? findSubscriberByToken(email, token) : null;
+  const found = (token && email) ? await findSubscriberByToken(email, token) : null;
   try {
-    if (found) cfg = readFormConfig(found.slug);
-    else { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+    if (found) cfg = await readFormConfig(found.slug);
+    else { const idx = await readFormsIndex(); cfg = idx.length ? await readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
   } catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
-  res.send(renderPreferencePage(cfg, { token, email, found }));
+  const sharedFonts = await readSharedFonts();
+  res.send(renderPreferencePage(cfg, { token, email, found }, sharedFonts));
 });
 
 // Preference centre — POST: perform action
-app.post('/preferences', (req, res) => {
+app.post('/preferences', async (req, res) => {
   const { token, email, action } = req.body;
   let cfg;
-  const found = token && email ? findSubscriberByToken(email, token) : null;
+  const found = (token && email) ? await findSubscriberByToken(email, token) : null;
   try {
-    if (found) cfg = readFormConfig(found.slug);
-    else { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+    if (found) cfg = await readFormConfig(found.slug);
+    else { const idx = await readFormsIndex(); cfg = idx.length ? await readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
   } catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
 
   let message = '', success = false;
   if (!found) {
     message = 'Invalid or expired link. Please use the link from your email.';
   } else if (action === 'unsub-one') {
-    found.subs[found.i].status = 'unsubscribed';
-    found.subs[found.i].unsubscribedAt = new Date().toISOString();
-    writeFormSubscribers(found.slug, found.subs);
+    await pool.query(
+      `UPDATE subscribers SET status='unsubscribed', unsubscribed_at=NOW()
+       WHERE id=$1`, [found.subscriber.id]);
     message = 'You have been unsubscribed from this mailing.';
     success = true;
   } else if (action === 'unsub-all') {
-    const all = findAllSubscriptions(email);
-    all.forEach(({ slug, sub }) => {
-      const subs = readFormSubscribers(slug);
-      const idx2 = subs.findIndex(s => s.id === sub.id);
-      if (idx2 !== -1) {
-        subs[idx2].status = 'unsubscribed';
-        subs[idx2].unsubscribedAt = new Date().toISOString();
-        writeFormSubscribers(slug, subs);
-      }
-    });
+    await pool.query(
+      `UPDATE subscribers SET status='unsubscribed', unsubscribed_at=NOW()
+       WHERE email=$1`, [decodeURIComponent(email)]);
     message = 'You have been unsubscribed from all mailings.';
     success = true;
   } else if (action === 'delete-all') {
-    const all = findAllSubscriptions(email);
-    all.forEach(({ slug, sub }) => {
-      const subs = readFormSubscribers(slug);
-      const idx2 = subs.findIndex(s => s.id === sub.id);
-      if (idx2 !== -1) { subs.splice(idx2, 1); writeFormSubscribers(slug, subs); }
-    });
+    await pool.query('DELETE FROM subscribers WHERE email=$1', [decodeURIComponent(email)]);
     message = 'Your data has been permanently deleted from all our records.';
     success = true;
   } else {
     message = 'Unknown action.';
   }
-  res.send(renderPreferencePage(cfg, { token, email, found: success ? null : found, message, success }));
+  const sharedFonts = await readSharedFonts();
+  res.send(renderPreferencePage(cfg, { token, email, found: success ? null : found, message, success }, sharedFonts));
 });
 
 // Backward compat: /unsubscribe redirects to /preferences
-app.get('/unsubscribe', (req, res) => {
+app.get('/unsubscribe', async (req, res) => {
   const { token, email } = req.query;
   if (token && email) return res.redirect(302, `/preferences?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`);
   let cfg;
-  try { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+  try { const idx = await readFormsIndex(); cfg = idx.length ? await readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
   catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
-  res.send(renderPreferencePage(cfg, {}));
+  const sharedFonts = await readSharedFonts();
+  res.send(renderPreferencePage(cfg, {}, sharedFonts));
 });
 
 // Backward compat: /delete-data redirects to /preferences
-app.get('/delete-data', (req, res) => {
+app.get('/delete-data', async (req, res) => {
   const { token, email } = req.query;
   if (token && email) return res.redirect(302, `/preferences?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`);
   let cfg;
-  try { const idx = readFormsIndex(); cfg = idx.length ? readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
+  try { const idx = await readFormsIndex(); cfg = idx.length ? await readFormConfig(idx[0].slug) : defaultFormConfig('_','SignFlow'); }
   catch(e) { cfg = defaultFormConfig('_','SignFlow'); }
-  res.send(renderPreferencePage(cfg, {}));
+  const sharedFonts = await readSharedFonts();
+  res.send(renderPreferencePage(cfg, {}, sharedFonts));
 });
 
 // ════════════════════════════════════════
@@ -641,35 +733,34 @@ app.get('/admin', adminAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'index.html'));
 });
 
-// Recursively collect all /uploads/ URLs from a config object and return total file size
-function getFormMediaSize(obj) {
-  const urls = new Set();
-  const collect = (v) => {
-    if (!v || typeof v !== 'object') { if (typeof v === 'string' && v.startsWith('/uploads/')) urls.add(v); return; }
-    if (Array.isArray(v)) { v.forEach(collect); return; }
-    Object.values(v).forEach(collect);
-  };
-  collect(obj);
-  let total = 0;
-  for (const url of urls) {
-    try { total += fs.statSync(path.join(__dirname, 'public', url)).size; } catch(_) {}
-  }
-  return total;
+// Return total file size of all media items for a form (from DB)
+async function getFormMediaSize(slug) {
+  try {
+    const { rows } = await pool.query(
+      'SELECT COALESCE(SUM(size), 0) AS total FROM media WHERE form_slug=$1', [slug]);
+    return parseInt(rows[0].total, 10);
+  } catch(_) { return 0; }
 }
 
 // ── Analytics helpers ─────────────────────────────────────────────────────────
-function analyticsPath(slug) { return path.join(DATA_DIR, `analytics-${slug}.json`); }
-function readAnalytics(slug) {
-  try { return JSON.parse(fs.readFileSync(analyticsPath(slug), 'utf8')); }
-  catch(_) { return { visits: 0, submits: 0, errors: 0 }; }
+async function readAnalytics(slug) {
+  const { rows } = await pool.query(
+    'SELECT key, count, last_updated FROM analytics WHERE form_slug=$1', [slug]);
+  const result = { visits: 0, submits: 0, errors: 0 };
+  rows.forEach(r => { result[r.key] = parseInt(r.count, 10); });
+  if (rows.length) result.lastUpdated = rows[0].last_updated ? rows[0].last_updated.toISOString() : null;
+  return result;
 }
+
+// Fire-and-forget analytics increment — never blocks a request
 function bumpAnalytic(slug, key) {
-  try {
-    const a = readAnalytics(slug);
-    a[key] = (a[key] || 0) + 1;
-    a.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(analyticsPath(slug), JSON.stringify(a));
-  } catch(_) {}
+  pool.query(
+    `INSERT INTO analytics(form_slug, key, count, last_updated)
+     VALUES($1, $2, 1, NOW())
+     ON CONFLICT(form_slug, key)
+     DO UPDATE SET count = analytics.count + 1, last_updated = NOW()`,
+    [slug, key]
+  ).catch(e => console.error('[analytics]', e.message));
 }
 
 // CSRF token endpoint — called once on admin panel load
@@ -680,253 +771,275 @@ app.get('/api/admin/csrf-token', adminAuth, (req, res) => {
 });
 
 // List all forms (with subscriber counts)
-app.get('/api/admin/forms', adminAuth, (req, res) => {
+app.get('/api/admin/forms', adminAuth, async (req, res) => {
   try {
     const origin = `${req.protocol}://${req.get('host')}`;
-    const idx = readFormsIndex();
-    const result = idx.map(f => {
-      const entry = {
-        ...f,
-        subscriberCount: readFormSubscribers(f.slug).filter(s => s.status === 'active').length,
-        embedPageSize: null,
-        embedJsSize: null,
-        mediaSize: null
-      };
+    const idx = await readFormsIndex();
+    const [sharedFonts, templates] = await Promise.all([readSharedFonts(), readDesignTemplates()]);
+    const result = await Promise.all(idx.map(async f => {
+      const entry = { ...f, subscriberCount: 0, embedPageSize: null, embedJsSize: null, mediaSize: null };
       try {
-        const cfg = readFormConfig(f.slug);
+        const cfg = await readFormConfig(f.slug);
+        const { rows: countRows } = await pool.query(
+          `SELECT COUNT(*) AS c FROM subscribers WHERE form_slug=$1 AND status='active'`, [f.slug]);
+        entry.subscriberCount = parseInt(countRows[0].c, 10);
         entry.description   = cfg.site.description || '';
-        entry.embedPageSize = Buffer.byteLength(renderEmbedPage(cfg), 'utf8');
+        entry.embedPageSize = Buffer.byteLength(renderEmbedPage(cfg, sharedFonts, templates), 'utf8');
         entry.embedJsSize   = Buffer.byteLength(renderEmbedScript(origin, cfg), 'utf8');
-        entry.mediaSize     = getFormMediaSize(cfg);
+        entry.mediaSize     = await getFormMediaSize(f.slug);
       } catch(_) { /* skip if config unreadable */ }
-      entry.analytics = readAnalytics(f.slug);
+      entry.analytics = await readAnalytics(f.slug);
       return entry;
-    });
+    }));
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Create new form
-app.post('/api/admin/forms', adminAuth, (req, res) => {
+app.post('/api/admin/forms', adminAuth, async (req, res) => {
   try {
     const { slug, name } = req.body;
     if (!slug || !name) return res.status(400).json({ error: 'slug and name required' });
     if (RESERVED_SLUGS.has(slug)) return res.status(400).json({ error: 'Slug is reserved' });
     if (!/^[a-z0-9-]+$/.test(slug)) return res.status(400).json({ error: 'Slug must be lowercase letters, numbers and hyphens only' });
-    const idx = readFormsIndex();
-    if (idx.find(f => f.slug === slug)) return res.status(409).json({ error: 'Slug already in use' });
-    writeFormConfig(slug, defaultFormConfig(slug, name));
-    idx.push({ slug, name, createdAt: new Date().toISOString() });
-    writeFormsIndex(idx);
+    await pool.query(
+      'INSERT INTO forms(slug, name, created_at, config) VALUES($1, $2, NOW(), $3)',
+      [slug, name, defaultFormConfig(slug, name)]
+    );
     res.json({ success: true, slug });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Slug already in use' });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Delete a form
-app.delete('/api/admin/forms/:slug', adminAuth, (req, res) => {
+app.delete('/api/admin/forms/:slug', adminAuth, async (req, res) => {
   try {
     const { slug } = req.params;
-    const idx = readFormsIndex();
+    const idx = await readFormsIndex();
     if (idx.length <= 1) return res.status(400).json({ error: 'Cannot delete the last form' });
-    const formFile = path.join(FORMS_DIR, slug + '.json');
-    if (fs.existsSync(formFile)) fs.unlinkSync(formFile);
-    const subFile = path.join(DATA_DIR, `subscribers-${slug}.json`);
-    if (fs.existsSync(subFile)) fs.unlinkSync(subFile);
-    writeFormsIndex(idx.filter(f => f.slug !== slug));
+    // Delete associated S3 media files before removing the DB record (cascade doesn't cover S3)
+    const { rows: mediaRows } = await pool.query('SELECT s3_key FROM media WHERE form_slug=$1', [slug]);
+    await Promise.all(mediaRows.map(r =>
+      s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: r.s3_key })).catch(() => {})
+    ));
+    // Delete form — cascades to subscribers, analytics, media (DB rows)
+    await pool.query('DELETE FROM forms WHERE slug=$1', [slug]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Rename a form
-app.patch('/api/admin/forms/:slug/meta', adminAuth, (req, res) => {
+app.patch('/api/admin/forms/:slug/meta', adminAuth, async (req, res) => {
   try {
     const { slug } = req.params;
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
-    const idx = readFormsIndex();
-    const entry = idx.find(f => f.slug === slug);
-    if (!entry) return res.status(404).json({ error: 'Form not found' });
-    entry.name = name;
-    writeFormsIndex(idx);
-    const cfg = readFormConfig(slug);
-    cfg.name = name; cfg.site.title = name;
-    writeFormConfig(slug, cfg);
+    // Update name column and sync title inside config JSONB (nested jsonb_set)
+    const { rowCount } = await pool.query(
+      `UPDATE forms
+       SET name=$1,
+           config = jsonb_set(jsonb_set(config, '{name}', $2::jsonb), '{site,title}', $2::jsonb)
+       WHERE slug=$3`,
+      [name, JSON.stringify(name), slug]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Form not found' });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Get a form's config
-app.get('/api/admin/forms/:slug', adminAuth, (req, res) => {
-  try { res.json(readFormConfig(req.params.slug)); }
+app.get('/api/admin/forms/:slug', adminAuth, async (req, res) => {
+  try { res.json(await readFormConfig(req.params.slug)); }
   catch(e) { res.status(404).json({ error: 'Form not found' }); }
 });
 
 // Save a form's config
-app.post('/api/admin/forms/:slug', adminAuth, (req, res) => {
+app.post('/api/admin/forms/:slug', adminAuth, async (req, res) => {
   try {
-    writeFormConfig(req.params.slug, req.body);
-    // Keep forms-index name in sync if title changed
-    const idx = readFormsIndex();
-    const entry = idx.find(f => f.slug === req.params.slug);
-    if (entry && req.body.name) { entry.name = req.body.name; writeFormsIndex(idx); }
+    const slug = req.params.slug;
+    // If name changed, also update the name column
+    const updates = req.body.name
+      ? await pool.query('UPDATE forms SET config=$1, name=$2 WHERE slug=$3', [req.body, req.body.name, slug])
+      : await pool.query('UPDATE forms SET config=$1 WHERE slug=$2', [req.body, slug]);
+    if (!updates.rowCount) return res.status(404).json({ error: 'Form not found' });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Upload image for a form (or to shared library when shared=1 in body)
-app.post('/api/admin/forms/:slug/upload', adminAuth, upload.single('image'), (req, res) => {
+app.post('/api/admin/forms/:slug/upload', adminAuth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  const url = `/uploads/${req.file.filename}`;
+  const s3Key  = req.file.key;
+  const url    = req.file.location;
   const folder = req.body.folder || '';
   const shared = req.body.shared === '1' || req.body.shared === 'true';
   try {
-    const item = { id: uuidv4(), url, name: req.file.originalname, size: req.file.size, mimeType: req.file.mimetype, uploadedAt: new Date().toISOString(), folder };
-    if (shared) {
-      const items = readSharedMedia(); items.unshift(item); writeSharedMedia(items);
-    } else {
-      const items = readFormMedia(req.params.slug); items.unshift(item); writeFormMedia(req.params.slug, items);
-    }
+    await pool.query(
+      `INSERT INTO media(id, form_slug, s3_key, url, original_name, mime_type, size, folder, uploaded_at)
+       VALUES($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+      [uuidv4(), shared ? null : req.params.slug, s3Key, url,
+       req.file.originalname, req.file.mimetype, req.file.size, folder]
+    );
   } catch(_) {}
   res.json({ url });
 });
 
 // Upload image directly to shared library
-app.post('/api/admin/media/upload', adminAuth, upload.single('image'), (req, res) => {
+app.post('/api/admin/media/upload', adminAuth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  const url = `/uploads/${req.file.filename}`;
+  const s3Key  = req.file.key;
+  const url    = req.file.location;
   const folder = req.body.folder || '';
   try {
-    const item = { id: uuidv4(), url, name: req.file.originalname, size: req.file.size, mimeType: req.file.mimetype, uploadedAt: new Date().toISOString(), folder };
-    const items = readSharedMedia(); items.unshift(item); writeSharedMedia(items);
+    await pool.query(
+      `INSERT INTO media(id, form_slug, s3_key, url, original_name, mime_type, size, folder, uploaded_at)
+       VALUES($1, NULL, $2, $3, $4, $5, $6, $7, NOW())`,
+      [uuidv4(), s3Key, url, req.file.originalname, req.file.mimetype, req.file.size, folder]
+    );
   } catch(_) {}
   res.json({ url });
 });
 
 // Upload font — defaults to shared library; pass shared=0 for form-only
-app.post('/api/admin/forms/:slug/upload-font', adminAuth, uploadFont.single('font'), (req, res) => {
+app.post('/api/admin/forms/:slug/upload-font', adminAuth, uploadFont.single('font'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  const url = `/uploads/fonts/${req.file.filename}`;
-  const name = (req.body.name || '').trim();
+  const s3Key   = req.file.key;
+  const url     = req.file.location;
+  const name    = (req.body.name || '').trim();
   const toShared = req.body.shared !== '0';   // default: save to shared library
   if (toShared && name) {
-    const fonts = readSharedFonts();
-    if (!fonts.find(f => f.name === name)) {
-      fonts.push({ id: uuidv4(), name, url, uploadedAt: new Date().toISOString() });
-      writeSharedFonts(fonts);
-    }
+    try {
+      await pool.query(
+        `INSERT INTO fonts(id, name, s3_key, url, uploaded_at)
+         VALUES($1, $2, $3, $4, NOW())
+         ON CONFLICT(name) DO NOTHING`,
+        [uuidv4(), name, s3Key, url]
+      );
+    } catch(_) {}
     return res.json({ url, shared: true });
   }
   res.json({ url, shared: false });
 });
 
 // List shared fonts
-app.get('/api/admin/fonts', adminAuth, (req, res) => {
-  res.json(readSharedFonts());
+app.get('/api/admin/fonts', adminAuth, async (req, res) => {
+  try { res.json(await readSharedFonts()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Delete a shared font
-app.delete('/api/admin/fonts/:id', adminAuth, (req, res) => {
-  const fonts = readSharedFonts().filter(f => f.id !== req.params.id);
-  writeSharedFonts(fonts);
-  res.json({ ok: true });
+app.delete('/api/admin/fonts/:id', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT s3_key FROM fonts WHERE id=$1', [req.params.id]);
+    if (rows.length) {
+      await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: rows[0].s3_key })).catch(() => {});
+      await pool.query('DELETE FROM fonts WHERE id=$1', [req.params.id]);
+    }
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // List media library for a form (shared items first, then form-specific)
-app.get('/api/admin/forms/:slug/media', adminAuth, (req, res) => {
+app.get('/api/admin/forms/:slug/media', adminAuth, async (req, res) => {
   try {
-    const shared = readSharedMedia().map(i => ({ ...i, _shared: true }));
-    const form   = readFormMedia(req.params.slug).map(i => ({ ...i, _shared: false }));
+    const shared = (await readSharedMedia()).map(i => ({ ...i, _shared: true }));
+    const form   = (await readFormMedia(req.params.slug)).map(i => ({ ...i, _shared: false }));
     res.json([...shared, ...form]);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Delete a media item (removes from library + disk)
-app.delete('/api/admin/forms/:slug/media', adminAuth, (req, res) => {
+// Delete a media item (removes from S3 + DB)
+app.delete('/api/admin/forms/:slug/media', adminAuth, async (req, res) => {
   try {
-    const { id, _shared } = req.body;
-    let items = _shared ? readSharedMedia() : readFormMedia(req.params.slug);
-    const item = items.find(i => i.id === id);
-    if (!item) return res.status(404).json({ error: 'Not found' });
-    try {
-      const filePath = path.join(__dirname, 'public', item.url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    } catch(_) {}
-    items = items.filter(i => i.id !== id);
-    if (_shared) writeSharedMedia(items); else writeFormMedia(req.params.slug, items);
+    const { id } = req.body;
+    const { rows } = await pool.query('SELECT s3_key FROM media WHERE id=$1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: rows[0].s3_key })).catch(() => {});
+    await pool.query('DELETE FROM media WHERE id=$1', [id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Update media item metadata (folder, name)
-app.patch('/api/admin/forms/:slug/media/:id', adminAuth, (req, res) => {
+app.patch('/api/admin/forms/:slug/media/:id', adminAuth, async (req, res) => {
   try {
-    const { folder, name, _shared } = req.body;
-    let items = _shared ? readSharedMedia() : readFormMedia(req.params.slug);
-    const item = items.find(i => i.id === req.params.id);
-    if (!item) return res.status(404).json({ error: 'Not found' });
-    if (folder !== undefined) item.folder = folder;
-    if (name   !== undefined) item.name   = name;
-    if (_shared) writeSharedMedia(items); else writeFormMedia(req.params.slug, items);
+    const { folder, name } = req.body;
+    const sets = [];
+    const vals = [];
+    if (folder !== undefined) { sets.push(`folder=$${vals.length+1}`); vals.push(folder); }
+    if (name   !== undefined) { sets.push(`original_name=$${vals.length+1}`); vals.push(name); }
+    if (!sets.length) return res.json({ success: true });
+    vals.push(req.params.id);
+    await pool.query(`UPDATE media SET ${sets.join(',')} WHERE id=$${vals.length}`, vals);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Move a media item between form and shared library
-app.post('/api/admin/forms/:slug/media/:id/move', adminAuth, (req, res) => {
+app.post('/api/admin/forms/:slug/media/:id/move', adminAuth, async (req, res) => {
   try {
     const { toShared } = req.body;
-    const srcItems  = toShared ? readFormMedia(req.params.slug) : readSharedMedia();
-    const destItems = toShared ? readSharedMedia() : readFormMedia(req.params.slug);
-    const idx = srcItems.findIndex(i => i.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    const [item] = srcItems.splice(idx, 1);
-    destItems.unshift(item);
-    if (toShared) { writeFormMedia(req.params.slug, srcItems); writeSharedMedia(destItems); }
-    else          { writeSharedMedia(srcItems); writeFormMedia(req.params.slug, destItems); }
+    const newSlug = toShared ? null : req.params.slug;
+    const { rowCount } = await pool.query(
+      'UPDATE media SET form_slug=$1 WHERE id=$2', [newSlug, req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Get subscribers for a form (paginated)
-app.get('/api/admin/forms/:slug/subscribers', adminAuth, (req, res) => {
+app.get('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
   try {
-    const subs = readFormSubscribers(req.params.slug);
-    const page   = parseInt(req.query.page)  || 1;
-    const limit  = parseInt(req.query.limit) || 50;
-    const search = (req.query.search || '').toLowerCase();
+    const slug   = req.params.slug;
+    const page   = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit  = Math.min(200, parseInt(req.query.limit) || 50);
+    const search = (req.query.search || '').trim();
     const status = req.query.status || 'all';
-    let filtered = subs;
-    if (search)        filtered = filtered.filter(s => s.email.includes(search) || JSON.stringify(s.customFields).toLowerCase().includes(search));
-    if (status !== 'all') filtered = filtered.filter(s => s.status === status);
-    const total = filtered.length;
-    res.json({ subscribers: filtered.slice((page-1)*limit, page*limit), total, page, pages: Math.ceil(total/limit) });
+    const offset = (page - 1) * limit;
+
+    const conditions = ['form_slug=$1'];
+    const vals = [slug];
+    if (status !== 'all') { conditions.push(`status=$${vals.length+1}`); vals.push(status); }
+    if (search) {
+      conditions.push(`(email ILIKE $${vals.length+1} OR custom_fields::text ILIKE $${vals.length+1})`);
+      vals.push(`%${search}%`);
+    }
+    const where = conditions.join(' AND ');
+
+    const countRes = await pool.query(`SELECT COUNT(*) AS c FROM subscribers WHERE ${where}`, vals);
+    const total = parseInt(countRes.rows[0].c, 10);
+    const dataRes = await pool.query(
+      `SELECT * FROM subscribers WHERE ${where} ORDER BY subscribed_at DESC LIMIT $${vals.length+1} OFFSET $${vals.length+2}`,
+      [...vals, limit, offset]
+    );
+    res.json({ subscribers: dataRes.rows.map(rowToSubscriber), total, page, pages: Math.ceil(total/limit) });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Delete subscriber (GDPR)
-app.delete('/api/admin/forms/:slug/subscribers/:id', adminAuth, (req, res) => {
+app.delete('/api/admin/forms/:slug/subscribers/:id', adminAuth, async (req, res) => {
   try {
-    const subs = readFormSubscribers(req.params.slug);
-    const idx = subs.findIndex(s => s.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    subs.splice(idx, 1);
-    writeFormSubscribers(req.params.slug, subs);
+    const { rowCount } = await pool.query(
+      'DELETE FROM subscribers WHERE id=$1 AND form_slug=$2', [req.params.id, req.params.slug]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Export subscribers as CSV/JSON — marks each exported record
-app.get('/api/admin/forms/:slug/export', adminAuth, (req, res) => {
+app.get('/api/admin/forms/:slug/export', adminAuth, async (req, res) => {
   try {
-    const cfg  = readFormConfig(req.params.slug);
-    let subs = readFormSubscribers(req.params.slug);
+    const slug = req.params.slug;
+    const cfg  = await readFormConfig(slug);
     const fmt  = req.query.format || 'csv';
-    // Mark every record as exported
-    const now = new Date().toISOString();
-    subs = subs.map(s => ({ ...s, exported: true, exportedAt: now }));
-    writeFormSubscribers(req.params.slug, subs);
+    // Mark every record as exported and fetch updated rows in one query
+    await pool.query(
+      `UPDATE subscribers SET exported=TRUE, exported_at=NOW() WHERE form_slug=$1`, [slug]);
+    const subs = await readFormSubscribers(slug);
     if (fmt === 'json') {
-      res.setHeader('Content-Disposition', `attachment; filename="subscribers-${req.params.slug}.json"`);
+      res.setHeader('Content-Disposition', `attachment; filename="subscribers-${slug}.json"`);
       res.setHeader('Content-Type', 'application/json');
       return res.send(JSON.stringify(subs, null, 2));
     }
@@ -936,71 +1049,63 @@ app.get('/api/admin/forms/:slug/export', adminAuth, (req, res) => {
       if (customFieldIds.includes(h)) return `"${(s.customFields[h]||'').replace(/"/g,'""')}"`;
       return `"${(s[h]||'').toString().replace(/"/g,'""')}"`;
     }).join(','));
-    res.setHeader('Content-Disposition', `attachment; filename="subscribers-${req.params.slug}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="subscribers-${slug}.csv"`);
     res.setHeader('Content-Type', 'text/csv');
     res.send([headers.join(','), ...rows].join('\n'));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Clear export flag for one subscriber
-app.post('/api/admin/forms/:slug/subscribers/:id/clear-export', adminAuth, (req, res) => {
+app.post('/api/admin/forms/:slug/subscribers/:id/clear-export', adminAuth, async (req, res) => {
   try {
-    const subs = readFormSubscribers(req.params.slug);
-    const idx = subs.findIndex(s => s.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    subs[idx].exported = false;
-    subs[idx].exportedAt = null;
-    writeFormSubscribers(req.params.slug, subs);
+    await pool.query(
+      'UPDATE subscribers SET exported=FALSE, exported_at=NULL WHERE id=$1 AND form_slug=$2',
+      [req.params.id, req.params.slug]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Clear export flag for all subscribers
-app.post('/api/admin/forms/:slug/subscribers/clear-all-exports', adminAuth, (req, res) => {
+app.post('/api/admin/forms/:slug/subscribers/clear-all-exports', adminAuth, async (req, res) => {
   try {
-    let subs = readFormSubscribers(req.params.slug);
-    subs = subs.map(s => ({ ...s, exported: false, exportedAt: null }));
-    writeFormSubscribers(req.params.slug, subs);
+    await pool.query(
+      'UPDATE subscribers SET exported=FALSE, exported_at=NULL WHERE form_slug=$1', [req.params.slug]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Admin: manually unsubscribe a subscriber (keeps record, sets status=unsubscribed)
-app.post('/api/admin/forms/:slug/subscribers/:id/unsubscribe', adminAuth, (req, res) => {
+app.post('/api/admin/forms/:slug/subscribers/:id/unsubscribe', adminAuth, async (req, res) => {
   try {
-    const subs = readFormSubscribers(req.params.slug);
-    const idx = subs.findIndex(s => s.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    subs[idx].status = 'unsubscribed';
-    subs[idx].unsubscribedAt = new Date().toISOString();
-    writeFormSubscribers(req.params.slug, subs);
+    const { rowCount } = await pool.query(
+      `UPDATE subscribers SET status='unsubscribed', unsubscribed_at=NOW()
+       WHERE id=$1 AND form_slug=$2`, [req.params.id, req.params.slug]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Admin: reactivate a previously unsubscribed subscriber
-app.post('/api/admin/forms/:slug/subscribers/:id/reactivate', adminAuth, (req, res) => {
+app.post('/api/admin/forms/:slug/subscribers/:id/reactivate', adminAuth, async (req, res) => {
   try {
-    const subs = readFormSubscribers(req.params.slug);
-    const idx = subs.findIndex(s => s.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    subs[idx].status = 'active';
-    subs[idx].unsubscribedAt = null;
-    writeFormSubscribers(req.params.slug, subs);
+    const { rowCount } = await pool.query(
+      `UPDATE subscribers SET status='active', unsubscribed_at=NULL
+       WHERE id=$1 AND form_slug=$2`, [req.params.id, req.params.slug]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Analytics: get per-form analytics
-app.get('/api/admin/forms/:slug/analytics', adminAuth, (req, res) => {
-  try { res.json(readAnalytics(req.params.slug)); }
+app.get('/api/admin/forms/:slug/analytics', adminAuth, async (req, res) => {
+  try { res.json(await readAnalytics(req.params.slug)); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Analytics: reset counters for a form
-app.post('/api/admin/forms/:slug/analytics/reset', adminAuth, (req, res) => {
+app.post('/api/admin/forms/:slug/analytics/reset', adminAuth, async (req, res) => {
   try {
-    fs.writeFileSync(analyticsPath(req.params.slug), JSON.stringify({ visits: 0, submits: 0, errors: 0, lastUpdated: new Date().toISOString() }));
+    await pool.query('DELETE FROM analytics WHERE form_slug=$1', [req.params.slug]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1010,72 +1115,71 @@ app.post('/api/admin/forms/:slug/analytics/reset', adminAuth, (req, res) => {
 // ════════════════════════════════════════
 
 // ── Design templates ──────────────────────────────────────────────────────────
-app.get('/api/admin/design-templates', adminAuth, (req, res) => {
-  try { res.json(readDesignTemplates()); }
+app.get('/api/admin/design-templates', adminAuth, async (req, res) => {
+  try { res.json(await readDesignTemplates()); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/admin/design-templates', adminAuth, (req, res) => {
+app.post('/api/admin/design-templates', adminAuth, async (req, res) => {
   try {
     const { name, design } = req.body;
     if (!name || !design) return res.status(400).json({ error: 'name and design required' });
-    const templates = readDesignTemplates();
-    const tmpl = { id: uuidv4(), name, design, createdAt: new Date().toISOString() };
-    templates.push(tmpl);
-    writeDesignTemplates(templates);
-    res.json(tmpl);
+    const id = uuidv4();
+    await pool.query(
+      'INSERT INTO design_templates(id, name, design, created_at) VALUES($1, $2, $3, NOW())',
+      [id, name, design]
+    );
+    res.json({ id, name, design, createdAt: new Date().toISOString() });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/admin/design-templates/:id', adminAuth, (req, res) => {
+app.delete('/api/admin/design-templates/:id', adminAuth, async (req, res) => {
   try {
-    let templates = readDesignTemplates();
-    const before = templates.length;
-    templates = templates.filter(t => t.id !== req.params.id);
-    if (templates.length === before) return res.status(404).json({ error: 'Not found' });
-    writeDesignTemplates(templates);
+    const { rowCount } = await pool.query('DELETE FROM design_templates WHERE id=$1', [req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put('/api/admin/design-templates/:id', adminAuth, (req, res) => {
+app.put('/api/admin/design-templates/:id', adminAuth, async (req, res) => {
   try {
-    const templates = readDesignTemplates();
-    const idx = templates.findIndex(t => t.id === req.params.id);
-    if (idx < 0) return res.status(404).json({ error: 'Not found' });
-    templates[idx].design = req.body.design;
-    writeDesignTemplates(templates);
-    res.json(templates[idx]);
+    const { rowCount } = await pool.query(
+      'UPDATE design_templates SET design=$1 WHERE id=$2', [req.body.design, req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    const templates = await readDesignTemplates();
+    const tmpl = templates.find(t => t.id === req.params.id);
+    res.json(tmpl || { id: req.params.id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Public form page
-app.get('/:slug', (req, res) => {
+app.get('/:slug', async (req, res) => {
   const { slug } = req.params;
   if (RESERVED_SLUGS.has(slug)) return res.status(404).send('Not found');
   try {
-    let formCfg = readFormConfig(slug);
+    let formCfg = await readFormConfig(slug);
     if (!req.query._preview && !req.query._tplPreview) bumpAnalytic(slug, 'visits');
+    const [sharedFonts, templates] = await Promise.all([readSharedFonts(), readDesignTemplates()]);
     const tplPreviewId = req.query._tplPreview;
     if (tplPreviewId) {
-      const tmpls = readDesignTemplates();
-      const tpl = tmpls.find(t => t.id === tplPreviewId);
+      const tpl = templates.find(t => t.id === tplPreviewId);
       if (tpl && tpl.design) formCfg = { ...formCfg, design: { ...tpl.design, customFonts: (formCfg.design || {}).customFonts } };
     }
     // ?_generic=1 — replace sections/fields with neutral demo content (used by design-tab preview)
     if (req.query._generic) {
       formCfg = { ...formCfg, sections: GENERIC_PREVIEW_SECTIONS, fields: GENERIC_PREVIEW_FIELDS };
     }
-    res.send(renderPublicPage(formCfg));
+    res.send(renderPublicPage(formCfg, sharedFonts, templates));
   }
   catch(e) { res.status(404).send('<p>Form not found. <a href="/">Home</a></p>'); }
 });
 
 // Confirmation/response state preview (admin only)
-app.get('/:slug/confirmation-preview', adminAuth, (req, res) => {
+app.get('/:slug/confirmation-preview', adminAuth, async (req, res) => {
   try {
-    const cfg = readFormConfig(req.params.slug);
-    let html = renderPublicPage(cfg);
+    const [cfg, sharedFonts, templates] = await Promise.all([
+      readFormConfig(req.params.slug), readSharedFonts(), readDesignTemplates()]);
+    let html = renderPublicPage(cfg, sharedFonts, templates);
     // Inject script to immediately show the confirmation state and hide the form
     html = html.replace('</body>',
       '<script>document.addEventListener("DOMContentLoaded",function(){' +
@@ -1089,9 +1193,10 @@ app.get('/:slug/confirmation-preview', adminAuth, (req, res) => {
 });
 
 // Embed iframe page — explicitly allows framing from any origin
-app.get('/:slug/embed', (req, res) => {
+app.get('/:slug/embed', async (req, res) => {
   try {
-    const cfg = readFormConfig(req.params.slug);
+    const [cfg, sharedFonts, templates] = await Promise.all([
+      readFormConfig(req.params.slug), readSharedFonts(), readDesignTemplates()]);
     res.setHeader('X-Frame-Options', 'ALLOWALL');
     // Override helmet's frame-ancestors 'self' with * for the embed page only.
     // All other CSP directives match the global policy.
@@ -1103,14 +1208,14 @@ app.get('/:slug/embed', (req, res) => {
       "connect-src 'self' https://api.hcaptcha.com; " +
       "frame-src https://www.youtube.com https://player.vimeo.com; " +
       "frame-ancestors *; object-src 'none'; base-uri 'self'");
-    res.send(renderEmbedPage(cfg));
+    res.send(renderEmbedPage(cfg, sharedFonts, templates));
   } catch(e) { res.status(404).send('Form not found'); }
 });
 
 // Embed JS snippet
-app.get('/:slug/embed.js', (req, res) => {
+app.get('/:slug/embed.js', async (req, res) => {
   try {
-    const cfg = readFormConfig(req.params.slug);
+    const cfg = await readFormConfig(req.params.slug);
     const origin = `${req.protocol}://${req.get('host')}`;
     res.setHeader('Content-Type', 'application/javascript');
     res.setHeader('Cache-Control', 'public, max-age=60');
@@ -1121,8 +1226,8 @@ app.get('/:slug/embed.js', (req, res) => {
 // Form submission
 app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   const { slug } = req.params;
-  let cfg, subs;
-  try { cfg = readFormConfig(slug); subs = readFormSubscribers(slug); }
+  let cfg;
+  try { cfg = await readFormConfig(slug); }
   catch(e) { return res.status(404).json({ error: 'Form not found' }); }
   const body = req.body;
 
@@ -1140,18 +1245,44 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   const email = (body.email || '').trim().toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { bumpAnalytic(slug, 'errors'); return res.status(400).json({ error: 'Valid email required.' }); }
 
-  const existing = subs.find(s => s.email === email);
-  if (existing && existing.status === 'active') { bumpAnalytic(slug, 'errors'); return res.status(409).json({ error: 'This email is already subscribed.' }); }
+  // Check for existing active subscription
+  const { rows: existingRows } = await pool.query(
+    `SELECT id, status FROM subscribers WHERE form_slug=$1 AND email=$2 LIMIT 1`, [slug, email]);
+  const existing = existingRows[0] || null;
+  if (existing && existing.status === 'active') {
+    bumpAnalytic(slug, 'errors');
+    return res.status(409).json({ error: 'This email is already subscribed.' });
+  }
 
-  const record = { id: uuidv4(), email, status: 'active', subscribedAt: new Date().toISOString(),
-    unsubscribedAt: null, unsubscribeToken: uuidv4(), consentGiven: true,
-    consentTimestamp: new Date().toISOString(), ipAddress: req.ip, customFields: {} };
-  cfg.fields.filter(f => !f.system).forEach(f => { record.customFields[f.id] = (body[f.id] || '').trim(); });
+  const customFields = {};
+  cfg.fields.filter(f => !f.system).forEach(f => { customFields[f.id] = (body[f.id] || '').trim(); });
 
-  if (existing) { subs[subs.findIndex(s => s.email === email)] = { ...existing, ...record }; }
-  else { subs.push(record); }
+  const id             = uuidv4();
+  const token          = uuidv4();
+  const now            = new Date().toISOString();
+  const record         = { id, email, status: 'active', subscribedAt: now, unsubscribedAt: null,
+                           unsubscribeToken: token, consentGiven: true, consentTimestamp: now,
+                           ipAddress: req.ip, customFields };
 
-  writeFormSubscribers(slug, subs);
+  if (existing) {
+    // Re-activate a previously unsubscribed record
+    await pool.query(
+      `UPDATE subscribers SET status='active', subscribed_at=NOW(), unsubscribed_at=NULL,
+       unsubscribe_token=$1, consent_given=TRUE, consent_timestamp=$2,
+       ip_address=$3, custom_fields=$4 WHERE id=$5`,
+      [token, now, req.ip, customFields, existing.id]
+    );
+    record.id = existing.id;
+  } else {
+    await pool.query(
+      `INSERT INTO subscribers
+       (id, form_slug, email, status, subscribed_at, unsubscribed_at,
+        unsubscribe_token, consent_given, consent_timestamp, ip_address, custom_fields)
+       VALUES($1,$2,$3,'active',NOW(),NULL,$4,TRUE,$5,$6,$7)`,
+      [id, slug, email, token, now, req.ip, customFields]
+    );
+  }
+
   bumpAnalytic(slug, 'submits');
   // Fire-and-forget welcome email (never blocks the response)
   sendWelcomeEmail(cfg, record).catch(e => console.error('[email]', e.message));
@@ -1165,10 +1296,10 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
 // Fonts that are NOT on Google Fonts (premium/custom — require .woff2 upload)
 const NON_GF_FONTS = new Set(['Roc Grotesk']);
 
-function googleFontTag(cfg, effectiveDesign) {
+function googleFontTag(cfg, effectiveDesign, sharedFonts = []) {
   // Merge shared + per-form custom fonts; both bypass Google Fonts loading
   const allCustomNames = new Set([
-    ...readSharedFonts().map(f => f.name),
+    ...sharedFonts.map(f => f.name),
     ...(cfg.design.customFonts || []).map(f => f.name)
   ]);
   // Use effective design (may be template-overridden) for font selection
@@ -1189,9 +1320,9 @@ function gdprHtml(siteCfg) {
   return text.replace(/\{privacyUrl\}/g, siteCfg.privacyPolicyUrl || '#');
 }
 
-function customFontFaceCSS(cfg) {
+function customFontFaceCSS(cfg, sharedFonts = []) {
   // Merge shared fonts (loaded for every form) + per-form fonts, deduplicated by name
-  const shared = readSharedFonts();
+  const shared = sharedFonts;
   const formFonts = cfg.design.customFonts || [];
   const seen = new Set();
   const fonts = [...shared, ...formFonts].filter(f => {
@@ -1864,11 +1995,10 @@ function hexToRgb(hex) {
   return `${r},${g},${b}`;
 }
 
-function renderPublicPage(cfg) {
+function renderPublicPage(cfg, sharedFonts = [], templates = []) {
   let d = cfg.design || {};
   if (cfg.designTemplateId) {
-    const tmpls = readDesignTemplates();
-    const tpl = tmpls.find(t => t.id === cfg.designTemplateId);
+    const tpl = templates.find(t => t.id === cfg.designTemplateId);
     if (tpl && tpl.design) d = { ...tpl.design, customFonts: (cfg.design || {}).customFonts };
   }
   const s = cfg.site;
@@ -1889,8 +2019,8 @@ function renderPublicPage(cfg) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(s.title)}</title>
-${googleFontTag(cfg, d)}
-${customFontFaceCSS(cfg)}
+${googleFontTag(cfg, d, sharedFonts)}
+${customFontFaceCSS(cfg, sharedFonts)}
 ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2022,14 +2152,14 @@ ${sliderPickerJS()}
 </html>`;
 }
 
-function renderUnsubscribePage(cfg, message, success, isDelete = false) {
+function renderUnsubscribePage(cfg, message, success, isDelete = false, sharedFonts = []) {
   const d = cfg.design;
   const title = isDelete ? 'Delete My Data' : 'Unsubscribe';
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)} · ${escapeHtml(cfg.site.title)}</title>
-${googleFontTag(cfg)}
-${customFontFaceCSS(cfg)}
+${googleFontTag(cfg, null, sharedFonts)}
+${customFontFaceCSS(cfg, sharedFonts)}
 <style>
   body { font-family: '${d.bodyFont}',sans-serif; background:${d.backgroundColor}; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 20px; }
   .card { background:#fff; border-radius:12px; padding:40px; max-width:440px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.1); text-align:center; }
@@ -2093,7 +2223,7 @@ function renderPrefCenterBlock(block) {
   }
 }
 
-function renderPreferencePage(cfg, { token, email, found, message, success } = {}) {
+function renderPreferencePage(cfg, { token, email, found, message, success } = {}, sharedFonts = []) {
   const d  = cfg.design || {};
   const s  = cfg.site   || {};
   const pc = cfg.preferenceCenter || {};
@@ -2162,8 +2292,8 @@ function renderPreferencePage(cfg, { token, email, found, message, success } = {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(heading)} · ${escapeHtml(s.title||'SignFlow')}</title>
-${googleFontTag(cfg)}
-${customFontFaceCSS(cfg)}
+${googleFontTag(cfg, null, sharedFonts)}
+${customFontFaceCSS(cfg, sharedFonts)}
 <style>
   *,*::before,*::after{box-sizing:border-box}
   body{font-family:'${bFont}',sans-serif;background:${bodyBg};${bodyBgExtra}min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;color:${textCol}}
@@ -2206,14 +2336,14 @@ ${overlayDiv}
 </div></div></body></html>`;
 }
 
-function renderPrivacyPage(cfg) {
+function renderPrivacyPage(cfg, sharedFonts = []) {
   const d = cfg.design;
   const s = cfg.site;
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Privacy Policy · ${escapeHtml(s.title)}</title>
-${googleFontTag(cfg)}
-${customFontFaceCSS(cfg)}
+${googleFontTag(cfg, null, sharedFonts)}
+${customFontFaceCSS(cfg, sharedFonts)}
 <style>
   body { font-family:'${d.bodyFont}',sans-serif; background:${d.backgroundColor}; color:${d.textColor}; padding:60px 20px; }
   .wrap { max-width:720px; margin:0 auto; background:#fff; padding:48px; border-radius:12px; box-shadow:0 4px 30px rgba(0,0,0,.08); }
@@ -2255,11 +2385,10 @@ ${customFontFaceCSS(cfg)}
 </div></body></html>`;
 }
 
-function renderEmbedPage(cfg) {
+function renderEmbedPage(cfg, sharedFonts = [], templates = []) {
   let d = cfg.design || {};
   if (cfg.designTemplateId) {
-    const tmpls = readDesignTemplates();
-    const tpl = tmpls.find(t => t.id === cfg.designTemplateId);
+    const tpl = templates.find(t => t.id === cfg.designTemplateId);
     if (tpl && tpl.design) d = { ...tpl.design, customFonts: (cfg.design || {}).customFonts };
   }
   const s = cfg.site;
@@ -2274,8 +2403,8 @@ function renderEmbedPage(cfg) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${s.title}</title>
-${googleFontTag(cfg, d)}
-${customFontFaceCSS(cfg)}
+${googleFontTag(cfg, d, sharedFonts)}
+${customFontFaceCSS(cfg, sharedFonts)}
 ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2483,7 +2612,7 @@ process.on('uncaughtException', (err) => {
 
 // ── Start ──
 (async () => {
-  migrateIfNeeded();
+  await initDb();
   await initAuth0();
   app.listen(PORT, () => {
     console.log(`\n✅ SignFlow running at http://localhost:${PORT}`);
