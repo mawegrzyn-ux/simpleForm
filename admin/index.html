@@ -40,6 +40,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:13.
 /* Form sub-nav */
 .f-nav{display:flex;align-items:center;gap:2px;padding:3px 14px;background:var(--panel);border-bottom:1px solid var(--border2);}
 .f-nav-label{font-size:0.7rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;padding-right:6px;flex-shrink:0;}
+.f-nav-tpl-wrap{display:flex;align-items:center;gap:5px;margin-left:auto;padding-left:10px;border-left:1px solid var(--border2);}
+.f-nav-tpl-sel{font-size:0.78rem;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--ink);max-width:160px;}
 .f-tab{padding:4px 11px;border-radius:5px;color:var(--ink3);cursor:pointer;font-size:0.82rem;font-weight:400;transition:all 120ms;border:none;background:none;font-family:var(--font);display:inline-flex;align-items:center;gap:4px;}
 .f-tab .mi{font-size:15px!important;}
 .f-tab:hover{color:var(--ink);background:var(--bg);}
@@ -330,6 +332,13 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #settings-preview{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 #settings-prev-frame-wrap{flex:1;overflow:auto;padding:20px;background:var(--bg2);}
 #settings-preview-frame{width:100%;height:680px;border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff;}
+/* Email tab */
+#tab-email{flex-direction:row;overflow:hidden;}
+#email-settings-panel{width:280px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
+#email-settings-panel .page-body{max-width:none;padding:20px 16px;}
+#email-builder-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg2);}
+.etpl-subject-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;}
+.etpl-subject-bar .cl{font-size:0.75rem;font-weight:600;color:var(--ink2);margin-bottom:0;}
 #design-preview{flex:1;overflow:auto;background:var(--bg2);display:flex;flex-direction:column;}
 #design-prev-frame-wrap{padding:24px;display:flex;justify-content:center;align-items:flex-start;width:100%;}
 .palette-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
@@ -491,12 +500,19 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   <div class="t-logo">Wing<em style="color:#7ab648;font-style:italic">Vibes</em></div>
   <nav class="t-nav">
     <button class="t-tab active" id="tab-forms-btn" onclick="switchTab('forms',this)">Forms<span id="t-form-name-chip" class="t-form-chip" style="display:none"></span></button>
-    <button class="t-tab" onclick="switchTab('design',this)">Design</button>
+    <button class="t-tab" onclick="switchTab('design',this)">Branding</button>
     <button class="t-tab" onclick="switchTab('help',this)"><span class="material-icons-round mi" style="font-size:15px">help_outline</span> Help</button>
   </nav>
   <div class="t-spacer"></div>
   <div class="t-actions">
     <span class="save-ind" id="save-ind">Saved</span>
+    <div id="tbar-tpl-btns" style="display:none;align-items:center;gap:6px">
+      <span id="tbar-tpl-name" style="font-size:0.78rem;font-weight:500;color:var(--ink2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      <button class="tbtn tbtn-primary" onclick="saveTplFromDesignTab()"><span class="material-icons-round mi">save</span> Save</button>
+      <button class="tbtn tbtn-ghost" onclick="saveTplAsFromDesignTab()"><span class="material-icons-round mi">save_as</span> Save as…</button>
+      <button class="tbtn tbtn-ghost" style="color:var(--danger)" onclick="deleteTplCurrent()"><span class="material-icons-round mi">delete</span></button>
+      <button class="tbtn tbtn-ghost" onclick="exitTplEdit()">Done</button>
+    </div>
     <button class="tbtn tbtn-ghost" id="view-site-btn" onclick="window.open('/','_blank')" style="display:none"><span class="material-icons-round mi">open_in_new</span> View site</button>
     <button class="tbtn tbtn-primary" id="save-btn" onclick="saveConfig()" style="display:none"><span class="material-icons-round mi">save</span> Save</button>
     <div id="user-badge">
@@ -514,6 +530,9 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   <button class="f-tab" onclick="switchTab('subscribers',this)">
     <span class="material-icons-round mi">people</span> Subscribers
   </button>
+  <button class="f-tab" onclick="switchTab('email',this)">
+    <span class="material-icons-round mi">mail</span> Email
+  </button>
   <button class="f-tab" onclick="switchTab('embed',this)">
     <span class="material-icons-round mi">code</span> Embed
   </button>
@@ -521,6 +540,10 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     <span class="material-icons-round mi">settings</span> Settings
   </button>
   <button class="f-tab" onclick="openMediaPicker('manage')" id="subnav-media-btn">Media</button>
+  <div class="f-nav-tpl-wrap" id="f-nav-tpl-wrap" style="display:none">
+    <span class="f-nav-label" style="font-size:0.73rem;color:var(--ink3)">Template:</span>
+    <select id="f-nav-tpl-sel" class="f-nav-tpl-sel" onchange="setDesignTemplateId(this.value)" title="Active design template"></select>
+  </div>
 </nav>
 
 <div id="app">
@@ -665,15 +688,13 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 <div id="tab-design" class="page">
   <div id="design-panel">
   <div class="page-body">
-    <div class="page-head" style="margin-bottom:0"><h2>Design</h2><p>Manage design templates. Assign a template to a form in its settings.</p></div>
+    <div class="page-head" style="margin-bottom:0"><h2>Branding</h2><p>Manage design templates. Assign a template to a form in its settings.</p></div>
     <div class="design-tpl-bar" id="design-tpl-bar">
       <select id="design-tpl-sel" style="flex:1" onchange="onDesignTplSelChange(this.value)">
         <option value="">— Select template to edit —</option>
       </select>
       <button class="btn btn-outline btn-sm" onclick="createNewTpl()"><span class="material-icons-round mi">add</span> New</button>
-      <button class="btn btn-primary btn-sm" id="dtpl-save-btn" style="display:none" onclick="saveTplFromDesignTab()"><span class="material-icons-round mi">save</span> Save template</button>
-      <button class="btn btn-outline btn-sm" id="dtpl-saveas-btn" style="display:none" onclick="saveTplAsFromDesignTab()" title="Save a copy under a new name"><span class="material-icons-round mi">save_as</span> Save as…</button>
-      <button class="btn btn-outline btn-sm" id="dtpl-done-btn" style="display:none" onclick="exitTplEdit()">Done</button>
+      <button class="btn btn-outline btn-sm" id="dtpl-delete-btn" style="display:none;color:var(--danger)" onclick="deleteTplCurrent()" title="Delete this template"><span class="material-icons-round mi">delete</span> Delete</button>
     </div>
     <div id="dtpl-empty" style="padding:40px 20px;text-align:center;color:var(--ink3);font-size:0.84rem">No templates yet — click <strong>New</strong> to create one.</div>
     <div id="design-cards-wrap" style="display:none">
@@ -1290,6 +1311,120 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   </div>
 </div>
 
+<!-- EMAIL TAB -->
+<div id="tab-email" class="page">
+  <!-- Left: settings -->
+  <div id="email-settings-panel">
+    <div class="page-body">
+      <div class="page-head" style="margin-bottom:12px"><h2>Email</h2><p>Configure and design the welcome email sent to new subscribers.</p></div>
+      <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">mail</span> Welcome Email</div>
+        <div class="setting-row" style="padding-top:0">
+          <div class="setting-info"><div class="setting-title">Send welcome email on signup</div><div class="setting-desc">Requires SMTP settings configured in your server's <code>.env</code> file</div></div>
+          <label class="tgl"><input type="checkbox" id="email-enabled" onchange="cfg.site.emailEnabled=this.checked;toggleEmailFields()"><span class="tgl-s"></span></label>
+        </div>
+        <div id="email-fields" style="display:none;margin-top:10px">
+          <div class="cg"><label class="cl">From name</label><input type="text" id="email-from-name" placeholder="My Newsletter" oninput="cfg.site.emailFromName=this.value"></div>
+          <div class="cg"><label class="cl">Reply-to (optional)</label><input type="text" id="email-reply-to" placeholder="hello@example.com" oninput="cfg.site.emailReplyTo=this.value"></div>
+        </div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">palette</span> Template Style</div>
+        <div class="cg"><label class="cl">Background colour</label><input type="color" id="etpl-bgColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"></div>
+        <div class="cg"><label class="cl">Card background</label><input type="color" id="etpl-cardBg" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"></div>
+        <div class="cg"><label class="cl">Text colour</label><input type="color" id="etpl-textColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"></div>
+        <div class="cg"><label class="cl">Heading colour</label><input type="color" id="etpl-headingColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"></div>
+        <div class="cg"><label class="cl">Body font</label>
+          <select id="etpl-bodyFont" onchange="updateEtplDesign()">
+            <option>Lato</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Source Sans Pro</option><option>Georgia</option><option>Merriweather</option><option>Playfair Display</option>
+          </select>
+        </div>
+        <div class="cg"><label class="cl">Heading font</label>
+          <select id="etpl-headingFont" onchange="updateEtplDesign()">
+            <option>Playfair Display</option><option>Lato</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Georgia</option><option>Merriweather</option>
+          </select>
+        </div>
+        <div class="cg"><label class="cl">Max width</label>
+          <select id="etpl-maxWidth" onchange="updateEtplDesign()">
+            <option value="500px">500px</option><option value="600px" selected>600px</option><option value="680px">680px</option><option value="720px">720px</option>
+          </select>
+        </div>
+        <div class="cg"><label class="cl">Card padding</label>
+          <select id="etpl-padding" onchange="updateEtplDesign()">
+            <option value="24px">Compact (24px)</option><option value="32px">Normal (32px)</option><option value="40px" selected>Roomy (40px)</option><option value="56px">Large (56px)</option>
+          </select>
+        </div>
+        <div class="cg"><label class="cl">Corner radius</label>
+          <select id="etpl-borderRadius" onchange="updateEtplDesign()">
+            <option value="0px">None</option><option value="4px">Slight (4px)</option><option value="8px" selected>Rounded (8px)</option><option value="16px">Large (16px)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Right: email template builder (inline) -->
+  <div id="email-builder-panel">
+    <!-- Subject -->
+    <div class="etpl-subject-bar">
+      <label class="cl" style="flex-shrink:0;margin-bottom:0">Subject</label>
+      <input type="text" id="etpl-subject" placeholder="Thanks for subscribing!" oninput="cfg.site.emailSubject=this.value" style="flex:1">
+      <button class="btn btn-outline btn-sm" style="font-size:0.72rem;flex-shrink:0" onclick="toggleEtplTagMenu('subject')">+ Merge tag</button>
+    </div>
+    <div id="etpl-tag-menu-subject" class="etpl-tag-menu" style="margin:4px 12px">
+      <button class="etpl-tag-chip" onclick="etplInsertMergeTag('email','subject')">{{email}}</button>
+      <button class="etpl-tag-chip" onclick="etplInsertMergeTag('firstName','subject')">{{firstName}}</button>
+      <button class="etpl-tag-chip" onclick="etplInsertMergeTag('formName','subject')">{{formName}}</button>
+    </div>
+    <!-- Toolbar -->
+    <div class="etpl-toolbar">
+      <button onclick="etplFmt('bold')" title="Bold"><b style="font-family:serif">B</b></button>
+      <button onclick="etplFmt('italic')" title="Italic"><i style="font-family:serif">I</i></button>
+      <button onclick="etplFmt('underline')" title="Underline"><u>U</u></button>
+      <div class="t-sep"></div>
+      <button onclick="etplFmt('justifyLeft')" title="Align left"><span class="material-icons-round mi">format_align_left</span></button>
+      <button onclick="etplFmt('justifyCenter')" title="Align centre"><span class="material-icons-round mi">format_align_center</span></button>
+      <button onclick="etplFmt('justifyRight')" title="Align right"><span class="material-icons-round mi">format_align_right</span></button>
+      <div class="t-sep"></div>
+      <button onclick="etplFmt('insertUnorderedList')" title="Bullet list"><span class="material-icons-round mi">format_list_bulleted</span></button>
+      <button onclick="etplFmt('insertOrderedList')" title="Numbered list"><span class="material-icons-round mi">format_list_numbered</span></button>
+      <div class="t-sep"></div>
+      <button onclick="etplFmt('formatBlock','h1')" title="Heading 1" style="font-size:10px;font-weight:700;padding:4px 5px">H1</button>
+      <button onclick="etplFmt('formatBlock','h2')" title="Heading 2" style="font-size:10px;font-weight:700;padding:4px 5px">H2</button>
+      <button onclick="etplFmt('formatBlock','h3')" title="Heading 3" style="font-size:10px;font-weight:700;padding:4px 5px">H3</button>
+      <button onclick="etplFmt('formatBlock','p')" title="Paragraph"><span class="material-icons-round mi">notes</span></button>
+      <div class="t-sep"></div>
+      <button onclick="etplLink()" title="Link"><span class="material-icons-round mi">link</span></button>
+      <button onclick="etplInsertImage()" title="Insert image"><span class="material-icons-round mi">image</span></button>
+      <div class="t-sep"></div>
+      <label title="Text colour" style="display:inline-flex;align-items:center;cursor:pointer;padding:4px 6px;border-radius:4px;border:1px solid transparent;gap:3px" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background=''">
+        <span class="material-icons-round mi">format_color_text</span>
+        <input type="color" id="etpl-fgcolor" style="width:0;height:0;opacity:0;position:absolute" oninput="etplFmt('foreColor',this.value)">
+      </label>
+      <div class="t-sep"></div>
+      <button onclick="toggleEtplTagMenu('body')" title="Insert merge tag"><span class="material-icons-round mi">data_object</span> Merge</button>
+      <button onclick="etplInsertUnsubBlock()" title="Insert unsubscribe button" style="font-size:0.75rem">Unsub link</button>
+      <div class="t-sep"></div>
+      <button onclick="etplFmt('removeFormat')" title="Clear formatting"><span class="material-icons-round mi">format_clear</span></button>
+    </div>
+    <!-- Merge tag chip panel (body) -->
+    <div id="etpl-tag-menu-body" class="etpl-tag-menu" style="margin:6px 10px 0">
+      <button class="etpl-tag-chip" onclick="etplInsertMergeTag('email','body')">{{email}}</button>
+      <button class="etpl-tag-chip" onclick="etplInsertMergeTag('firstName','body')">{{firstName}}</button>
+      <button class="etpl-tag-chip" onclick="etplInsertMergeTag('formName','body')">{{formName}}</button>
+      <button class="etpl-tag-chip" onclick="etplInsertMergeTag('unsubscribeUrl','body')">{{unsubscribeUrl}}</button>
+    </div>
+    <!-- Preview pane -->
+    <div class="etpl-preview">
+      <div id="etpl-outer">
+        <div id="etpl-card">
+          <div id="etpl-wysi" contenteditable="true"></div>
+          <div class="etpl-unsub-preview">Don't want these emails? <a href="#" style="color:#aaa">Manage preferences</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- FORM SETTINGS TAB -->
 <div id="tab-pfsettings" class="page">
   <div id="settings-panel">
@@ -1300,7 +1435,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <div class="cg">
         <label class="cl">Assigned template</label>
         <div class="cr" style="gap:8px">
-          <select id="pf-design-tpl-sel" style="flex:1" onchange="cfg.designTemplateId=this.value||null;schedulePreview()">
+          <select id="pf-design-tpl-sel" style="flex:1" onchange="setDesignTemplateId(this.value)">
             <option value="">None (use form's own design)</option>
           </select>
         </div>
@@ -1339,21 +1474,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="saveCaptchaSettings()">Save CAPTCHA settings</button>
     </div>
     <div class="card" style="padding:16px">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">mail</span> Welcome Email</div>
-      <div class="setting-row" style="padding-top:0">
-        <div class="setting-info"><div class="setting-title">Send welcome email on signup</div><div class="setting-desc">Requires SMTP settings configured in your server's <code>.env</code> file</div></div>
-        <label class="tgl"><input type="checkbox" id="email-enabled" onchange="cfg.site.emailEnabled=this.checked;toggleEmailFields()"><span class="tgl-s"></span></label>
-      </div>
-      <div id="email-fields" style="display:none;margin-top:10px">
-        <div class="cg"><label class="cl">From name</label><input type="text" id="email-from-name" placeholder="My Newsletter" oninput="cfg.site.emailFromName=this.value"></div>
-        <div class="cg"><label class="cl">Reply-to (optional)</label><input type="text" id="email-reply-to" placeholder="hello@example.com" oninput="cfg.site.emailReplyTo=this.value"></div>
-        <div class="cg"><label class="cl">Subject</label><input type="text" id="email-subject" placeholder="Thanks for subscribing!" oninput="cfg.site.emailSubject=this.value"></div>
-        <div class="cg">
-          <label class="cl">Email body</label>
-          <div class="wysi-preview" id="email-body-preview" onclick="openEmailTemplateModal()" style="min-height:60px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit email body…</span></div>
-          <p style="font-size:0.72rem;color:var(--ink3);margin-top:4px">A manage-preferences link is automatically appended to every email.</p>
-        </div>
-      </div>
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">mail</span> Welcome Email</div>
+      <p class="card-desc" style="font-size:0.78rem;margin-bottom:0">Configure in the <a href="#" onclick="switchTab('email',null);return false" style="color:var(--accent)">Email tab</a>.</p>
     </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">unsubscribe</span> Unsubscribe / Preferences Page</div>
@@ -2014,141 +2136,6 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   </div>
 </div>
 
-<!-- Email template modal -->
-<div id="email-template-modal">
-  <div class="etpl-wrap">
-    <!-- Header -->
-    <div class="etpl-head">
-      <h3><span class="material-icons-round mi" style="font-size:16px;vertical-align:middle;margin-right:5px">mail</span>Email Template</h3>
-      <button class="modal-close" onclick="closeEmailTemplateModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
-    </div>
-    <!-- Body -->
-    <div class="etpl-body">
-      <!-- Left sidebar -->
-      <div class="etpl-sidebar">
-        <!-- Subject -->
-        <div>
-          <label class="cl">Subject line</label>
-          <input type="text" id="etpl-subject" placeholder="Thanks for subscribing!" oninput="cfg.site.emailSubject=this.value">
-          <div style="margin-top:4px">
-            <button class="btn btn-outline btn-sm" style="font-size:0.72rem" onclick="toggleEtplTagMenu('subject')">+ Merge tag</button>
-            <div id="etpl-tag-menu-subject" class="etpl-tag-menu">
-              <button class="etpl-tag-chip" onclick="etplInsertMergeTag('email','subject')">{{email}}</button>
-              <button class="etpl-tag-chip" onclick="etplInsertMergeTag('firstName','subject')">{{firstName}}</button>
-              <button class="etpl-tag-chip" onclick="etplInsertMergeTag('formName','subject')">{{formName}}</button>
-            </div>
-          </div>
-        </div>
-        <hr style="border:none;border-top:1px solid var(--border);margin:0">
-        <!-- Design controls -->
-        <div>
-          <label class="cl">Background colour</label>
-          <input type="color" id="etpl-bgColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
-        </div>
-        <div>
-          <label class="cl">Card background</label>
-          <input type="color" id="etpl-cardBg" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
-        </div>
-        <div>
-          <label class="cl">Text colour</label>
-          <input type="color" id="etpl-textColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
-        </div>
-        <div>
-          <label class="cl">Heading colour</label>
-          <input type="color" id="etpl-headingColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
-        </div>
-        <div>
-          <label class="cl">Body font</label>
-          <select id="etpl-bodyFont" onchange="updateEtplDesign()">
-            <option>Lato</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Source Sans Pro</option><option>Georgia</option><option>Merriweather</option><option>Playfair Display</option>
-          </select>
-        </div>
-        <div>
-          <label class="cl">Heading font</label>
-          <select id="etpl-headingFont" onchange="updateEtplDesign()">
-            <option>Playfair Display</option><option>Lato</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Georgia</option><option>Merriweather</option>
-          </select>
-        </div>
-        <div>
-          <label class="cl">Max width</label>
-          <select id="etpl-maxWidth" onchange="updateEtplDesign()">
-            <option value="500px">500px</option><option value="600px" selected>600px</option><option value="680px">680px</option><option value="720px">720px</option>
-          </select>
-        </div>
-        <div>
-          <label class="cl">Card padding</label>
-          <select id="etpl-padding" onchange="updateEtplDesign()">
-            <option value="24px">Compact (24px)</option><option value="32px">Normal (32px)</option><option value="40px" selected>Roomy (40px)</option><option value="56px">Large (56px)</option>
-          </select>
-        </div>
-        <div>
-          <label class="cl">Corner radius</label>
-          <select id="etpl-borderRadius" onchange="updateEtplDesign()">
-            <option value="0px">None</option><option value="4px">Slight (4px)</option><option value="8px" selected>Rounded (8px)</option><option value="16px">Large (16px)</option>
-          </select>
-        </div>
-      </div>
-      <!-- Right: toolbar + editor -->
-      <div class="etpl-right">
-        <!-- Toolbar -->
-        <div class="etpl-toolbar">
-          <button onclick="etplFmt('bold')" title="Bold"><b style="font-family:serif">B</b></button>
-          <button onclick="etplFmt('italic')" title="Italic"><i style="font-family:serif">I</i></button>
-          <button onclick="etplFmt('underline')" title="Underline"><u>U</u></button>
-          <div class="t-sep"></div>
-          <button onclick="etplFmt('justifyLeft')" title="Align left"><span class="material-icons-round mi">format_align_left</span></button>
-          <button onclick="etplFmt('justifyCenter')" title="Align centre"><span class="material-icons-round mi">format_align_center</span></button>
-          <button onclick="etplFmt('justifyRight')" title="Align right"><span class="material-icons-round mi">format_align_right</span></button>
-          <div class="t-sep"></div>
-          <button onclick="etplFmt('insertUnorderedList')" title="Bullet list"><span class="material-icons-round mi">format_list_bulleted</span></button>
-          <button onclick="etplFmt('insertOrderedList')" title="Numbered list"><span class="material-icons-round mi">format_list_numbered</span></button>
-          <div class="t-sep"></div>
-          <button onclick="etplFmt('formatBlock','h1')" title="Heading 1" style="font-size:10px;font-weight:700;padding:4px 5px">H1</button>
-          <button onclick="etplFmt('formatBlock','h2')" title="Heading 2" style="font-size:10px;font-weight:700;padding:4px 5px">H2</button>
-          <button onclick="etplFmt('formatBlock','h3')" title="Heading 3" style="font-size:10px;font-weight:700;padding:4px 5px">H3</button>
-          <button onclick="etplFmt('formatBlock','p')" title="Paragraph"><span class="material-icons-round mi">notes</span></button>
-          <div class="t-sep"></div>
-          <button onclick="etplLink()" title="Link"><span class="material-icons-round mi">link</span></button>
-          <button onclick="etplInsertImage()" title="Insert image"><span class="material-icons-round mi">image</span></button>
-          <div class="t-sep"></div>
-          <label title="Text colour" style="display:inline-flex;align-items:center;cursor:pointer;padding:4px 6px;border-radius:4px;border:1px solid transparent;gap:3px" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background=''">
-            <span class="material-icons-round mi">format_color_text</span>
-            <input type="color" id="etpl-fgcolor" style="width:0;height:0;opacity:0;position:absolute" oninput="etplFmt('foreColor',this.value)">
-          </label>
-          <div class="t-sep"></div>
-          <button onclick="toggleEtplTagMenu('body')" title="Insert merge tag"><span class="material-icons-round mi">data_object</span> Merge</button>
-          <button onclick="etplInsertUnsubBlock()" title="Insert unsubscribe button" style="font-size:0.75rem">Unsub link</button>
-          <div class="t-sep"></div>
-          <button onclick="etplFmt('removeFormat')" title="Clear formatting"><span class="material-icons-round mi">format_clear</span></button>
-        </div>
-        <!-- Merge tag chip panel (body) -->
-        <div id="etpl-tag-menu-body" class="etpl-tag-menu" style="margin:6px 10px 0">
-          <button class="etpl-tag-chip" onclick="etplInsertMergeTag('email','body')">{{email}}</button>
-          <button class="etpl-tag-chip" onclick="etplInsertMergeTag('firstName','body')">{{firstName}}</button>
-          <button class="etpl-tag-chip" onclick="etplInsertMergeTag('formName','body')">{{formName}}</button>
-          <button class="etpl-tag-chip" onclick="etplInsertMergeTag('unsubscribeUrl','body')">{{unsubscribeUrl}}</button>
-        </div>
-        <!-- Preview pane -->
-        <div class="etpl-preview">
-          <div id="etpl-outer">
-            <div id="etpl-card">
-              <div id="etpl-wysi" contenteditable="true"></div>
-              <div class="etpl-unsub-preview">Don't want these emails? <a href="#" style="color:#aaa">Manage preferences</a></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- Footer -->
-    <div class="etpl-footer">
-      <span id="etpl-draft-note" class="etpl-draft-note">Draft saved ✓</span>
-      <button class="btn btn-outline" onclick="closeEmailTemplateModal()">Cancel</button>
-      <button class="btn btn-outline" onclick="saveDraftEmailTemplate()">Save draft</button>
-      <button class="btn btn-primary" onclick="saveEmailTemplate()">Save</button>
-    </div>
-  </div>
-</div>
-
 <!-- Text/heading edit modal (used by legacy content blocks) -->
 <div id="text-edit-modal" class="modal-overlay">
   <div class="modal-box" style="width:480px">
@@ -2439,13 +2426,7 @@ function populateControls(){
   sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
   sv('embed-allowed-domains',(cfg.site.embedAllowedDomains||[]).join(', '));
   toggleCaptchaFields();
-  // Welcome email settings
-  const ee=document.getElementById('email-enabled');if(ee)ee.checked=!!cfg.site.emailEnabled;
-  sv('email-from-name',cfg.site.emailFromName||'');sv('email-reply-to',cfg.site.emailReplyTo||'');
-  sv('email-subject',cfg.site.emailSubject||'');
-  const ebPrev=document.getElementById('email-body-preview');
-  if(ebPrev)ebPrev.innerHTML=cfg.site.emailBodyHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit email body…</span>';
-  toggleEmailFields();
+  // Welcome email — populated lazily when Email tab is opened
   // Unsubscribe/preferences page text
   const unsubPrev=document.getElementById('unsub-page-preview');
   if(unsubPrev)unsubPrev.innerHTML=cfg.site.unsubscribePageText||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit preferences page text…</span>';
@@ -2467,8 +2448,9 @@ function updateSectionColorHex(id,key,val){if(/^#[0-9a-fA-F]{6}$/.test(val)||val
 
 // ── Save ──
 async function saveConfig(){
-  if(_editingTpl){toast('Editing template — click "Save template"','');return;}
+  if(_editingTpl){toast('Editing template — use the topbar Save button','');return;}
   if(!currentFormSlug){toast('No form selected','error');return;}
+  _etplWriteBack(); // flush email editor fields before saving
   setSaveInd('saving');
   try{
     const r=await adminFetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
@@ -4358,7 +4340,7 @@ function switchInnerTab(name,btn){
 }
 
 // ── Tabs ──
-const FORM_REQUIRED_TABS=new Set(['build','subscribers','embed','pfsettings']);
+const FORM_REQUIRED_TABS=new Set(['build','subscribers','email','embed','pfsettings']);
 function switchTab(tab,btn){
   // Redirect legacy 'system' calls → open the combined help tab on the system inner tab
   if(tab==='system'){tab='help';btn=null;setTimeout(()=>switchInnerTab('system'),0);}
@@ -4390,6 +4372,7 @@ function switchTab(tab,btn){
   const p=document.getElementById('tab-'+tab);if(p)p.classList.add('active');
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
+  if(tab==='email')populateEmailTab();
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help')switchInnerTab('help');
   if(tab==='design'){
@@ -4527,17 +4510,16 @@ function openUnsubPageWysiwyg(){
   });
 }
 
-// ── Email template modal ──
-function openEmailTemplateModal(){
+// ── Email tab populate ──
+function populateEmailTab(){
   if(!cfg||!cfg.site)return;
-  const modal=document.getElementById('email-template-modal');
-  // Populate subject
-  const subjEl=document.getElementById('etpl-subject');
-  if(subjEl)subjEl.value=cfg.site.emailSubject||'';
-  // Populate body editor
+  const ee=document.getElementById('email-enabled');if(ee)ee.checked=!!cfg.site.emailEnabled;
+  const sv2=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};
+  sv2('email-from-name',cfg.site.emailFromName);
+  sv2('email-reply-to',cfg.site.emailReplyTo);
+  sv2('etpl-subject',cfg.site.emailSubject);
   const wysi=document.getElementById('etpl-wysi');
   if(wysi)wysi.innerHTML=cfg.site.emailBodyHtml||'';
-  // Populate design controls & apply
   const ed=cfg.site.emailDesign||{};
   _etplSetControl('etpl-bgColor',     ed.bgColor||'#f4f4f4');
   _etplSetControl('etpl-cardBg',      ed.cardBg||'#ffffff');
@@ -4549,15 +4531,18 @@ function openEmailTemplateModal(){
   _etplSetControl('etpl-padding',     ed.padding||'40px');
   _etplSetControl('etpl-borderRadius',ed.borderRadius||'8px');
   applyEtplDesign();
-  modal.classList.add('open');
-  // Close any open tag menus
+  toggleEmailFields();
   document.getElementById('etpl-tag-menu-subject')?.classList.remove('open');
   document.getElementById('etpl-tag-menu-body')?.classList.remove('open');
 }
+// Legacy — redirect to Email tab
+function openEmailTemplateModal(){ switchTab('email',null); }
+function closeEmailTemplateModal(){}
+function saveEmailTemplate(){ _etplWriteBack(); }
+function saveDraftEmailTemplate(){ _etplWriteBack(); }
 function _etplSetControl(id,val){
   const el=document.getElementById(id);
   if(!el)return;
-  // For selects: try to find matching option, fallback to first
   if(el.tagName==='SELECT'){
     const opt=Array.from(el.options).find(o=>o.value===val);
     if(opt)opt.selected=true;
@@ -4565,26 +4550,10 @@ function _etplSetControl(id,val){
     el.value=val;
   }
 }
-function closeEmailTemplateModal(){
-  document.getElementById('email-template-modal')?.classList.remove('open');
-}
-function saveEmailTemplate(){
-  _etplWriteBack();
-  closeEmailTemplateModal();
-}
-function saveDraftEmailTemplate(){
-  _etplWriteBack();
-  const note=document.getElementById('etpl-draft-note');
-  if(note){note.classList.add('show');setTimeout(()=>note.classList.remove('show'),2000);}
-}
 function _etplWriteBack(){
+  if(!cfg||!cfg.site)return;
   cfg.site.emailSubject=document.getElementById('etpl-subject')?.value||'';
   cfg.site.emailBodyHtml=document.getElementById('etpl-wysi')?.innerHTML||'';
-  // Update settings tab preview
-  const prev=document.getElementById('email-body-preview');
-  if(prev)prev.innerHTML=cfg.site.emailBodyHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit email body…</span>';
-  const subPrev=document.getElementById('email-subject');
-  if(subPrev&&subPrev!==document.getElementById('etpl-subject'))subPrev.value=cfg.site.emailSubject;
 }
 function updateEtplDesign(){
   const ed=cfg.site.emailDesign||(cfg.site.emailDesign={});
@@ -4702,6 +4671,8 @@ function populateDesignTplSelect(){
     if(_editingTpl&&_editingTpl.id===t.id)o.selected=true;
     sel.appendChild(o);
   });
+  // Keep pf/subnav selects in sync
+  if(cfg)populatePfDesignTplSelect();
 }
 
 function onDesignTplSelChange(id){
@@ -4722,9 +4693,13 @@ function enterTplEdit(tpl){
   if(!cfg.design.customFonts)cfg.design.customFonts=[];
   document.getElementById('design-cards-wrap').style.display='';
   const empty=document.getElementById('dtpl-empty');if(empty)empty.style.display='none';
-  const saveBtn=document.getElementById('dtpl-save-btn');if(saveBtn)saveBtn.style.display='';
-  const saveAsBtn=document.getElementById('dtpl-saveas-btn');if(saveAsBtn)saveAsBtn.style.display='';
-  const doneBtn=document.getElementById('dtpl-done-btn');if(doneBtn)doneBtn.style.display='';
+  // Delete button in bar
+  const delBtn=document.getElementById('dtpl-delete-btn');if(delBtn)delBtn.style.display='';
+  // Topbar: swap form Save for template actions
+  const formSaveBtn=document.getElementById('save-btn');if(formSaveBtn)formSaveBtn.style.display='none';
+  const tbarTpl=document.getElementById('tbar-tpl-btns');
+  if(tbarTpl){tbarTpl.style.display='flex';}
+  const tplName=document.getElementById('tbar-tpl-name');if(tplName)tplName.textContent=tpl.name;
   buildFontPickers();buildPalettes();rebuildDesignColorPickers();renderBrandColorList();
   _populateDesignNonColorControls();
   if(currentFormSlug)scheduleDesignTplPreview();
@@ -4735,12 +4710,13 @@ function exitTplEdit(){
   else if(cfg&&!currentFormSlug){cfg=null;}
   _cfgDesignBackup=null;_editingTpl=null;
   document.getElementById('design-cards-wrap').style.display='none';
-  const saveBtn=document.getElementById('dtpl-save-btn');if(saveBtn)saveBtn.style.display='none';
-  const saveAsBtn=document.getElementById('dtpl-saveas-btn');if(saveAsBtn)saveAsBtn.style.display='none';
-  const doneBtn=document.getElementById('dtpl-done-btn');if(doneBtn)doneBtn.style.display='none';
+  const delBtn=document.getElementById('dtpl-delete-btn');if(delBtn)delBtn.style.display='none';
   const sel=document.getElementById('design-tpl-sel');if(sel)sel.value='';
   const empty=document.getElementById('dtpl-empty');
   if(empty)empty.style.display=designTemplates.length?'none':'';
+  // Topbar: restore form save button, hide template actions
+  const tbarTpl=document.getElementById('tbar-tpl-btns');if(tbarTpl)tbarTpl.style.display='none';
+  if(currentFormSlug){const sb=document.getElementById('save-btn');if(sb)sb.style.display='';}
   if(currentFormSlug){const f2=document.getElementById('design-preview-frame');if(f2)f2.src='/'+currentFormSlug+'?_preview=1&_generic=1';}
 }
 
@@ -4825,14 +4801,30 @@ function _populateDesignNonColorControls(){
 }
 
 function populatePfDesignTplSelect(){
-  const sel=document.getElementById('pf-design-tpl-sel');if(!sel||!cfg)return;
-  sel.innerHTML='<option value="">None (use form\'s own design)</option>';
-  designTemplates.forEach(t=>{
-    const o=document.createElement('option');
-    o.value=t.id;o.textContent=t.name;
-    if(cfg.designTemplateId===t.id)o.selected=true;
-    sel.appendChild(o);
+  const none1='None (use form\'s own design)';
+  const none2='None';
+  ['pf-design-tpl-sel','f-nav-tpl-sel'].forEach((id,i)=>{
+    const sel=document.getElementById(id);if(!sel||!cfg)return;
+    sel.innerHTML=`<option value="">${i===0?none1:none2}</option>`;
+    designTemplates.forEach(t=>{
+      const o=document.createElement('option');
+      o.value=t.id;o.textContent=t.name;
+      if(cfg.designTemplateId===t.id)o.selected=true;
+      sel.appendChild(o);
+    });
   });
+  // Show/hide subnav template picker
+  const wrap=document.getElementById('f-nav-tpl-wrap');
+  if(wrap)wrap.style.display=cfg?'flex':'none';
+}
+function setDesignTemplateId(val){
+  if(!cfg)return;
+  cfg.designTemplateId=val||null;
+  ['pf-design-tpl-sel','f-nav-tpl-sel'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value=val||'';
+  });
+  schedulePreview();
+  setSaveInd('');
 }
 async function saveDesignTemplate(){
   const name=document.getElementById('dtmpl-name-input').value.trim();
@@ -4860,8 +4852,23 @@ async function deleteDesignTemplate(id){
   const t=designTemplates.find(t=>t.id===id);
   if(!confirm(`Delete template "${t?t.name:id}"?`))return;
   const r=await adminFetch(`/api/admin/design-templates/${id}`,{method:'DELETE'});
-  if(r.ok){designTemplates=designTemplates.filter(t=>t.id!==id);renderDesignTemplates();toast('Template deleted','success');}
+  if(r.ok){designTemplates=designTemplates.filter(t=>t.id!==id);renderDesignTemplates();populateDesignTplSelect();populatePfDesignTplSelect();toast('Template deleted','success');}
   else toast('Delete failed','error');
+}
+async function deleteTplCurrent(){
+  if(!_editingTpl)return;
+  const id=_editingTpl.id;
+  const t=designTemplates.find(t=>t.id===id);
+  if(!confirm(`Delete template "${t?t.name:id}"? This cannot be undone.`))return;
+  const r=await adminFetch(`/api/admin/design-templates/${id}`,{method:'DELETE'});
+  if(r.ok){
+    designTemplates=designTemplates.filter(t=>t.id!==id);
+    exitTplEdit();
+    populateDesignTplSelect();populatePfDesignTplSelect();
+    const empty=document.getElementById('dtpl-empty');
+    if(empty)empty.style.display=designTemplates.length?'none':'';
+    toast('Template deleted','success');
+  }else toast('Delete failed','error');
 }
 async function updateDesignTemplate(id){
   const t=designTemplates.find(t=>t.id===id);if(!t||!cfg)return;
