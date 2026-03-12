@@ -39,7 +39,7 @@ const SMTP_FROM   = process.env.SMTP_FROM   || SMTP_USER; // e.g. "noreply@yourd
 const ORIGIN      = process.env.ORIGIN      || `http://localhost:${process.env.PORT || 3000}`;
 
 // ── PostgreSQL pool ────────────────────────────────────────────────────────────
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
 // ── AWS S3 ─────────────────────────────────────────────────────────────────────
 const s3        = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });

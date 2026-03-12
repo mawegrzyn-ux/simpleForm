@@ -29,7 +29,7 @@ const path = require('path');
 const { Pool } = require('pg');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
-const pool      = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool      = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const s3        = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 const S3_BUCKET = process.env.S3_BUCKET || '';
 
