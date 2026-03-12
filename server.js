@@ -2335,6 +2335,8 @@ function renderPreferencePage(cfg, { token, email, found, message, success } = {
 
   // Custom content sections (rendered above actions)
   const sectionsHtml = (pc.sections || []).map(b => renderPrefCenterBlock(b)).join('');
+  // Custom content sections (rendered below actions)
+  const afterSectionsHtml = (pc.afterSections || []).map(b => renderPrefCenterBlock(b)).join('');
 
   const overlayDiv = (bgImage && bgOverlay > 0)
     ? `<div style="position:fixed;inset:0;background:${bgOvCol};opacity:${bgOverlay};pointer-events:none;z-index:0"></div>` : '';
@@ -2382,6 +2384,7 @@ ${overlayDiv}
   ${sectionsHtml}
   ${subsListHtml ? `<div class="sub-list">${subsListHtml}</div>` : ''}
   ${actionsHtml}
+  ${afterSectionsHtml}
   <a href="/" class="back">← Back to home</a>
 </div></div></body></html>`;
 }
