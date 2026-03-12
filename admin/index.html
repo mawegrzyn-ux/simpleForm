@@ -857,23 +857,26 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <table class="help-table">
           <tr><th>Layer</th><th>Technology</th><th>Notes</th></tr>
           <tr><td>Runtime</td><td>Node.js 20 LTS</td><td>Long-term support release</td></tr>
-          <tr><td>Web framework</td><td>Express 4</td><td>Single <code>server.js</code> (~1700 lines)</td></tr>
+          <tr><td>Web framework</td><td>Express 4</td><td>Single <code>server.js</code> (~2600 lines)</td></tr>
           <tr><td>Auth</td><td>openid-client v5 (Auth0)</td><td>OIDC, role claim via Action</td></tr>
           <tr><td>Email</td><td>Nodemailer</td><td>SMTP relay, HTML templates</td></tr>
-          <tr><td>File uploads</td><td>Multer</td><td>Images + fonts, 10 MB limit</td></tr>
+          <tr><td>File uploads</td><td>multer-s3 v3</td><td>Streams directly to S3; 5 MB limit</td></tr>
+          <tr><td>Database</td><td>PostgreSQL 16</td><td>AWS Lightsail managed DB; <code>pg</code> pool, raw SQL</td></tr>
+          <tr><td>Object storage</td><td>Amazon S3</td><td><code>@aws-sdk/client-s3</code>; direct public URLs</td></tr>
+          <tr><td>Session store</td><td>connect-pg-simple</td><td>Sessions persisted in PostgreSQL <code>session</code> table</td></tr>
           <tr><td>Process manager</td><td>PM2</td><td><code>pm2 start server.js --name signflow</code></td></tr>
           <tr><td>Reverse proxy</td><td>Nginx</td><td>TLS termination, proxy_pass :3000</td></tr>
           <tr><td>TLS</td><td>Let's Encrypt (Certbot)</td><td>Auto-renewal via certbot timer</td></tr>
-          <tr><td>Hosting</td><td>AWS Lightsail</td><td>Ubuntu 24.04, $5–10/mo instance</td></tr>
+          <tr><td>Hosting</td><td>AWS Lightsail</td><td>Ubuntu 24.04, eu-west-3 (Paris)</td></tr>
           <tr><td>Admin SPA</td><td>Vanilla JS</td><td>No build step, no framework</td></tr>
           <tr><td>Icons</td><td>Google Material Icons Round</td><td>CDN loaded</td></tr>
-          <tr><td>Storage</td><td>JSON flat files</td><td><code>data/</code> directory</td></tr>
         </table>
         <h3>Architecture decisions</h3>
         <ul>
           <li><strong>Single <code>server.js</code></strong> — all business logic co-located; easy to navigate for a solo developer</li>
           <li><strong>Single <code>admin/index.html</code></strong> — full SPA, no bundler, no npm; edit and deploy instantly</li>
-          <li><strong>JSON flat files</strong> — zero database setup, trivial backup (copy a folder), human-readable</li>
+          <li><strong>PostgreSQL 16</strong> — managed DB on Lightsail; JSONB for nested configs; raw SQL with <code>pg</code> pool (no ORM)</li>
+          <li><strong>Amazon S3</strong> — all media and font uploads streamed directly to S3 via multer-s3; served via public S3 URLs</li>
         </ul>
       </div>
     </div>
@@ -888,14 +891,15 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <h3>Key server functions</h3>
         <table class="help-table">
           <tr><th>Function</th><th>Description</th></tr>
-          <tr><td><code>migrateIfNeeded()</code></td><td>On startup: converts legacy single-form data to multi-form layout</td></tr>
-          <tr><td><code>renderPublicPage(cfg)</code></td><td>Returns full HTML for the public-facing signup page</td></tr>
-          <tr><td><code>renderEmbedPage(cfg)</code></td><td>Returns HTML for the iframe embed version</td></tr>
+          <tr><td><code>initDb()</code></td><td>On startup: <code>CREATE TABLE IF NOT EXISTS</code> for all 6 PostgreSQL tables</td></tr>
+          <tr><td><code>renderPublicPage(cfg, sharedFonts, templates)</code></td><td>Returns full HTML for the public-facing signup page</td></tr>
+          <tr><td><code>renderEmbedPage(cfg, sharedFonts, templates)</code></td><td>Returns HTML for the iframe embed version</td></tr>
           <tr><td><code>renderBlockElement(el, cfg)</code></td><td>Renders a single top-level section block</td></tr>
           <tr><td><code>renderCntItem(item, cfg, d)</code></td><td>Renders an item inside a container column</td></tr>
           <tr><td><code>sendWelcomeEmail(cfg, sub)</code></td><td>Sends HTML welcome email via Nodemailer</td></tr>
-          <tr><td><code>customFontFaceCSS(cfg)</code></td><td>Generates <code>@font-face</code> CSS for shared + form fonts</td></tr>
-          <tr><td><code>googleFontTag(cfg, d)</code></td><td>Generates Google Fonts <code>&lt;link&gt;</code>, skipping custom font names</td></tr>
+          <tr><td><code>customFontFaceCSS(cfg, sharedFonts)</code></td><td>Generates <code>@font-face</code> CSS from pre-fetched fonts array</td></tr>
+          <tr><td><code>googleFontTag(cfg, d, sharedFonts)</code></td><td>Generates Google Fonts <code>&lt;link&gt;</code>, skipping custom font names</td></tr>
+          <tr><td><code>bumpAnalytic(slug, key)</code></td><td>Fire-and-forget analytics upsert (no <code>await</code>)</td></tr>
           <tr><td><code>adminAuth</code></td><td>Middleware: verifies Auth0 session + <code>signflow-admin</code> role</td></tr>
           <tr><td><code>submitLimiter</code></td><td>Rate limiter: 10 subs / 15 min / IP</td></tr>
         </table>
@@ -916,37 +920,44 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     <!-- DATA MODEL -->
-    <div class="help-group" data-tags="data model json files storage schema subscriber form config">
+    <div class="help-group" data-tags="data model postgresql s3 storage schema subscriber form config tables">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">storage</span> Data Model &amp; Storage
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
-        <h3>File layout</h3>
+        <h3>PostgreSQL tables</h3>
         <table class="help-table">
-          <tr><th>File</th><th>Contents</th></tr>
-          <tr><td><code>data/forms-index.json</code></td><td>List of all forms <code>[{slug, name, createdAt}]</code></td></tr>
-          <tr><td><code>data/forms/{slug}.json</code></td><td>Per-form config: site settings, design tokens, fields, sections</td></tr>
-          <tr><td><code>data/subscribers-{slug}.json</code></td><td>Subscriber records array for each form</td></tr>
-          <tr><td><code>data/design-templates.json</code></td><td>Saved design templates</td></tr>
-          <tr><td><code>data/media-shared.json</code></td><td>Shared media library metadata</td></tr>
-          <tr><td><code>data/fonts-shared.json</code></td><td>Shared custom fonts library</td></tr>
+          <tr><th>Table</th><th>PK</th><th>Description</th></tr>
+          <tr><td><code>forms</code></td><td><code>slug</code></td><td>One row per form; <code>config</code> JSONB holds full form config</td></tr>
+          <tr><td><code>subscribers</code></td><td><code>id</code> UUID</td><td>Subscriber records; FK → <code>forms.slug</code> CASCADE; <code>custom_fields</code> JSONB</td></tr>
+          <tr><td><code>media</code></td><td><code>id</code> UUID</td><td>Uploaded images; <code>form_slug</code> NULL = shared; S3 key + public URL stored</td></tr>
+          <tr><td><code>fonts</code></td><td><code>id</code> UUID</td><td>Custom fonts; <code>name</code> UNIQUE; S3 key + public URL stored</td></tr>
+          <tr><td><code>design_templates</code></td><td><code>id</code> UUID</td><td>Saved design presets; <code>design</code> JSONB</td></tr>
+          <tr><td><code>analytics</code></td><td><code>(form_slug, key)</code></td><td>Event counters; upserted via <code>ON CONFLICT DO UPDATE</code></td></tr>
+          <tr><td><code>session</code></td><td><code>sid</code></td><td>Auto-created by <code>connect-pg-simple</code>; stores Express sessions</td></tr>
+        </table>
+        <h3>S3 key structure</h3>
+        <table class="help-table">
+          <tr><th>Type</th><th>Key pattern</th><th>Public URL pattern</th></tr>
+          <tr><td>Images</td><td><code>uploads/{uuid}.{ext}</code></td><td><code>https://{bucket}.s3.eu-west-3.amazonaws.com/uploads/{uuid}.{ext}</code></td></tr>
+          <tr><td>Fonts</td><td><code>fonts/{uuid}.{ext}</code></td><td><code>https://{bucket}.s3.eu-west-3.amazonaws.com/fonts/{uuid}.{ext}</code></td></tr>
         </table>
         <h3>Subscriber record fields</h3>
         <table class="help-table">
-          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-          <tr><td><code>id</code></td><td>string</td><td>UUID, generated on signup</td></tr>
-          <tr><td><code>email</code></td><td>string</td><td>Subscriber email</td></tr>
-          <tr><td><code>fields</code></td><td>object</td><td>Custom field responses</td></tr>
-          <tr><td><code>status</code></td><td>enum</td><td><code>active</code> | <code>unsubscribed</code></td></tr>
-          <tr><td><code>consentAt</code></td><td>ISO 8601</td><td>Consent timestamp (GDPR evidence)</td></tr>
-          <tr><td><code>ip</code></td><td>string</td><td>IP at consent (GDPR evidence)</td></tr>
-          <tr><td><code>token</code></td><td>string</td><td>Unique unsubscribe / delete token</td></tr>
+          <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+          <tr><td><code>id</code></td><td>UUID</td><td>Generated by <code>gen_random_uuid()</code> on signup</td></tr>
+          <tr><td><code>email</code></td><td>text</td><td>Subscriber email</td></tr>
+          <tr><td><code>custom_fields</code></td><td>JSONB</td><td>Custom field responses</td></tr>
+          <tr><td><code>status</code></td><td>text</td><td><code>active</code> | <code>unsubscribed</code></td></tr>
+          <tr><td><code>consent_timestamp</code></td><td>timestamptz</td><td>Consent timestamp (GDPR evidence)</td></tr>
+          <tr><td><code>ip_address</code></td><td>text</td><td>IP at consent (GDPR evidence)</td></tr>
+          <tr><td><code>unsubscribe_token</code></td><td>text</td><td>Unique unsubscribe / delete token</td></tr>
           <tr><td><code>exported</code></td><td>boolean</td><td>True if included in a CSV/JSON export</td></tr>
-          <tr><td><code>unsubscribedAt</code></td><td>ISO 8601</td><td>Timestamp of unsubscribe action</td></tr>
+          <tr><td><code>unsubscribed_at</code></td><td>timestamptz</td><td>Timestamp of unsubscribe action</td></tr>
         </table>
         <h3>Backups</h3>
-        <div class="info-box">Data: <code>data/forms/{slug}.json</code> · <code>data/subscribers-{slug}.json</code><br>Uploads: <code>public/uploads/</code><br>Logs: <code>pm2 logs signflow</code><br>Recommended cron: <code>0 2 * * * tar czf ~/backups/signflow-$(date +\%Y\%m\%d).tar.gz ~/signflow/data/</code></div>
+        <div class="info-box">Database: Lightsail managed DB → enable automated snapshots in Lightsail console (daily, 7-day retention)<br>Media &amp; fonts: stored in S3 <code>wingvibes-media</code> bucket (eu-west-3) — S3 versioning or cross-region replication recommended<br>Logs: <code>pm2 logs signflow</code></div>
       </div>
     </div>
 
@@ -1033,8 +1044,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <table class="help-table">
           <tr><th>Threat</th><th>Gap</th></tr>
           <tr><td>Brute-force signup</td><td>Rate-limited but no CAPTCHA (hCaptcha planned)</td></tr>
-          <tr><td>Upload path traversal</td><td>Filename sanitisation not explicit beyond Multer</td></tr>
-          <tr><td>Data breach</td><td>No encryption at rest for JSON flat files</td></tr>
+          <tr><td>Upload path traversal</td><td>Filenames are UUID-based (safe); MIME type allowlist enforced by multer-s3</td></tr>
+          <tr><td>Data breach</td><td>PostgreSQL on Lightsail managed DB — encryption at rest enabled by default; private network only</td></tr>
           <tr><td>Dependency vulns</td><td>No automated scanning (Dependabot planned)</td></tr>
           <tr><td><code>unsafe-inline</code> in script-src</td><td>Required for inline scripts in public pages; nonce-based CSP would eliminate this but requires template changes</td></tr>
         </table>
@@ -1088,6 +1099,11 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>AUTH0_CLIENT_ID</code></td><td>Yes</td><td>Auth0 application client ID</td></tr>
           <tr><td><code>AUTH0_CLIENT_SECRET</code></td><td>Yes</td><td>Auth0 application client secret</td></tr>
           <tr><td><code>AUTH0_CALLBACK_URL</code></td><td>Yes</td><td>Full callback URL (registered in Auth0)</td></tr>
+          <tr><td><code>DATABASE_URL</code></td><td>Yes</td><td>PostgreSQL connection string (Lightsail managed DB)</td></tr>
+          <tr><td><code>AWS_ACCESS_KEY_ID</code></td><td>Yes</td><td>IAM user key for S3 access</td></tr>
+          <tr><td><code>AWS_SECRET_ACCESS_KEY</code></td><td>Yes</td><td>IAM user secret for S3 access</td></tr>
+          <tr><td><code>AWS_REGION</code></td><td>Yes</td><td>S3 + Lightsail region (e.g. <code>eu-west-3</code>)</td></tr>
+          <tr><td><code>S3_BUCKET</code></td><td>Yes</td><td>S3 bucket name for media + font uploads</td></tr>
         </table>
         <h3>PM2 commands</h3>
         <div class="info-box"><code>pm2 start server.js --name signflow</code> — start<br><code>pm2 restart signflow</code> — restart after deploy<br><code>pm2 logs signflow</code> — tail logs<br><code>pm2 save &amp;&amp; pm2 startup</code> — auto-start on reboot</div>
@@ -1119,10 +1135,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </ul>
         <h3>Phase 2 — Database &amp; Storage</h3>
         <ul>
-          <li><strong>PostgreSQL 16</strong> — replace JSON flat files; managed via AWS RDS</li>
-          <li><strong>Knex.js / Prisma</strong> — query builder with migrations</li>
-          <li><strong>Redis</strong> — page cache, rate-limit counters, session store</li>
-          <li><strong>S3 / Cloudflare R2</strong> — object storage for uploads; CDN delivery</li>
+          <li>✅ <strong>PostgreSQL 16</strong> — JSON flat files replaced; AWS Lightsail managed DB (eu-west-3); <code>pg</code> pool, raw SQL, JSONB for configs</li>
+          <li>✅ <strong>Amazon S3</strong> — media + font uploads streamed via multer-s3; served via public S3 URLs; <code>wingvibes-media</code> bucket</li>
+          <li>✅ <strong>PostgreSQL session store</strong> — <code>connect-pg-simple</code> replaces in-memory sessions; survives server restarts</li>
+          <li><strong>Knex.js / Prisma</strong> — query builder with migrations (raw SQL currently used)</li>
+          <li><strong>Redis</strong> — page cache, rate-limit counters</li>
+          <li><strong>CDN delivery</strong> — Cloudflare R2 or CloudFront in front of S3</li>
           <li>PgBouncer for connection pooling at scale</li>
         </ul>
         <h3>Phase 3 — Authentication &amp; RBAC</h3>
@@ -1628,20 +1646,25 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </ul>
         <h3>🗄️ Database &amp; Infrastructure</h3>
         <ul>
-          <li><strong>PostgreSQL / MySQL backend</strong> — replace flat-file JSON with a proper relational store; connection pooling via pg-pool</li>
-          <li><strong>Redis caching</strong> — rendered page cache, session store, rate-limit counters</li>
-          <li><strong>S3-compatible object storage</strong> — media uploads to AWS S3, Cloudflare R2 or Backblaze B2 instead of local disk</li>
+          <li>✅ <strong>PostgreSQL 16 backend</strong> — flat-file JSON replaced; AWS Lightsail managed DB; connection pooling via <code>pg</code></li>
+          <li>✅ <strong>Amazon S3 object storage</strong> — media + font uploads to S3 <code>wingvibes-media</code> bucket; public URL delivery</li>
+          <li>✅ <strong>PostgreSQL session store</strong> — sessions persisted across restarts via <code>connect-pg-simple</code></li>
+          <li><strong>Redis caching</strong> — rendered page cache, rate-limit counters</li>
+          <li><strong>CDN delivery</strong> — Cloudflare R2 or CloudFront in front of S3 for low-latency media</li>
           <li><strong>Multi-region deployment</strong> — read replicas, geo-routed CDN for form pages</li>
           <li><strong>Zero-downtime deploys</strong> — blue/green or rolling deployments via PM2 cluster mode or Kubernetes</li>
-          <li><strong>Automated backups</strong> — scheduled DB dumps + media snapshots to cold storage</li>
+          <li><strong>Automated backups</strong> — Lightsail DB automated snapshots; S3 versioning for media</li>
         </ul>
         <h3>🛡️ Security</h3>
         <ul>
-          <li><strong>Input sanitisation</strong> — DOMPurify on all WYSIWYG output; Joi schema validation on all API inputs</li>
-          <li><strong>SQL injection prevention</strong> — parameterised queries via pg / knex; no string concatenation in DB calls</li>
-          <li><strong>XSS &amp; CSRF protection</strong> — strict CSP headers, SameSite=Strict cookies, csurf token on all state-mutating endpoints</li>
-          <li><strong>Rate limiting</strong> — per-IP limits on /subscribe (100/hr), admin login (10/15min) via express-rate-limit + Redis</li>
-          <li><strong>Phishing / injection defence</strong> — custom domain verification, Subresource Integrity (SRI) on CDN assets, DNS-based domain allowlist</li>
+          <li>✅ <strong>XSS prevention</strong> — <code>escapeHtml()</code> throughout all page renderers; admin subscriber table uses <code>data-*</code> + event delegation</li>
+          <li>✅ <strong>CSRF protection</strong> — double-submit token (<code>crypto.randomBytes(32)</code>); <code>X-CSRF-Token</code> header on all state-mutating admin calls</li>
+          <li>✅ <strong>Content Security Policy</strong> — Helmet CSP with explicit per-directive allowlists; <code>frame-ancestors 'self'</code> globally</li>
+          <li>✅ <strong>X-Frame-Options</strong> — <code>SAMEORIGIN</code> globally; <code>ALLOWALL</code> on embed route only</li>
+          <li>✅ <strong>SQL injection prevention</strong> — all DB calls use parameterised queries via <code>pg</code>; no string concatenation</li>
+          <li><strong>Input sanitisation</strong> — DOMPurify on WYSIWYG output; Joi schema validation on API inputs</li>
+          <li><strong>Rate limiting</strong> — per-IP limits on /subscribe via express-rate-limit (Redis-backed at scale)</li>
+          <li><strong>Phishing / injection defence</strong> — SRI on CDN assets, DNS-based domain allowlist</li>
           <li><strong>Penetration testing</strong> — scheduled automated scans (OWASP ZAP), plus annual manual pentest</li>
           <li><strong>Secret management</strong> — Vault / AWS Secrets Manager instead of plain .env</li>
           <li><strong>TLS enforcement</strong> — HSTS with 1-year max-age + preload; automatic cert renewal via certbot</li>

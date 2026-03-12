@@ -209,6 +209,7 @@ app.use(session({
 // ── Static files ──────────────────────────────────────────────────────────────
 // Note: /uploads is no longer served statically — files are stored in S3 and URLs are direct S3 links.
 app.use('/admin',   express.static(path.join(__dirname, 'admin')));
+app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'favicon.ico')));
 
 // ── Multer → S3 ───────────────────────────────────────────────────────────────
 const FONT_EXTS = new Set(['.woff','.woff2','.ttf','.otf']);
