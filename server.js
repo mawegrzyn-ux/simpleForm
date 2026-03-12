@@ -195,7 +195,7 @@ app.use(helmet({
       scriptSrc:      ["'self'", "'unsafe-inline'", 'https://js.hcaptcha.com'],
       scriptSrcAttr:  ["'unsafe-inline'"],  // allow onclick/onchange handlers in admin SPA & public pages
       styleSrc:       ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc:        ["'self'", 'https://fonts.gstatic.com'],
+      fontSrc:        ["'self'", 'https://fonts.gstatic.com', 'https://*.amazonaws.com'],
       imgSrc:         ["'self'", 'data:', 'blob:', 'https:'],
       connectSrc:     ["'self'", 'https://api.hcaptcha.com'],
       frameSrc:       ["'self'", 'https://www.youtube.com', 'https://player.vimeo.com'],  // 'self' needed for admin live preview iframe
@@ -1273,7 +1273,7 @@ app.get('/:slug/embed', async (req, res) => {
       "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.hcaptcha.com; " +
       "script-src-attr 'unsafe-inline'; " +
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-      "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; " +
+      "font-src 'self' https://fonts.gstatic.com https://*.amazonaws.com; img-src 'self' data: blob: https:; " +
       "connect-src 'self' https://api.hcaptcha.com; " +
       "frame-src https://www.youtube.com https://player.vimeo.com; " +
       `frame-ancestors ${faVal}; object-src 'none'; base-uri 'self'`);

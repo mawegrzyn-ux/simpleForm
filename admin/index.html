@@ -871,7 +871,6 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <div class="cg"><label class="cl">H3 font</label><div class="font-picker" id="h3-font-picker"></div></div>
       <div class="cg"><label class="cl">H4 font</label><div class="font-picker" id="h4-font-picker"></div></div>
       <div class="cg"><label class="cl">Body font</label><div class="font-picker" id="body-font-picker"></div></div>
-      <div class="cg"><label class="cl">Submit button font</label><div class="font-picker" id="btn-font-picker"></div></div>
       <div class="cg" style="margin-top:4px">
         <button class="up-btn" onclick="openCustomFontsModal()"><span class="material-icons-round mi">font_download</span> Manage custom fonts</button>
       </div>
@@ -933,6 +932,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <option value="8px">Rounded</option><option value="24px">Pill</option>
         </select>
       </div>
+      <div class="cg"><label class="cl">Button font</label><div class="font-picker" id="btn-font-picker"></div></div>
     </div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">input</span> Field Style</div>
@@ -2507,7 +2507,7 @@ async function saveConfig(){
   setSaveInd('saving');
   try{
     const r=await adminFetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
-    if(r.ok){setSaveInd('saved');refreshPreview();toast('Saved!','success');}
+    if(r.ok){setSaveInd('saved');_reloadAllFrames();toast('Saved!','success');}
     else{setSaveInd('');toast('Save failed','error');}
   }catch(e){toast('Network error','error');}
 }
@@ -2516,13 +2516,32 @@ function setSaveInd(s){const e=document.getElementById('save-ind');e.className='
 // ── Preview ──
 function schedulePreview(){setSaveInd('');clearTimeout(previewTimer);previewTimer=setTimeout(refreshPreview,600);}
 async function refreshPreview(){
-  if(_editingTpl){scheduleDesignTplPreview();return;}
+  if(_editingTpl){
+    // Auto-save current design to DB so preview reflects live changes
+    _editingTpl.design=JSON.parse(JSON.stringify(cfg.design));
+    await adminFetch(`/api/admin/design-templates/${_editingTpl.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({design:_editingTpl.design})});
+    _reloadDesignFrame();
+    return;
+  }
   if(!currentFormSlug||!cfg)return;
   await adminFetch(`/api/admin/forms/${currentFormSlug}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
-  const f=document.getElementById('preview-frame');
-  if(f){if(_panelTab==='response'){f.src='/'+currentFormSlug+'/confirmation-preview?_t='+Date.now();}else{f.src=f.src;}}
-  const f2=document.getElementById('design-preview-frame');if(f2){const _sp=currentFormSlug?'&slug='+currentFormSlug:'';f2.src='/branding-preview?_t='+Date.now()+_sp;}
-  const f3=document.getElementById('settings-preview-frame');if(f3&&f3.src!=='about:blank')f3.src=f3.src;
+  _reloadAllFrames();
+}
+// Reload only the design/branding preview frame
+function _reloadDesignFrame(){
+  const f2=document.getElementById('design-preview-frame');if(!f2)return;
+  const _sp=currentFormSlug?'&slug='+currentFormSlug:'';
+  if(_editingTpl)f2.src='/branding-preview?_tplPreview='+_editingTpl.id+'&_t='+Date.now()+_sp;
+  else f2.src='/branding-preview?_t='+Date.now()+_sp;
+}
+// Reload all preview frames (build + design + settings) without saving
+function _reloadAllFrames(){
+  if(currentFormSlug){
+    const f=document.getElementById('preview-frame');
+    if(f){if(_panelTab==='response'){f.src='/'+currentFormSlug+'/confirmation-preview?_t='+Date.now();}else{f.src=f.src;}}
+    const f3=document.getElementById('settings-preview-frame');if(f3&&f3.src!=='about:blank')f3.src=f3.src;
+  }
+  _reloadDesignFrame();
 }
 function setPreviewSize(s,btn){
   document.querySelectorAll('.psz').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
@@ -4472,7 +4491,7 @@ function switchTab(tab,btn){
   if(tab==='design'){
     // Populate preview frame — always use branding-preview (no slug dependency)
     const dpf=document.getElementById('design-preview-frame');
-    if(dpf&&!_editingTpl){const _sp=currentFormSlug?'&slug='+currentFormSlug:'';dpf.src='/branding-preview?_t='+Date.now()+_sp;}
+    _reloadDesignFrame();
     loadDesignTemplates().then(()=>{
       populateDesignTplSelect();
       const empty=document.getElementById('dtpl-empty');
@@ -4832,7 +4851,7 @@ function exitTplEdit(){
   // Topbar: restore form save button, hide template actions
   const tbarTpl=document.getElementById('tbar-tpl-btns');if(tbarTpl)tbarTpl.style.display='none';
   if(currentFormSlug){const sb=document.getElementById('save-btn');if(sb)sb.style.display='';}
-  const f2=document.getElementById('design-preview-frame');if(f2){const _sp=currentFormSlug?'&slug='+currentFormSlug:'';f2.src='/branding-preview?_t='+Date.now()+_sp;}
+  _reloadDesignFrame();
 }
 
 async function saveTplFromDesignTab(){
@@ -4881,11 +4900,7 @@ async function createNewTpl(){
 let _tplPreviewTimer=null;
 function scheduleDesignTplPreview(){
   clearTimeout(_tplPreviewTimer);
-  _tplPreviewTimer=setTimeout(()=>{
-    const f2=document.getElementById('design-preview-frame');
-    if(f2&&_editingTpl)
-      f2.src='/branding-preview?_tplPreview='+_editingTpl.id+'&_t='+Date.now();
-  },600);
+  _tplPreviewTimer=setTimeout(_reloadDesignFrame,600);
 }
 
 function _populateDesignNonColorControls(){
