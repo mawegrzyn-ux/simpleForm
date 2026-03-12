@@ -1127,8 +1127,10 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <li>✅ <strong>CSRF double-submit token</strong> — <code>crypto.randomBytes(32)</code> token; <code>X-CSRF-Token</code> header; <code>app.use('/api/admin')</code> middleware; <code>adminFetch()</code> client helper</li>
           <li>✅ <strong>Content Security Policy</strong> — Helmet CSP with explicit per-directive allowlists; <code>frame-ancestors 'self'</code>; embed route overrides to <code>frame-ancestors *</code></li>
           <li>✅ <strong>X-Frame-Options</strong> — <code>SAMEORIGIN</code> globally; <code>ALLOWALL</code> on embed route only</li>
+          <li>✅ <strong>Input sanitisation</strong> — <code>sanitize-html</code> on all WYSIWYG output; <code>joi</code> schema validation on subscribe route + form creation</li>
+          <li>✅ <strong>Rate limiting enhanced</strong> — <code>submitLimiter</code> per-IP-per-slug; <code>authLimiter</code> (20/15min) on login + callback routes</li>
+          <li>✅ <strong>Embed domain allowlist</strong> — <code>embedAllowedDomains</code> per form; dynamic <code>frame-ancestors</code> CSP</li>
           <li>hCaptcha / Cloudflare Turnstile on public subscribe route</li>
-          <li>File upload: buffer-based MIME validation; per-user disk quota</li>
           <li>Dependabot + Snyk automated dependency scanning</li>
           <li>AWS Secrets Manager / HashiCorp Vault for secret storage</li>
           <li>Annual external pentest + automated OWASP ZAP scans in CI</li>
@@ -1243,6 +1245,16 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <div class="code-head"><span class="code-lang">HTML</span><button class="code-copy" onclick="copyEmbedCode('embed-iframe')"><span class="material-icons-round mi">content_copy</span> Copy</button></div>
         <pre id="embed-iframe"></pre>
       </div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div class="card-title"><span class="material-icons-round mi">domain_verification</span> Allowed embed domains</div>
+      <p class="card-desc">Leave empty to allow embedding from any site. Enter comma-separated hostnames to restrict (e.g. <code>mysite.com, app.company.org</code>). No protocol, no trailing slash.</p>
+      <div class="cg">
+        <label class="cl">Allowed domains</label>
+        <input type="text" id="embed-allowed-domains" placeholder="mysite.com, app.company.org"
+               oninput="cfg.site.embedAllowedDomains=this.value.split(',').map(s=>s.trim()).filter(Boolean)">
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="saveConfig()"><span class="material-icons-round mi">save</span> Save</button>
     </div>
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">preview</span> Preview</div>
@@ -1662,9 +1674,9 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <li>✅ <strong>Content Security Policy</strong> — Helmet CSP with explicit per-directive allowlists; <code>frame-ancestors 'self'</code> globally</li>
           <li>✅ <strong>X-Frame-Options</strong> — <code>SAMEORIGIN</code> globally; <code>ALLOWALL</code> on embed route only</li>
           <li>✅ <strong>SQL injection prevention</strong> — all DB calls use parameterised queries via <code>pg</code>; no string concatenation</li>
-          <li><strong>Input sanitisation</strong> — DOMPurify on WYSIWYG output; Joi schema validation on API inputs</li>
-          <li><strong>Rate limiting</strong> — per-IP limits on /subscribe via express-rate-limit (Redis-backed at scale)</li>
-          <li><strong>Phishing / injection defence</strong> — SRI on CDN assets, DNS-based domain allowlist</li>
+          <li>✅ <strong>Input sanitisation</strong> — <code>sanitize-html</code> on all WYSIWYG output (el.html, block.html, privacyContent, emailBodyHtml); <code>joi</code> schema validation on subscribe route + form creation API</li>
+          <li>✅ <strong>Rate limiting enhanced</strong> — <code>submitLimiter</code> uses per-IP-per-slug key; <code>authLimiter</code> (20 req/15min) on login + callback routes</li>
+          <li>✅ <strong>Embed domain allowlist</strong> — per-form <code>embedAllowedDomains</code>; Origin/Referer checked on embed route; <code>frame-ancestors</code> set dynamically</li>
           <li><strong>Penetration testing</strong> — scheduled automated scans (OWASP ZAP), plus annual manual pentest</li>
           <li><strong>Secret management</strong> — Vault / AWS Secrets Manager instead of plain .env</li>
           <li><strong>TLS enforcement</strong> — HSTS with 1-year max-age + preload; automatic cert renewal via certbot</li>
@@ -2394,6 +2406,7 @@ function populateControls(){
   renderBrandColorList();
   const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
   sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
+  sv('embed-allowed-domains',(cfg.site.embedAllowedDomains||[]).join(', '));
   toggleCaptchaFields();
   // Welcome email settings
   const ee=document.getElementById('email-enabled');if(ee)ee.checked=!!cfg.site.emailEnabled;

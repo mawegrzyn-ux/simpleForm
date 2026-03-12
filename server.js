@@ -6,6 +6,7 @@ const fs         = require('fs');
 const path       = require('path');
 const { v4: uuidv4 } = require('uuid');
 const rateLimit  = require('express-rate-limit');
+const Joi        = require('joi');
 const helmet     = require('helmet');
 const multer     = require('multer');
 const session    = require('express-session');
@@ -63,7 +64,6 @@ function getMailer() {
 
 // ── HTML escaping ─────────────────────────────────────────────────────────────
 // Used in every page renderer to prevent XSS from admin-entered text fields.
-// WYSIWYG fields (emailBodyHtml, privacyContent, el.html) are intentionally raw.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -71,6 +71,25 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// ── WYSIWYG sanitisation ───────────────────────────────────────────────────────
+// Strips disallowed tags/attributes from admin-authored rich HTML before rendering.
+// Prevents XSS if admin account is compromised or config is tampered with.
+const sanitizeHtml = require('sanitize-html');
+const SANITIZE_OPTS = {
+  allowedTags: ['h1','h2','h3','h4','h5','h6','p','strong','em','b','i','u','s',
+                'br','ul','ol','li','a','img','blockquote','code','pre',
+                'table','thead','tbody','tr','td','th','span','div','hr'],
+  allowedAttributes: {
+    'a':   ['href','target','rel'],
+    'img': ['src','alt','width','height','style'],
+    '*':   ['style','class']
+  },
+  allowedSchemes: ['http','https','mailto'],
+};
+function sanitizeWysiwyg(html) {
+  return sanitizeHtml(html || '', SANITIZE_OPTS);
 }
 
 // Replace {{merge tags}} in email subject/body before sending
@@ -104,7 +123,7 @@ async function sendWelcomeEmail(cfg, subscriber) {
   const padding    = ed.padding    || '40px';
   const radius     = ed.borderRadius || '8px';
   const rawSubject = s.emailSubject || `Thanks for subscribing to ${s.title}`;
-  const rawBody    = s.emailBodyHtml || `<p>Hi!</p><p>Thanks for subscribing to <strong>${s.title}</strong>. We're excited to have you!</p>`;
+  const rawBody    = sanitizeWysiwyg(s.emailBodyHtml) || `<p>Hi!</p><p>Thanks for subscribing to <strong>${s.title}</strong>. We're excited to have you!</p>`;
   const subject    = replaceMergeTags(rawSubject, cfg, subscriber, prefUrl);
   const bodyHtml   = replaceMergeTags(rawBody,    cfg, subscriber, prefUrl);
   // Auto-append unsubscribe footer only if {{unsubscribeUrl}} not already used in body
@@ -237,8 +256,13 @@ const uploadFont = multer({
 });
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
-const submitLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10,  message: { error: 'Too many requests' } });
+const submitLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 10,
+  keyGenerator: (req) => `${req.ip}-${req.params.slug || ''}`,  // per-IP per-form slug
+  message: { error: 'Too many requests' }
+});
 const adminLimiter  = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
+const authLimiter   = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: 'Too many login attempts' });
 
 // ── Data helpers (PostgreSQL) ─────────────────────────────────────────────────
 
@@ -340,7 +364,8 @@ function defaultFormConfig(slug, name) {
             emailEnabled: false, emailFromName: '', emailReplyTo: '', emailSubject: '', emailBodyHtml: '',
             emailDesign: { bgColor: '#f4f4f4', cardBg: '#ffffff', textColor: '#333333', headingColor: '#1a1a2e',
               bodyFont: 'Lato', headingFont: 'Playfair Display', maxWidth: '600px', padding: '40px', borderRadius: '8px' },
-            unsubscribePageText: 'Manage your subscription preferences below.' },
+            unsubscribePageText: 'Manage your subscription preferences below.',
+            embedAllowedDomains: [] },
     design: { googleFont: 'Playfair Display', bodyFont: 'Lato', primaryColor: '#1a1a2e',
               accentColor: '#e94560', backgroundColor: '#f8f5f0', textColor: '#1a1a2e',
               buttonText: 'Subscribe Now', buttonRadius: '4px', containerWidth: '560px',
@@ -639,7 +664,7 @@ app.get('/delete-data', async (req, res) => {
 // ════════════════════════════════════════
 
 // Kick off Auth0 login
-app.get('/auth/login', adminLimiter, (req, res) => {
+app.get('/auth/login', authLimiter, (req, res) => {
   if (!oidcClient) {
     return res.status(503).send('Auth0 is not configured. Set AUTH0_* env vars and restart.');
   }
@@ -665,7 +690,7 @@ app.get('/auth/login', adminLimiter, (req, res) => {
 });
 
 // Auth0 callback
-app.get('/auth/callback', adminLimiter, async (req, res) => {
+app.get('/auth/callback', authLimiter, async (req, res) => {
   if (!oidcClient) return res.status(503).send('Auth0 not configured.');
   try {
     const params       = oidcClient.callbackParams(req);
@@ -799,10 +824,13 @@ app.get('/api/admin/forms', adminAuth, async (req, res) => {
 // Create new form
 app.post('/api/admin/forms', adminAuth, async (req, res) => {
   try {
-    const { slug, name } = req.body;
-    if (!slug || !name) return res.status(400).json({ error: 'slug and name required' });
+    const { error: valErr, value: body } = Joi.object({
+      name: Joi.string().min(1).max(100).required(),
+      slug: Joi.string().min(1).max(60).pattern(/^[a-z0-9-]+$/).required()
+    }).validate(req.body);
+    if (valErr) return res.status(400).json({ error: valErr.details[0].message });
+    const { slug, name } = body;
     if (RESERVED_SLUGS.has(slug)) return res.status(400).json({ error: 'Slug is reserved' });
-    if (!/^[a-z0-9-]+$/.test(slug)) return res.status(400).json({ error: 'Slug must be lowercase letters, numbers and hyphens only' });
     await pool.query(
       'INSERT INTO forms(slug, name, created_at, config) VALUES($1, $2, NOW(), $3)',
       [slug, name, defaultFormConfig(slug, name)]
@@ -1193,14 +1221,26 @@ app.get('/:slug/confirmation-preview', adminAuth, async (req, res) => {
   } catch(e) { res.status(404).send('Form not found'); }
 });
 
-// Embed iframe page — explicitly allows framing from any origin
+// Embed iframe page — allows framing; respects per-form domain allowlist
 app.get('/:slug/embed', async (req, res) => {
   try {
     const [cfg, sharedFonts, templates] = await Promise.all([
       readFormConfig(req.params.slug), readSharedFonts(), readDesignTemplates()]);
+
+    // ── Domain allowlist check ───────────────────────────────────────────────
+    const allowedDomains = (cfg.site.embedAllowedDomains || []).filter(Boolean);
+    if (allowedDomains.length > 0) {
+      const origin = req.get('Origin') || req.get('Referer') || '';
+      const matched = allowedDomains.some(d => origin.includes(d.trim()));
+      if (!matched) return res.status(403).send('Embedding not allowed from this origin.');
+    }
+
+    // ── Dynamic frame-ancestors ──────────────────────────────────────────────
+    const faVal = allowedDomains.length > 0
+      ? allowedDomains.map(d => `https://${d.trim()}`).join(' ')
+      : '*';
+
     res.setHeader('X-Frame-Options', 'ALLOWALL');
-    // Override helmet's frame-ancestors 'self' with * for the embed page only.
-    // All other CSP directives match the global policy.
     res.setHeader('Content-Security-Policy',
       "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.hcaptcha.com; " +
       "script-src-attr 'unsafe-inline'; " +
@@ -1208,7 +1248,7 @@ app.get('/:slug/embed', async (req, res) => {
       "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; " +
       "connect-src 'self' https://api.hcaptcha.com; " +
       "frame-src https://www.youtube.com https://player.vimeo.com; " +
-      "frame-ancestors *; object-src 'none'; base-uri 'self'");
+      `frame-ancestors ${faVal}; object-src 'none'; base-uri 'self'`);
     res.send(renderEmbedPage(cfg, sharedFonts, templates));
   } catch(e) { res.status(404).send('Form not found'); }
 });
@@ -1243,8 +1283,17 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
     } catch(e) { return res.status(500).json({ error: 'CAPTCHA service error. Please try again.' }); }
   }
 
-  const email = (body.email || '').trim().toLowerCase();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { bumpAnalytic(slug, 'errors'); return res.status(400).json({ error: 'Valid email required.' }); }
+  // ── Joi input validation ──────────────────────────────────────────────────
+  const schemaShape = { email: Joi.string().email({ tlds: { allow: false } }).max(254).required() };
+  cfg.fields.filter(f => !f.system).forEach(f => {
+    schemaShape[f.id] = Joi.string().max(1000).allow('').optional();
+  });
+  const { error: valErr, value: validated } = Joi.object(schemaShape).unknown(true).validate(body);
+  if (valErr) {
+    bumpAnalytic(slug, 'errors');
+    return res.status(400).json({ error: valErr.details[0].message });
+  }
+  const email = validated.email.trim().toLowerCase();
 
   // Check for existing active subscription
   const { rows: existingRows } = await pool.query(
@@ -1784,7 +1833,7 @@ function renderBlockElement(el, cfg) {
       return `<hr style="border:none;border-top:${thick}px solid ${color};margin:8px 0">`;
     }
     case 'wysiwyg':
-      return `<div style="margin:8px 0;line-height:1.7">${el.html || ''}</div>`;
+      return `<div style="margin:8px 0;line-height:1.7">${sanitizeWysiwyg(el.html)}</div>`;
     case 'video': {
       if (!el.url) return '';
       const [rw, rh] = (el.aspectRatio || '16:9').split(':').map(Number);
@@ -2212,7 +2261,7 @@ function renderPrefCenterBlock(block) {
       return `<hr style="border:none;border-top:${th}px solid ${col};margin:${block.margin||16}px 0">`;
     }
     case 'wysiwyg':
-      return `<div class="pc-wysiwyg">${block.html||''}</div>`;
+      return `<div class="pc-wysiwyg">${sanitizeWysiwyg(block.html)}</div>`;
     case 'button': {
       const bg  = block.bgColor  || '#333333';
       const tc  = block.textColor|| '#ffffff';
@@ -2355,7 +2404,7 @@ ${customFontFaceCSS(cfg, sharedFonts)}
   ul { padding-left:20px; }
 </style></head><body>
 <div class="wrap">
-  ${s.privacyContent ? s.privacyContent : `
+  ${s.privacyContent ? sanitizeWysiwyg(s.privacyContent) : `
   <h1>Privacy Policy</h1>
   <p><strong>Last updated:</strong> ${new Date().toLocaleDateString('en-GB', {year:'numeric',month:'long',day:'numeric'})}</p>
   <h2>1. Who we are</h2>
