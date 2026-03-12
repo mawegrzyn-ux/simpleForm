@@ -860,7 +860,9 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td>Web framework</td><td>Express 4</td><td>Single <code>server.js</code> (~2600 lines)</td></tr>
           <tr><td>Auth</td><td>openid-client v5 (Auth0)</td><td>OIDC, role claim via Action</td></tr>
           <tr><td>Email</td><td>Nodemailer</td><td>SMTP relay, HTML templates</td></tr>
-          <tr><td>File uploads</td><td>multer-s3 v3</td><td>Streams directly to S3; 5 MB limit</td></tr>
+          <tr><td>File uploads</td><td>multer-s3 v3</td><td>Streams directly to S3; 5 MB limit; UUID-based keys</td></tr>
+          <tr><td>Input validation</td><td>joi v17</td><td>Schema validation on subscribe route + form creation</td></tr>
+          <tr><td>HTML sanitisation</td><td>sanitize-html v2</td><td>Tag/attribute allowlist on all WYSIWYG output</td></tr>
           <tr><td>Database</td><td>PostgreSQL 16</td><td>AWS Lightsail managed DB; <code>pg</code> pool, raw SQL</td></tr>
           <tr><td>Object storage</td><td>Amazon S3</td><td><code>@aws-sdk/client-s3</code>; direct public URLs</td></tr>
           <tr><td>Session store</td><td>connect-pg-simple</td><td>Sessions persisted in PostgreSQL <code>session</code> table</td></tr>
@@ -975,11 +977,16 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td>Session signing</td><td><code>express-session</code> + <code>SESSION_SECRET</code>; <code>httpOnly</code>, <code>secure</code>, <code>sameSite:lax</code></td></tr>
           <tr><td>Rate limiting</td><td><code>express-rate-limit</code>: 10 subs / 15 min / IP per form</td></tr>
           <tr><td>XSS — page renderers</td><td><code>escapeHtml()</code> applied to all admin-authored text before HTML output</td></tr>
+          <tr><td>XSS — WYSIWYG fields</td><td><code>sanitizeWysiwyg()</code> via <code>sanitize-html</code>; strips disallowed tags/attrs from <code>el.html</code>, <code>block.html</code>, <code>privacyContent</code>, <code>emailBodyHtml</code></td></tr>
           <tr><td>XSS — admin subscriber table</td><td>All subscriber data escaped via <code>escHtml()</code>; inline <code>onclick</code> replaced with <code>data-*</code> + event delegation</td></tr>
           <tr><td>CSRF</td><td>Double-submit token (<code>crypto.randomBytes(32)</code>); validated on all non-GET admin API calls</td></tr>
-          <tr><td>Content Security Policy</td><td>Helmet CSP with explicit allowlists; <code>frame-ancestors 'self'</code> globally</td></tr>
-          <tr><td>Framing</td><td><code>X-Frame-Options: SAMEORIGIN</code> globally; <code>ALLOWALL</code> on embed route only</td></tr>
-          <tr><td>File upload</td><td>Multer: allowlist MIME types; 10 MB limit; no original filenames served</td></tr>
+          <tr><td>Input validation</td><td><code>joi</code> schema on subscribe route (email + custom fields); <code>joi</code> on form creation (name + slug format)</td></tr>
+          <tr><td>Rate limiting</td><td><code>submitLimiter</code>: 10 req/15min per IP per form slug; <code>authLimiter</code>: 20 req/15min on login + callback routes</td></tr>
+          <tr><td>Content Security Policy</td><td>Helmet CSP with explicit allowlists; <code>frame-ancestors 'self'</code> globally; embed route uses dynamic <code>frame-ancestors</code></td></tr>
+          <tr><td>Framing</td><td><code>X-Frame-Options: SAMEORIGIN</code> globally; <code>ALLOWALL</code> on embed route; embed <code>frame-ancestors</code> locked to allowed domains if configured</td></tr>
+          <tr><td>Embed domain allowlist</td><td>Per-form <code>embedAllowedDomains</code> list; Origin/Referer checked on embed route; 403 if not matched</td></tr>
+          <tr><td>File upload</td><td>multer-s3: allowlist MIME types; 5 MB limit; UUID-based S3 keys (no original filenames)</td></tr>
+          <tr><td>SQL injection</td><td>All DB queries use parameterised <code>pg</code> queries; no string concatenation in SQL</td></tr>
           <tr><td>Unsubscribe tokens</td><td>UUID v4 per subscriber, validated server-side</td></tr>
           <tr><td>HTTPS</td><td>Enforced via Nginx + Let's Encrypt, auto-renewed</td></tr>
           <tr><td>Secrets</td><td><code>.env</code> excluded from git; SMTP passwords server-side only</td></tr>
@@ -997,15 +1004,24 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>renderPrefCenterBlock()</code></td><td>block heading/paragraph text, image alt, button label</td></tr>
           <tr><td><code>renderUnsubscribePage()</code>, <code>renderPrivacyPage()</code></td><td>page title, site title</td></tr>
         </table>
-        <p>WYSIWYG fields (<code>emailBodyHtml</code>, <code>privacyContent</code>, <code>el.html</code>) are intentionally left as raw HTML — they are admin-authored rich content, not user input.</p>
+        <p>WYSIWYG fields (<code>emailBodyHtml</code>, <code>privacyContent</code>, <code>el.html</code>, <code>block.html</code>) are admin-authored rich content passed through <code>sanitizeWysiwyg()</code> before rendering — see Plan B below.</p>
 
-        <h3>XSS prevention — Plan B: admin subscriber table</h3>
+        <h3>XSS prevention — Plan B: WYSIWYG sanitisation</h3>
+        <p><code>sanitizeWysiwyg(html)</code> wraps <code>sanitize-html</code> with an explicit allowlist of safe tags and attributes. It is applied to every WYSIWYG field before it is interpolated into a page HTML string.</p>
+        <table class="help-table">
+          <tr><th>Allowed tags</th><td>h1–h6, p, strong, em, b, i, u, s, br, ul, ol, li, a, img, blockquote, code, pre, table, thead, tbody, tr, td, th, span, div, hr</td></tr>
+          <tr><th>Allowed attributes</th><td><code>a</code>: href, target, rel &nbsp;·&nbsp; <code>img</code>: src, alt, width, height, style &nbsp;·&nbsp; <code>*</code>: style, class</td></tr>
+          <tr><th>Allowed URL schemes</th><td>http, https, mailto (blocks javascript: URIs)</td></tr>
+          <tr><th>Applied to</th><td><code>el.html</code> (WYSIWYG blocks in forms), <code>block.html</code> (pref centre), <code>s.privacyContent</code> (privacy page), <code>s.emailBodyHtml</code> (welcome email)</td></tr>
+        </table>
+
+        <h3>XSS prevention — Plan C: admin subscriber table</h3>
         <p>Previously, subscriber emails and custom field values were injected directly into <code>tr.innerHTML</code>, and action buttons used <code>onclick="fn('${s.email}')"</code> — a pattern vulnerable to JS injection via crafted email addresses.</p>
         <p><strong>Fix 1 — data escaping:</strong> All subscriber values (email, status, date, custom fields, IDs) are now wrapped in <code>escHtml()</code> before being placed in <code>innerHTML</code>.</p>
         <p><strong>Fix 2 — event delegation:</strong> All <code>onclick</code> attribute handlers removed. Buttons carry <code>data-action</code>, <code>data-id</code>, and <code>data-email</code> attributes. A single IIFE-wrapped <code>document.addEventListener('click', …)</code> listens at document level, checks that the target is inside <code>#sub-tbody</code>, reads the <code>data-*</code> attributes, and dispatches to the appropriate function — eliminating all string interpolation in event handler context.</p>
         <div class="info-box"><strong>Before:</strong> <code>onclick="adminUnsubscribe('${s.id}','${s.email}')"</code><br><strong>After:</strong> <code>data-action="unsub" data-id="…" data-email="…"</code> + delegated listener</div>
 
-        <h3>CSRF — Plan C: double-submit token</h3>
+        <h3>CSRF — Plan D: double-submit token</h3>
         <p>All state-changing admin API calls (<code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code> to <code>/api/admin/*</code>) require a valid CSRF token sent as the <code>X-CSRF-Token</code> request header.</p>
         <table class="help-table">
           <tr><th>Component</th><th>Detail</th></tr>
@@ -1017,7 +1033,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td>Bootstrap</td><td><code>loadFormsIndex()</code> fetches the CSRF token before making any other admin calls; all <code>fetch('/api/admin/…')</code> calls replaced with <code>adminFetch(…)</code></td></tr>
         </table>
 
-        <h3>Content Security Policy — Plan D: Helmet CSP</h3>
+        <h3>Content Security Policy — Plan E: Helmet CSP</h3>
         <p>Helmet's <code>contentSecurityPolicy</code> was previously disabled (<code>false</code>). It is now enabled with explicit per-directive allowlists.</p>
         <table class="help-table">
           <tr><th>Directive</th><th>Value</th><th>Reason</th></tr>
@@ -1034,11 +1050,22 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>base-uri</code></td><td><code>'self'</code></td><td>Prevent base-tag hijacking</td></tr>
         </table>
 
-        <h3>X-Frame-Options — Plan E</h3>
+        <h3>X-Frame-Options — Plan F</h3>
         <p>Helmet sets <code>X-Frame-Options: SAMEORIGIN</code> globally, complementing <code>frame-ancestors 'self'</code> in the CSP for older browsers that do not support CSP Level 2.</p>
-        <p>The embed route (<code>GET /:slug/embed</code>) is the single legitimate exception — it must be frameable by any third-party website. That route explicitly overrides both headers:</p>
+        <p>The embed route (<code>GET /:slug/embed</code>) overrides framing headers. If <code>embedAllowedDomains</code> is empty (default) the form can be embedded anywhere:</p>
         <div class="info-box"><code>X-Frame-Options: ALLOWALL</code><br><code>Content-Security-Policy: … frame-ancestors *; …</code></div>
-        <p>All other CSP directives (script-src, style-src, frame-src, etc.) are preserved on the embed route — only <code>frame-ancestors</code> is widened.</p>
+        <p>If <code>embedAllowedDomains</code> is configured (e.g. <code>["mysite.com","app.co"]</code>), the embed route checks the request <code>Origin</code> / <code>Referer</code> header and returns <strong>403</strong> if it doesn't match. The CSP is tightened accordingly:</p>
+        <div class="info-box"><code>Content-Security-Policy: … frame-ancestors https://mysite.com https://app.co; …</code></div>
+        <p>All other CSP directives (script-src, style-src, frame-src, etc.) are preserved on the embed route — only <code>frame-ancestors</code> changes.</p>
+
+        <h3>Input validation — Plan G: Joi schemas</h3>
+        <p>All user-submitted data on the public subscribe route is validated by a dynamically-built <code>joi</code> schema before any DB access occurs.</p>
+        <table class="help-table">
+          <tr><th>Field</th><th>Rule</th></tr>
+          <tr><td><code>email</code></td><td><code>Joi.string().email().max(254).required()</code> — RFC-compliant check, TLD validation disabled (allows .local / .test)</td></tr>
+          <tr><td>Custom fields</td><td><code>Joi.string().max(1000).allow('').optional()</code> per field defined in the form config</td></tr>
+        </table>
+        <p>Form creation (<code>POST /api/admin/forms</code>) is also validated: <code>name</code> (1–100 chars) and <code>slug</code> (1–60 chars, <code>/^[a-z0-9-]+$/</code> pattern). Invalid requests return <code>400</code> with Joi's human-readable error message.</p>
 
         <h3>Remaining known gaps</h3>
         <table class="help-table">
@@ -1615,11 +1642,15 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>AUTH0_CLIENT_SECRET</code></td><td>Auth0 application client secret</td></tr>
           <tr><td><code>AUTH0_CALLBACK_URL</code></td><td>Callback URL registered in Auth0 (e.g. <code>https://yourdomain.com/auth/callback</code>)</td></tr>
           <tr><td><code>SESSION_SECRET</code></td><td>Random string for signing session cookies</td></tr>
-          <tr><td><code>BASE_URL</code></td><td>Your public URL (used for OIDC redirect)</td></tr>
+          <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL connection string (Lightsail managed DB)</td></tr>
+          <tr><td><code>AWS_ACCESS_KEY_ID</code></td><td>IAM user key for S3 access</td></tr>
+          <tr><td><code>AWS_SECRET_ACCESS_KEY</code></td><td>IAM user secret for S3 access</td></tr>
+          <tr><td><code>AWS_REGION</code></td><td>AWS region (e.g. <code>eu-west-3</code>)</td></tr>
+          <tr><td><code>S3_BUCKET</code></td><td>S3 bucket name for media + font uploads</td></tr>
           <tr><td><code>SMTP_HOST, PORT, USER, PASS, FROM</code></td><td>Outbound email relay settings</td></tr>
         </table>
         <h3>Data storage</h3>
-        <p>All data is stored as JSON flat files under <code>data/</code>. No database setup required. For high-traffic use, see the Enterprise Roadmap section for database migration plans.</p>
+        <p>All data is stored in <strong>PostgreSQL 16</strong> (AWS Lightsail managed DB). Media and font uploads are stored in <strong>Amazon S3</strong>. Sessions are persisted in PostgreSQL via <code>connect-pg-simple</code>.</p>
       </div>
     </div>
 
