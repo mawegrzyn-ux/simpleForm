@@ -586,8 +586,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   </button>
   <button class="f-tab" onclick="openMediaPicker('manage')" id="subnav-media-btn">Media</button>
   <div class="f-nav-tpl-wrap" id="f-nav-tpl-wrap" style="display:none">
-    <span class="f-nav-label" style="font-size:0.73rem;color:var(--ink3)">Template:</span>
-    <select id="f-nav-tpl-sel" class="f-nav-tpl-sel" onchange="setDesignTemplateId(this.value)" title="Active design template"></select>
+    <span class="f-nav-label" style="font-size:0.73rem;color:var(--ink3)">Branding:</span>
+    <select id="f-nav-tpl-sel" class="f-nav-tpl-sel" onchange="setDesignTemplateId(this.value)" title="Active branding"></select>
   </div>
 </nav>
 
@@ -1633,17 +1633,17 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 <div id="tab-pfsettings" class="page">
   <div id="settings-panel">
   <div class="page-body">
-    <div class="page-head"><h2>Settings</h2><p>Form-specific configuration — template, identity, legal, and notifications.</p></div>
+    <div class="page-head"><h2>Settings</h2><p>Form-specific configuration — branding, identity, legal, and notifications.</p></div>
     <div class="card" style="padding:16px">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">style</span> Design Template</div>
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">style</span> Branding</div>
       <div class="cg">
-        <label class="cl">Assigned template</label>
+        <label class="cl">Assigned branding</label>
         <div class="cr" style="gap:8px">
           <select id="pf-design-tpl-sel" style="flex:1" onchange="setDesignTemplateId(this.value)">
             <option value="">None (use form's own design)</option>
           </select>
         </div>
-        <p style="font-size:0.73rem;color:var(--ink3);margin-top:3px">When a template is assigned, the live form uses that template's design. Save the form to persist the assignment.</p>
+        <p style="font-size:0.73rem;color:var(--ink3);margin-top:3px">When a branding is assigned, the live form uses that branding's design. Save the form to persist the assignment.</p>
       </div>
     </div>
     <div class="card" style="padding:16px">
@@ -1965,8 +1965,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </ul>
         <h3>hCaptcha</h3>
         <p>Enable bot protection per-form. Enter your <strong>hCaptcha site key</strong> and <strong>secret key</strong> (from hcaptcha.com). When enabled, a CAPTCHA challenge appears above the submit button.</p>
-        <h3>Design template assignment</h3>
-        <p>Link a design template to a form here. The live form will use the template's visual design while keeping form-specific settings (slug, fields, sections) intact.</p>
+        <h3>Branding assignment</h3>
+        <p>Link a branding to a form here. The live form will use the branding's visual design while keeping form-specific settings (slug, fields, sections) intact.</p>
         <h3>Submission deduplication</h3>
         <p>By default SignFlow prevents the same email from subscribing twice. The <strong>Submission deduplication</strong> card lets you change this behaviour:</p>
         <ul>
