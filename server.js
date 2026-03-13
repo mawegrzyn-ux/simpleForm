@@ -490,6 +490,13 @@ async function initDb() {
       last_updated TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
       PRIMARY KEY (form_slug, key)
     );
+
+    CREATE TABLE IF NOT EXISTS isel_presets (
+      id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+      name       TEXT         NOT NULL UNIQUE,
+      items      JSONB        NOT NULL DEFAULT '[]',
+      created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    );
   `);
   console.log('✔ Database tables ready');
 }
@@ -1184,6 +1191,36 @@ app.put('/api/admin/design-templates/:id', adminAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Icon Select presets ────────────────────────────────────────────────────────
+app.get('/api/admin/isel-presets', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM isel_presets ORDER BY name ASC');
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/isel-presets', adminAuth, async (req, res) => {
+  try {
+    const { name, items } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
+    const { rows } = await pool.query(
+      `INSERT INTO isel_presets (name, items) VALUES ($1, $2)
+       ON CONFLICT (name) DO UPDATE SET items=EXCLUDED.items
+       RETURNING *`,
+      [name.trim(), JSON.stringify(items || [])]
+    );
+    res.json(rows[0]);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/isel-presets/:id', adminAuth, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query('DELETE FROM isel_presets WHERE id=$1', [req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Branding tab preview — standalone dummy form, no form slug required
 // Uses GENERIC_PREVIEW_SECTIONS/FIELDS with selected form's design (or defaults).
 app.get('/branding-preview', adminAuth, async (req, res) => {
@@ -1577,6 +1614,11 @@ function renderFormField(f, cfg) {
     const tileBg          = f.iselTileBg           || '#ffffff';
     const tileBorderColor = f.iselTileBorderColor  || '#e0e0e0';
     const tileBorderWidth = f.iselTileBorderWidth  != null ? f.iselTileBorderWidth : 2;
+    const minSel          = f.iselMinSel           || 0;          // 0 = no minimum
+    const maxSel          = f.iselMaxSel           || 0;          // 0 = unlimited
+    const iselAlign       = f.iselAlign            || 'left';     // 'left'|'center'|'right'
+    const sizeMode        = f.iselSizeMode         || 'fixed';    // 'fixed'|'fill'
+    const showArrows      = layout === 'scroll' && (f.iselShowArrows !== false);
 
     const tilesHtml = items.map(item => {
       let iconHtml = '';
@@ -1584,6 +1626,9 @@ function renderFormField(f, cfg) {
         iconHtml = `<span class="sf-isel-icon sf-isel-mat">${escapeHtml(item.icon || '')}</span>`;
       } else if (item.iconType === 'image') {
         iconHtml = `<img class="sf-isel-icon sf-isel-img" src="${escapeHtml(item.icon || '')}" alt="" loading="lazy">`;
+      } else if (item.iconType === 'text') {
+        const fontStyle = item.iconFont ? `font-family:'${escapeHtml(item.iconFont)}',sans-serif;` : '';
+        iconHtml = `<span class="sf-isel-icon sf-isel-txt" style="${fontStyle}">${escapeHtml(item.icon || '')}</span>`;
       } else {
         iconHtml = `<span class="sf-isel-icon sf-isel-emoji">${escapeHtml(item.icon || '')}</span>`;
       }
@@ -1591,26 +1636,41 @@ function renderFormField(f, cfg) {
       return `<div class="sf-isel-tile" data-val="${escapeHtml(item.value || '')}" role="option" aria-selected="false" tabindex="0">${iconHtml}${lblHtml}</div>`;
     }).join('');
 
-    // Grid layout extras
+    // Layout extras
     let wrapClass = 'sf-isel-wrap';
     let trackClass = 'sf-isel-track';
     let gridVars = '';
+    const alignVal = iselAlign === 'center' ? 'center' : iselAlign === 'right' ? 'flex-end' : 'flex-start';
     if (layout === 'grid') {
       wrapClass += ' sf-isel-grid';
-      gridVars = `;--sf-isel-cols:${columns}`;
+      if (sizeMode === 'fill') {
+        gridVars = `;--sf-isel-cols:${columns}`;
+      } else {
+        gridVars = `;--sf-isel-cols:${columns}`;
+      }
       if (flow === 'col') {
         const nRows = Math.ceil(items.length / columns);
         gridVars += `;--sf-isel-rows:${nRows}`;
         trackClass += ' sf-isel-track-col';
       }
+      if (sizeMode === 'fill') wrapClass += ' sf-isel-fill-w';
+    } else {
+      // scroll layout
+      if (sizeMode === 'fill') wrapClass += ' sf-isel-fill-w';
+      if (showArrows) wrapClass += ' sf-isel-has-arrows';
     }
+    const sizeVar = sizeMode === 'fill' ? '' : `;--sf-isel-size:${tileSize}px`;
+
+    const wrapHtml = `<div class="${wrapClass}" data-multi="${multi}" data-sel-style="${selStyle}" data-min-sel="${minSel}" data-max-sel="${maxSel}" style="--sf-isel-accent:${selColor}${sizeVar};--sf-isel-tile-bg:${tileBg};--sf-isel-border:${tileBorderColor};--sf-isel-bw:${tileBorderWidth}px;--sf-isel-align:${alignVal}${gridVars}">
+        ${showArrows ? '<button type="button" class="sf-isel-arrow sf-isel-arrow-l" aria-label="Scroll left">&#8249;</button>' : ''}
+        <div class="${trackClass}">${tilesHtml}</div>
+        ${showArrows ? '<button type="button" class="sf-isel-arrow sf-isel-arrow-r" aria-label="Scroll right">&#8250;</button>' : ''}
+        <input type="hidden" id="sf_${f.id}" name="${f.id}" value="" ${f.required ? 'required' : ''}>
+      </div>`;
 
     return `<div class="sf-field sf-field--isel"${condAttr}>
       <label>${escapeHtml(f.label)}${req}</label>
-      <div class="${wrapClass}" data-multi="${multi}" data-sel-style="${selStyle}" style="--sf-isel-accent:${selColor};--sf-isel-size:${tileSize}px;--sf-isel-tile-bg:${tileBg};--sf-isel-border:${tileBorderColor};--sf-isel-bw:${tileBorderWidth}px${gridVars}">
-        <div class="${trackClass}">${tilesHtml}</div>
-        <input type="hidden" id="sf_${f.id}" name="${f.id}" value="" ${f.required ? 'required' : ''}>
-      </div></div>`;
+      ${wrapHtml}</div>`;
   }
 
   // ── slider ──
@@ -1729,10 +1789,8 @@ function sliderPickerCSS(accent) {
   .sf-arc-handle{transition:transform .05s linear;}
 
   /* Icon Select */
-  .sf-field--isel .sf-isel-wrap{overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#ccc #f0f0f0;}
-  .sf-field--isel .sf-isel-wrap::-webkit-scrollbar{height:4px;}
-  .sf-field--isel .sf-isel-wrap::-webkit-scrollbar-track{background:#f0f0f0;border-radius:2px;}
-  .sf-field--isel .sf-isel-wrap::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px;}
+  .sf-field--isel .sf-isel-wrap{position:relative;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none;justify-content:var(--sf-isel-align,flex-start);}
+  .sf-field--isel .sf-isel-wrap::-webkit-scrollbar{display:none;}
   .sf-isel-track{display:flex;gap:8px;width:max-content;padding:2px;}
   .sf-isel-tile{width:var(--sf-isel-size,64px);height:var(--sf-isel-size,64px);border-radius:10px;border:var(--sf-isel-bw,2px) solid var(--sf-isel-border,#e0e0e0);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color 150ms,background 150ms,box-shadow 150ms,color 150ms;background:var(--sf-isel-tile-bg,#fff);flex-shrink:0;user-select:none;-webkit-tap-highlight-color:transparent;padding:4px;box-sizing:border-box;}
   .sf-isel-tile:hover{border-color:#bbb;}
@@ -1743,12 +1801,25 @@ function sliderPickerCSS(accent) {
   .sf-isel-mat{font-family:'Material Icons Round',sans-serif;font-weight:normal;font-style:normal;font-size:calc(var(--sf-isel-size,64px)*0.42);font-feature-settings:'liga';}
   .sf-isel-emoji{font-size:calc(var(--sf-isel-size,64px)*0.40);}
   .sf-isel-img{width:calc(var(--sf-isel-size,64px)*0.55);height:calc(var(--sf-isel-size,64px)*0.55);object-fit:contain;}
+  .sf-isel-txt{font-size:calc(var(--sf-isel-size,64px)*0.38);line-height:1;display:block;text-align:center;}
   .sf-isel-lbl{font-size:11px;margin-top:3px;text-align:center;max-width:calc(var(--sf-isel-size,64px) - 6px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;line-height:1.2;}
   .sf-isel-lbl-hide{display:none;}
+  /* Scroll arrows */
+  .sf-isel-has-arrows{padding-left:28px;padding-right:28px;}
+  .sf-isel-arrow{position:absolute;top:50%;transform:translateY(-60%);z-index:2;width:24px;height:32px;background:rgba(255,255,255,0.88);border:1px solid #ddd;border-radius:6px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;color:#444;box-shadow:0 1px 4px rgba(0,0,0,.1);}
+  .sf-isel-arrow:hover{background:#fff;color:#000;}
+  .sf-isel-arrow-l{left:0;}
+  .sf-isel-arrow-r{right:0;}
+  .sf-isel-arrow[hidden]{display:none;}
+  /* Fill-width layout */
+  .sf-isel-fill-w .sf-isel-track{display:flex;width:100%;}
+  .sf-isel-fill-w .sf-isel-tile{flex:1;min-width:0;width:auto;height:var(--sf-isel-size,64px);}
   /* Grid layout */
   .sf-isel-grid{overflow-x:visible;}
   .sf-isel-grid .sf-isel-track{display:grid;grid-template-columns:repeat(var(--sf-isel-cols,4),var(--sf-isel-size,64px));width:auto;}
-  .sf-isel-grid .sf-isel-track-col{grid-auto-flow:column;grid-template-rows:repeat(var(--sf-isel-rows,4),var(--sf-isel-size,64px));grid-template-columns:unset;}`;
+  .sf-isel-grid.sf-isel-fill-w .sf-isel-track{grid-template-columns:repeat(var(--sf-isel-cols,4),1fr);width:100%;}
+  .sf-isel-grid .sf-isel-track-col{grid-auto-flow:column;grid-template-rows:repeat(var(--sf-isel-rows,4),var(--sf-isel-size,64px));grid-template-columns:unset;}
+  .sf-isel-grid.sf-isel-fill-w .sf-isel-track-col{grid-template-rows:repeat(var(--sf-isel-rows,4),var(--sf-isel-size,64px));}`;
 }
 
 // ── Slider + picker JS (injected at end of page <script>) ────────────────────
@@ -1906,10 +1977,16 @@ function sliderPickerJS() {
     var sty=wrap.dataset.selStyle||'border';
     var inp=wrap.querySelector('input[type=hidden]');
     var styleClass=sty==='fill'?'sf-isel-fill':'sf-isel-bdr';
+    var minSel=parseInt(wrap.dataset.minSel||0)||0;
+    var maxSel=parseInt(wrap.dataset.maxSel||0)||0;
     wrap.querySelectorAll('.sf-isel-tile').forEach(function(tile){
       tile.classList.add(styleClass);
       tile.addEventListener('click',function(){
         if(multi){
+          var sel=wrap.querySelectorAll('.sf-isel-tile.sf-isel-sel');
+          var isSelected=tile.classList.contains('sf-isel-sel');
+          if(!isSelected&&maxSel>0&&sel.length>=maxSel)return;
+          if(isSelected&&minSel>0&&sel.length<=minSel)return;
           tile.classList.toggle('sf-isel-sel');
           tile.setAttribute('aria-selected',tile.classList.contains('sf-isel-sel'));
         }else{
@@ -1923,6 +2000,20 @@ function sliderPickerJS() {
         if(e.key===' '||e.key==='Enter'){e.preventDefault();tile.click();}
       });
     });
+    /* ── Scroll arrows (A2) ── */
+    var arrowL=wrap.querySelector('.sf-isel-arrow-l');
+    var arrowR=wrap.querySelector('.sf-isel-arrow-r');
+    if(arrowL&&arrowR){
+      function updateArrows(){
+        arrowL.hidden=wrap.scrollLeft<=0;
+        arrowR.hidden=wrap.scrollLeft>=wrap.scrollWidth-wrap.clientWidth-1;
+      }
+      var tilePx=parseInt(getComputedStyle(wrap).getPropertyValue('--sf-isel-size'))||64;
+      arrowL.addEventListener('click',function(){wrap.scrollBy({left:-(tilePx+8),behavior:'smooth'});});
+      arrowR.addEventListener('click',function(){wrap.scrollBy({left:tilePx+8,behavior:'smooth'});});
+      wrap.addEventListener('scroll',updateArrows,{passive:true});
+      updateArrows();
+    }
   });
 
   /* ── Conditional field visibility ── */
@@ -2251,6 +2342,7 @@ function renderPublicPage(cfg, sharedFonts = [], templates = []) {
 ${googleFontTag(cfg, d, sharedFonts)}
 ${customFontFaceCSS(cfg, sharedFonts)}
 ${(cfg.fields||[]).some(f=>f.type==='iconselect'&&(f.iselItems||[]).some(i=>i.iconType==='material')) ? '<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">' : ''}
+${[...new Set((cfg.fields||[]).filter(f=>f.type==='iconselect').flatMap(f=>(f.iselItems||[]).filter(i=>i.iconType==='text'&&i.iconFont&&!i.iconFont.startsWith('custom:')).map(i=>i.iconFont)))].map(font=>`<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(font)}&display=swap" rel="stylesheet">`).join('\n')}
 ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2637,6 +2729,7 @@ function renderEmbedPage(cfg, sharedFonts = [], templates = []) {
 ${googleFontTag(cfg, d, sharedFonts)}
 ${customFontFaceCSS(cfg, sharedFonts)}
 ${(cfg.fields||[]).some(f=>f.type==='iconselect'&&(f.iselItems||[]).some(i=>i.iconType==='material')) ? '<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">' : ''}
+${[...new Set((cfg.fields||[]).filter(f=>f.type==='iconselect').flatMap(f=>(f.iselItems||[]).filter(i=>i.iconType==='text'&&i.iconFont&&!i.iconFont.startsWith('custom:')).map(i=>i.iconFont)))].map(font=>`<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(font)}&display=swap" rel="stylesheet">`).join('\n')}
 ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
