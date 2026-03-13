@@ -2200,16 +2200,16 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           </select>
         </div>
       </div>
-      <!-- Row 2: A1 brand colour dropdowns -->
+      <!-- Row 2: A1 brand colour pickers -->
       <div class="cr" style="gap:8px;margin-bottom:6px">
         <div style="flex:1"><label class="cl">Highlight colour</label>
-          <select id="modal-isel-color"></select>
+          <div id="modal-isel-color"></div>
         </div>
         <div style="flex:1"><label class="cl">Tile background</label>
-          <select id="modal-isel-tilebg"></select>
+          <div id="modal-isel-tilebg"></div>
         </div>
         <div style="flex:1"><label class="cl">Tile border colour</label>
-          <select id="modal-isel-tileborder"></select>
+          <div id="modal-isel-tileborder"></div>
         </div>
       </div>
       <!-- Row 3: border width + alignment -->
@@ -4623,9 +4623,9 @@ function saveField(){
     field.iselTileSize=parseInt(document.getElementById('modal-isel-size').value)||64;
     field.iselSizeMode=document.getElementById('modal-isel-size-mode').value;
     field.iselSelStyle=document.getElementById('modal-isel-selstyle').value;
-    field.iselSelColor=document.getElementById('modal-isel-color').value;
-    field.iselTileBg=document.getElementById('modal-isel-tilebg').value;
-    field.iselTileBorderColor=document.getElementById('modal-isel-tileborder').value;
+    field.iselSelColor=_iselSelColor;
+    field.iselTileBg=_iselTileBg;
+    field.iselTileBorderColor=_iselTileBorder;
     field.iselTileBorderWidth=parseInt(document.getElementById('modal-isel-borderw').value)??2;
     field.iselAlign=document.getElementById('modal-isel-align').value;
     field.iselLayout=document.getElementById('modal-isel-layout').value;
@@ -4739,33 +4739,52 @@ async function iselDeletePreset(idx,btn){
   }catch(e){alert('Delete failed: '+e.message);}
 }
 
-function _buildIselColorDropdowns(selColor,tileBg,tileBorder){
-  // Build named colour options from design palette + brand colours
+// Module-level vars to hold the current isel colour picker values (read in saveField)
+let _iselSelColor='', _iselTileBg='', _iselTileBorder='';
+
+function _buildIselColorPicker(containerId, currentColor, onChange){
+  // Uses the same bcp-* CSS classes as buildBrandColorPicker but includes the full
+  // design palette (Primary / Accent / Background / Text / Button) + brand colours + standards
+  const c=document.getElementById(containerId);if(!c)return;
   if(!cfg?.design)return;
   const d=cfg.design;
-  const named=[
+  _migrateBrandColors&&_migrateBrandColors();
+  const allColors=[
     {name:'Primary',    color:d.primaryColor},
     {name:'Accent',     color:d.accentColor},
     {name:'Background', color:d.backgroundColor},
     {name:'Text',       color:d.textColor},
     {name:'Button',     color:d.btnBg},
-    ...(d.brandColors||[]).filter(b=>b.color&&b.name)
+    ...(d.brandColors||[]),
+    {name:'Black',      color:'#000000'},
+    {name:'White',      color:'#ffffff'},
   ].filter(b=>b.color&&/^#[0-9a-fA-F]{3,6}$/.test(b.color));
   // Deduplicate by hex
-  const seen=new Set();const opts=[];
-  named.forEach(b=>{if(!seen.has(b.color)){seen.add(b.color);opts.push(b);}});
-  const makeOptions=(currentVal)=>opts.map(b=>`<option value="${b.color}"${b.color===currentVal?' selected':''}>${b.name} (${b.color})</option>`).join('');
-  const colorEl=document.getElementById('modal-isel-color');
-  const bgEl=document.getElementById('modal-isel-tilebg');
-  const borderEl=document.getElementById('modal-isel-tileborder');
-  // Default current values: if passed value exists in opts use it, else first opt
-  const resolve=(val)=>{
-    if(val&&opts.some(o=>o.color===val))return val;
-    return opts[0]?.color||'';
-  };
-  if(colorEl){colorEl.innerHTML=makeOptions(resolve(selColor));}
-  if(bgEl){bgEl.innerHTML=makeOptions(resolve(tileBg));}
-  if(borderEl){borderEl.innerHTML=makeOptions(resolve(tileBorder));}
+  const seen=new Set();const brands=[];
+  allColors.forEach(b=>{if(!seen.has(b.color)){seen.add(b.color);brands.push(b);}});
+  const cur=brands.find(b=>b.color===currentColor);
+  const label=cur?(cur.name||cur.color):(currentColor||'Choose colour…');
+  const swatchStyle=currentColor?`background:${currentColor}`:'background:transparent;border:1.5px dashed var(--border)';
+  const clearItem=`<div class="bcp-item${!currentColor?' active':''}" onclick="bcpPick('${containerId}','')"><span class="bcp-item-sw" style="background:transparent;border:1.5px dashed var(--border)"></span><span class="bcp-item-name" style="color:var(--ink3)">None / clear</span></div>`;
+  const items=clearItem+brands.map(b=>`<div class="bcp-item${b.color===currentColor?' active':''}" onclick="bcpPick('${containerId}','${b.color}')"><span class="bcp-item-sw" style="background:${b.color}"></span><span class="bcp-item-name">${escHtml(b.name||b.color)}</span><span class="bcp-item-hex">${b.color}</span></div>`).join('');
+  c.innerHTML=`<div class="bcp-wrap" id="bcpw-${containerId}">
+    <button type="button" class="bcp-trigger" onclick="event.stopPropagation();bcpToggle('${containerId}')">
+      <span class="bcp-swatch-pill" style="${swatchStyle}"></span>
+      <span class="bcp-sel">${escHtml(label)}</span>
+      <span class="material-icons-round" style="font-size:13px;color:var(--ink3);flex-shrink:0">expand_more</span>
+    </button>
+    <div class="bcp-dropdown">${items}</div>
+  </div>`;
+  _bcpCallbacks[containerId]=onChange;
+}
+
+function _buildIselColorDropdowns(selColor,tileBg,tileBorder){
+  _iselSelColor=selColor||'';
+  _iselTileBg=tileBg||'';
+  _iselTileBorder=tileBorder||'';
+  _buildIselColorPicker('modal-isel-color',  _iselSelColor,  v=>{_iselSelColor=v;});
+  _buildIselColorPicker('modal-isel-tilebg', _iselTileBg,    v=>{_iselTileBg=v;});
+  _buildIselColorPicker('modal-isel-tileborder',_iselTileBorder,v=>{_iselTileBorder=v;});
 }
 
 // ── Material Icon Picker ──
