@@ -56,9 +56,19 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:13.
 .tbtn-ghost:hover{border-color:var(--ink3);color:var(--ink);background:var(--bg);}
 .tbtn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
 .tbtn-primary:hover{background:var(--accent-h);border-color:var(--accent-h);}
-#user-badge{display:none;align-items:center;gap:10px;margin-left:4px;padding-left:14px;border-left:1px solid var(--border);}
-#user-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;}
+#user-badge{display:none;align-items:center;margin-left:4px;padding-left:12px;border-left:1px solid var(--border);position:relative;}
+#user-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;}
 .u-name{font-size:0.82rem;color:var(--ink2);font-weight:500;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.t-user-btn{display:flex;align-items:center;gap:7px;padding:4px 6px 4px 4px;border-radius:var(--r);cursor:pointer;border:none;background:none;font-family:var(--font);transition:background 120ms;}
+.t-user-btn:hover{background:var(--bg);}
+.t-dropdown{position:absolute;top:calc(100% + 6px);background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);z-index:1000;padding:4px;min-width:140px;}
+.t-drop-item{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:5px;font-size:0.82rem;font-family:var(--font);cursor:pointer;border:none;background:none;color:var(--ink2);transition:background 120ms;white-space:nowrap;text-align:left;}
+.t-drop-item:hover{background:var(--bg2);color:var(--ink);}
+.t-drop-item.danger{color:var(--danger);}
+.t-drop-item.danger:hover{background:var(--dbg);}
+.t-drop-item .mi{font-size:16px!important;flex-shrink:0;}
+.t-icon-btn{padding:6px!important;}
+.t-more-wrap{position:relative;}
 #app{display:none;flex:1;overflow:hidden;flex-direction:column;}
 .page{display:none;flex:1;overflow:auto;flex-direction:column;}
 .page.active{display:flex;}
@@ -526,7 +536,6 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   <nav class="t-nav">
     <button class="t-tab active" id="tab-forms-btn" onclick="switchTab('forms',this)">Forms<span id="t-form-name-chip" class="t-form-chip" style="display:none"></span></button>
     <button class="t-tab" onclick="switchTab('design',this)">Branding</button>
-    <button class="t-tab" onclick="switchTab('help',this)"><span class="material-icons-round mi" style="font-size:15px">help_outline</span> Help</button>
   </nav>
   <div class="t-spacer"></div>
   <div class="t-actions">
@@ -535,15 +544,26 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <span id="tbar-tpl-name" style="font-size:0.78rem;font-weight:500;color:var(--ink2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
       <button class="tbtn tbtn-primary" onclick="saveTplFromDesignTab()"><span class="material-icons-round mi">save</span> Save</button>
       <button class="tbtn tbtn-ghost" onclick="saveTplAsFromDesignTab()"><span class="material-icons-round mi">save_as</span> Save as…</button>
-      <button class="tbtn tbtn-ghost" style="color:var(--danger)" onclick="deleteTplCurrent()"><span class="material-icons-round mi">delete</span></button>
       <button class="tbtn tbtn-ghost" onclick="exitTplEdit()">Done</button>
+      <div class="t-more-wrap">
+        <button class="tbtn tbtn-ghost t-icon-btn" onclick="toggleTplMore()" title="More options"><span class="material-icons-round mi">more_vert</span></button>
+        <div id="tpl-more-menu" class="t-dropdown" style="display:none;right:0">
+          <button class="t-drop-item danger" onclick="deleteTplCurrent();document.getElementById('tpl-more-menu').style.display='none'"><span class="material-icons-round mi">delete</span> Delete template</button>
+        </div>
+      </div>
     </div>
     <button class="tbtn tbtn-ghost" id="view-site-btn" onclick="window.open('/','_blank')" style="display:none"><span class="material-icons-round mi">open_in_new</span> View site</button>
     <button class="tbtn tbtn-primary" id="save-btn" onclick="saveConfig()" style="display:none"><span class="material-icons-round mi">save</span> Save</button>
+    <button class="tbtn tbtn-ghost t-icon-btn" id="help-nav-btn" onclick="switchTab('help',null)" title="Help"><span class="material-icons-round mi" style="font-size:18px">help_outline</span></button>
     <div id="user-badge">
-      <img id="user-avatar" src="" alt="">
-      <span class="u-name" id="user-name"></span>
-      <button class="tbtn tbtn-ghost" onclick="window.location='/auth/logout'" style="font-size:0.78rem;padding:5px 10px">Sign out</button>
+      <button class="t-user-btn" onclick="toggleUserMenu()">
+        <img id="user-avatar" src="" alt="">
+        <span class="u-name" id="user-name"></span>
+        <span class="material-icons-round" style="font-size:16px;color:var(--ink3)">expand_more</span>
+      </button>
+      <div id="user-menu" class="t-dropdown" style="display:none;right:0">
+        <button class="t-drop-item danger" onclick="window.location='/auth/logout'"><span class="material-icons-round mi">logout</span> Sign out</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3170,7 +3190,11 @@ function toggleFpDropdown(trigger){
 document.addEventListener('click',e=>{
   if(!e.target.closest('.fp-wrap'))document.querySelectorAll('.fp-wrap.open').forEach(w=>w.classList.remove('open'));
   if(!e.target.closest('.bcp-wrap'))document.querySelectorAll('.bcp-wrap.open').forEach(w=>{w.classList.remove('open');_bcpResetDd(w);});
+  if(!e.target.closest('#user-badge')){const m=document.getElementById('user-menu');if(m)m.style.display='none';}
+  if(!e.target.closest('.t-more-wrap')){const m=document.getElementById('tpl-more-menu');if(m)m.style.display='none';}
 });
+function toggleUserMenu(){const m=document.getElementById('user-menu');if(m)m.style.display=m.style.display==='none'?'block':'none';}
+function toggleTplMore(){const m=document.getElementById('tpl-more-menu');if(m)m.style.display=m.style.display==='none'?'block':'none';}
 
 // ── Palettes ──
 function buildPalettes(){
@@ -3543,10 +3567,9 @@ function bcpToggle(id){
       dd.style.width=ddW+'px';
       dd.style.zIndex='9999';
       dd.style.right='auto';
-      // Flip up if not enough space below but more space above
+      // Position below trigger; flip up if dropdown would clip the bottom
       const spaceBelow=window.innerHeight-r.bottom-8;
-      const spaceAbove=r.top-8;
-      if(spaceBelow<Math.min(ddMaxH,100)&&spaceAbove>spaceBelow){
+      if(spaceBelow<ddMaxH){
         dd.style.top='auto';
         dd.style.bottom=(window.innerHeight-r.top+4)+'px';
       }else{
@@ -5191,6 +5214,9 @@ function switchTab(tab,btn){
       if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes("'"+tab+"'"))t.classList.add('active');
     });
   }
+  // Highlight help icon button when on help tab
+  const helpBtn=document.getElementById('help-nav-btn');
+  if(helpBtn)helpBtn.style.background=tab==='help'?'var(--bg2)':'';
   // Sync f-tab active state
   document.querySelectorAll('.f-tab').forEach(t=>t.classList.remove('active'));
   if(btn&&btn.classList.contains('f-tab')){btn.classList.add('active');}
