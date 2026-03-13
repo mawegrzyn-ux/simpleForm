@@ -2133,6 +2133,20 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </div>
         <div style="flex:1"><label class="cl">Highlight colour</label>
           <input type="color" id="modal-isel-color" value="#e94560" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+          <div id="modal-isel-color-swatches" class="etpl-swatch-row" style="margin-top:4px"></div>
+        </div>
+      </div>
+      <div class="cr" style="gap:8px;margin-bottom:6px">
+        <div style="flex:1"><label class="cl">Tile background</label>
+          <input type="color" id="modal-isel-tilebg" value="#ffffff" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+          <div id="modal-isel-tilebg-swatches" class="etpl-swatch-row" style="margin-top:4px"></div>
+        </div>
+        <div style="flex:1"><label class="cl">Tile border colour</label>
+          <input type="color" id="modal-isel-tileborder" value="#e0e0e0" style="width:100%;height:32px;border-radius:4px;cursor:pointer">
+          <div id="modal-isel-tileborder-swatches" class="etpl-swatch-row" style="margin-top:4px"></div>
+        </div>
+        <div style="flex:1"><label class="cl">Border width (px)</label>
+          <input type="number" id="modal-isel-borderw" value="2" min="0" max="8">
         </div>
       </div>
       <div class="cr" style="gap:8px;margin-bottom:4px">
@@ -4426,6 +4440,9 @@ function openFieldModal(fieldId){
       sv('modal-isel-size',f.iselTileSize||64);sv('modal-isel-selstyle',f.iselSelStyle||'border');
       sv('modal-isel-layout',f.iselLayout||'scroll');sv('modal-isel-cols',f.iselColumns||4);sv('modal-isel-flow',f.iselFlow||'row');
       document.getElementById('modal-isel-color').value=f.iselSelColor||'#e94560';
+      document.getElementById('modal-isel-tilebg').value=f.iselTileBg||'#ffffff';
+      document.getElementById('modal-isel-tileborder').value=f.iselTileBorderColor||'#e0e0e0';
+      sv('modal-isel-borderw',f.iselTileBorderWidth!=null?f.iselTileBorderWidth:2);
       document.getElementById('modal-isel-multi').checked=!!f.iselMulti;
       document.getElementById('modal-isel-labels').checked=f.iselShowLabels!==false;
     }
@@ -4438,6 +4455,9 @@ function openFieldModal(fieldId){
     document.getElementById('modal-slider-showval').checked=true;
     _iselItems=[];iselRenderItems();sv('modal-isel-size','64');sv('modal-isel-selstyle','border');sv('modal-isel-layout','scroll');sv('modal-isel-cols','4');sv('modal-isel-flow','row');
     document.getElementById('modal-isel-color').value='#e94560';
+    document.getElementById('modal-isel-tilebg').value='#ffffff';
+    document.getElementById('modal-isel-tileborder').value='#e0e0e0';
+    sv('modal-isel-borderw','2');
     document.getElementById('modal-isel-multi').checked=false;document.getElementById('modal-isel-labels').checked=true;
     renderConditions([]);
   }
@@ -4456,7 +4476,7 @@ function onModalTypeChange(){
   document.getElementById('modal-slider-group').style.display=t==='slider'?'block':'none';
   document.getElementById('modal-isel-group').style.display=t==='iconselect'?'block':'none';
   if(t==='date')onDateModeChange();
-  if(t==='iconselect')iselOnLayoutChange();
+  if(t==='iconselect'){iselOnLayoutChange();_renderIselColorSwatches();}
 }
 function onDateModeChange(){
   const m=document.getElementById('modal-date-mode').value;
@@ -4502,6 +4522,9 @@ function saveField(){
     field.iselTileSize=parseInt(document.getElementById('modal-isel-size').value)||64;
     field.iselSelStyle=document.getElementById('modal-isel-selstyle').value;
     field.iselSelColor=document.getElementById('modal-isel-color').value;
+    field.iselTileBg=document.getElementById('modal-isel-tilebg').value;
+    field.iselTileBorderColor=document.getElementById('modal-isel-tileborder').value;
+    field.iselTileBorderWidth=parseInt(document.getElementById('modal-isel-borderw').value)??2;
     field.iselLayout=document.getElementById('modal-isel-layout').value;
     field.iselColumns=parseInt(document.getElementById('modal-isel-cols').value)||4;
     field.iselFlow=document.getElementById('modal-isel-flow').value;
@@ -4550,6 +4573,19 @@ function iselOnLayoutChange(){
   const isGrid=document.getElementById('modal-isel-layout')?.value==='grid';
   const opts=document.getElementById('modal-isel-grid-opts');
   if(opts)opts.style.display=isGrid?'flex':'none';
+}
+
+function _renderIselColorSwatches(){
+  if(!cfg?.design)return;
+  const d=cfg.design;
+  const raw=[d.primaryColor,d.accentColor,d.backgroundColor,d.textColor,d.btnBg,
+    ...(d.brandColors||[]).map(b=>b.color),'#ffffff','#f4f4f4','#e0e0e0','#333333','#000000'];
+  const colors=[...new Set(raw.filter(c=>c&&/^#[0-9a-fA-F]{3,6}$/.test(c)))].slice(0,12);
+  ['modal-isel-color-swatches','modal-isel-tilebg-swatches','modal-isel-tileborder-swatches'].forEach(rowId=>{
+    const inputId=rowId.replace('-swatches','');
+    const row=document.getElementById(rowId);if(!row)return;
+    row.innerHTML=colors.map(c=>`<span class="etpl-swatch" style="background:${c}" title="${c}" onclick="document.getElementById('${inputId}').value='${c}'"></span>`).join('');
+  });
 }
 
 // ── Material Icon Picker ──

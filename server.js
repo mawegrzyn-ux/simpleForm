@@ -1565,15 +1565,18 @@ function renderFormField(f, cfg) {
 
   // ── iconselect ──
   if (f.type === 'iconselect') {
-    const items      = f.iselItems      || [];
-    const multi      = f.iselMulti      || false;
-    const showLbls   = f.iselShowLabels !== false;
-    const tileSize   = f.iselTileSize   || 64;
-    const selStyle   = f.iselSelStyle   || 'border';
-    const selColor   = f.iselSelColor   || accent;
-    const layout     = f.iselLayout     || 'scroll';   // 'scroll' | 'grid'
-    const columns    = f.iselColumns    || 4;
-    const flow       = f.iselFlow       || 'row';      // 'row' | 'col'
+    const items           = f.iselItems           || [];
+    const multi           = f.iselMulti           || false;
+    const showLbls        = f.iselShowLabels       !== false;
+    const tileSize        = f.iselTileSize         || 64;
+    const selStyle        = f.iselSelStyle         || 'border';
+    const selColor        = f.iselSelColor         || accent;
+    const layout          = f.iselLayout           || 'scroll';   // 'scroll' | 'grid'
+    const columns         = f.iselColumns          || 4;
+    const flow            = f.iselFlow             || 'row';      // 'row' | 'col'
+    const tileBg          = f.iselTileBg           || '#ffffff';
+    const tileBorderColor = f.iselTileBorderColor  || '#e0e0e0';
+    const tileBorderWidth = f.iselTileBorderWidth  != null ? f.iselTileBorderWidth : 2;
 
     const tilesHtml = items.map(item => {
       let iconHtml = '';
@@ -1604,7 +1607,7 @@ function renderFormField(f, cfg) {
 
     return `<div class="sf-field sf-field--isel"${condAttr}>
       <label>${escapeHtml(f.label)}${req}</label>
-      <div class="${wrapClass}" data-multi="${multi}" data-sel-style="${selStyle}" style="--sf-isel-accent:${selColor};--sf-isel-size:${tileSize}px${gridVars}">
+      <div class="${wrapClass}" data-multi="${multi}" data-sel-style="${selStyle}" style="--sf-isel-accent:${selColor};--sf-isel-size:${tileSize}px;--sf-isel-tile-bg:${tileBg};--sf-isel-border:${tileBorderColor};--sf-isel-bw:${tileBorderWidth}px${gridVars}">
         <div class="${trackClass}">${tilesHtml}</div>
         <input type="hidden" id="sf_${f.id}" name="${f.id}" value="" ${f.required ? 'required' : ''}>
       </div></div>`;
@@ -1731,13 +1734,13 @@ function sliderPickerCSS(accent) {
   .sf-field--isel .sf-isel-wrap::-webkit-scrollbar-track{background:#f0f0f0;border-radius:2px;}
   .sf-field--isel .sf-isel-wrap::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px;}
   .sf-isel-track{display:flex;gap:8px;width:max-content;padding:2px;}
-  .sf-isel-tile{width:var(--sf-isel-size,64px);height:var(--sf-isel-size,64px);border-radius:10px;border:2px solid #e0e0e0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color 150ms,background 150ms,box-shadow 150ms,color 150ms;background:#fff;flex-shrink:0;user-select:none;-webkit-tap-highlight-color:transparent;padding:4px;box-sizing:border-box;}
+  .sf-isel-tile{width:var(--sf-isel-size,64px);height:var(--sf-isel-size,64px);border-radius:10px;border:var(--sf-isel-bw,2px) solid var(--sf-isel-border,#e0e0e0);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color 150ms,background 150ms,box-shadow 150ms,color 150ms;background:var(--sf-isel-tile-bg,#fff);flex-shrink:0;user-select:none;-webkit-tap-highlight-color:transparent;padding:4px;box-sizing:border-box;}
   .sf-isel-tile:hover{border-color:#bbb;}
   .sf-isel-tile.sf-isel-sel.sf-isel-bdr{border-color:var(--sf-isel-accent);box-shadow:0 0 0 1px var(--sf-isel-accent);}
   .sf-isel-tile.sf-isel-sel.sf-isel-fill{background:var(--sf-isel-accent);border-color:var(--sf-isel-accent);}
   .sf-isel-tile.sf-isel-sel.sf-isel-fill .sf-isel-icon,.sf-isel-tile.sf-isel-sel.sf-isel-fill .sf-isel-lbl{color:#fff!important;}
   .sf-isel-icon{line-height:1;pointer-events:none;display:block;text-align:center;}
-  .sf-isel-mat{font-family:'Material Icons Round',sans-serif;font-weight:normal;font-style:normal;font-size:calc(var(--sf-isel-size,64px)*0.42);}
+  .sf-isel-mat{font-family:'Material Icons Round',sans-serif;font-weight:normal;font-style:normal;font-size:calc(var(--sf-isel-size,64px)*0.42);font-feature-settings:'liga';}
   .sf-isel-emoji{font-size:calc(var(--sf-isel-size,64px)*0.40);}
   .sf-isel-img{width:calc(var(--sf-isel-size,64px)*0.55);height:calc(var(--sf-isel-size,64px)*0.55);object-fit:contain;}
   .sf-isel-lbl{font-size:11px;margin-top:3px;text-align:center;max-width:calc(var(--sf-isel-size,64px) - 6px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;line-height:1.2;}
@@ -2247,6 +2250,7 @@ function renderPublicPage(cfg, sharedFonts = [], templates = []) {
 <title>${escapeHtml(s.title)}</title>
 ${googleFontTag(cfg, d, sharedFonts)}
 ${customFontFaceCSS(cfg, sharedFonts)}
+${(cfg.fields||[]).some(f=>f.type==='iconselect'&&(f.iselItems||[]).some(i=>i.iconType==='material')) ? '<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">' : ''}
 ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2632,6 +2636,7 @@ function renderEmbedPage(cfg, sharedFonts = [], templates = []) {
 <title>${s.title}</title>
 ${googleFontTag(cfg, d, sharedFonts)}
 ${customFontFaceCSS(cfg, sharedFonts)}
+${(cfg.fields||[]).some(f=>f.type==='iconselect'&&(f.iselItems||[]).some(i=>i.iconType==='material')) ? '<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">' : ''}
 ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
