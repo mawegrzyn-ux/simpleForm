@@ -4704,7 +4704,12 @@ function openPrivacyWysiwyg(){
 function renderUserNotes(){
   const wrap=document.getElementById('user-notes-wrap');
   if(!wrap)return;
-  const notes=(cfg&&cfg.site&&cfg.site.helpSections)||[];
+  if(!cfg){
+    wrap.innerHTML='<p style="font-size:0.8rem;color:var(--ink3);margin-bottom:4px;font-style:italic">Open a form to view and add per-form notes.</p>';
+    return;
+  }
+  if(!cfg.site)cfg.site={};
+  const notes=cfg.site.helpSections||[];
   if(!notes.length){wrap.innerHTML='';return;}
   wrap.innerHTML=notes.map((n,i)=>`
     <div class="help-group" id="unote-${n.id}" style="margin-bottom:8px;border:1.5px solid var(--accent);border-radius:var(--r)">
@@ -4724,7 +4729,8 @@ function renderUserNotes(){
     </div>`).join('');
 }
 function addUserNote(){
-  if(!cfg||!cfg.site)return;
+  if(!cfg){toast('Open a form first to add notes','');return;}
+  if(!cfg.site)cfg.site={};
   if(!cfg.site.helpSections)cfg.site.helpSections=[];
   const id='n'+Date.now();
   cfg.site.helpSections.push({id,title:'',html:''});
@@ -5495,7 +5501,7 @@ function switchTab(tab,btn){
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
-  if(tab==='help')switchInnerTab('help');
+  if(tab==='help'){switchInnerTab('help');renderUserNotes();}
   if(tab==='design'){
     // Clicking Branding always exits template editing back to list
     if(_editingTpl)exitTplEdit();
