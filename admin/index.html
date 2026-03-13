@@ -386,6 +386,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .dtpl-badge.used{background:var(--accent-bg);color:var(--accent);border-color:transparent;}
 .dtpl-card-actions{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity 120ms;}
 .dtpl-card:hover .dtpl-card-actions{opacity:1;}
+#dtpl-preview-popup{animation:dtpl-pop 120ms var(--ease) both;}
+@keyframes dtpl-pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
@@ -2130,6 +2132,13 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeCustomFontsModal()">Done</button>
     </div>
+  </div>
+</div>
+
+<!-- ── Template hover preview popup ──────────────────────────────────────── -->
+<div id="dtpl-preview-popup" style="display:none;position:fixed;z-index:500;width:300px;background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-lg);overflow:hidden;pointer-events:none">
+  <div style="width:300px;height:400px;overflow:hidden;position:relative;background:var(--bg2)">
+    <iframe id="dtpl-preview-iframe" src="about:blank" style="width:960px;height:1280px;border:none;transform:scale(0.3125);transform-origin:0 0;pointer-events:none;display:block"></iframe>
   </div>
 </div>
 
@@ -5566,14 +5575,16 @@ function renderDesignTemplates(){
     const usedForms=formsIndex.filter(f=>f.designTemplateId===t.id);
     const usedCount=usedForms.length;
     const usedTitle=usedForms.map(f=>f.name).join(', ');
-    const badge=usedCount>0
+    const usedBadge=usedCount>0
       ?`<span class="dtpl-badge used" title="${escHtml(usedTitle)}">${usedCount} form${usedCount!==1?'s':''}</span>`
       :`<span class="dtpl-badge">Unused</span>`;
-    return`<div class="dtpl-card" onclick="enterTplEditById('${t.id}')">
+    const sizeBadge=t.mediaSize!=null&&t.mediaSize>0
+      ?`<span class="dtpl-badge" title="Media used by this template"><span class="material-icons-round" style="font-size:10px;vertical-align:middle">image</span> ${fmtBytes(t.mediaSize)}</span>`:'';
+    return`<div class="dtpl-card" onclick="enterTplEditById('${t.id}')" onmouseenter="dtplPreviewShow('${t.id}',this)" onmouseleave="dtplPreviewHide()">
       <span class="material-icons-round" style="font-size:22px;color:var(--ink3);flex-shrink:0">palette</span>
       <div class="dtpl-card-info">
         <div class="dtpl-card-name">${escHtml(t.name)}</div>
-        <div class="dtpl-card-meta">${badge}</div>
+        <div class="dtpl-card-meta">${usedBadge}${sizeBadge}</div>
       </div>
       <div class="dtpl-card-actions" onclick="event.stopPropagation()">
         <button class="ibtn" onclick="duplicateTpl('${t.id}')" title="Duplicate"><span class="material-icons-round mi">content_copy</span></button>
@@ -5679,6 +5690,33 @@ async function createNewTpl(){
     enterTplEdit(t);
     toast('Template created','success');
   }else toast('Create failed','error');
+}
+
+let _dtplPreviewTimer=null;
+let _dtplPreviewLoadedId=null;
+function dtplPreviewShow(tplId,cardEl){
+  clearTimeout(_dtplPreviewTimer);
+  _dtplPreviewTimer=setTimeout(()=>{
+    const popup=document.getElementById('dtpl-preview-popup');if(!popup)return;
+    const panel=document.getElementById('design-panel');
+    const pr=panel?panel.getBoundingClientRect():{right:460};
+    const cr=cardEl.getBoundingClientRect();
+    const popH=400+2; // height + borders
+    const top=Math.min(Math.max(cr.top,8),window.innerHeight-popH-8);
+    popup.style.left=(pr.right+10)+'px';
+    popup.style.top=top+'px';
+    popup.style.display='block';
+    if(_dtplPreviewLoadedId!==tplId){
+      _dtplPreviewLoadedId=tplId;
+      const iframe=document.getElementById('dtpl-preview-iframe');
+      if(iframe)iframe.src='/branding-preview?_tplPreview='+tplId+'&_generic=1&_t='+Date.now();
+    }
+  },250);
+}
+function dtplPreviewHide(){
+  clearTimeout(_dtplPreviewTimer);
+  const popup=document.getElementById('dtpl-preview-popup');
+  if(popup)popup.style.display='none';
 }
 
 async function duplicateTpl(id){

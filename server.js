@@ -1156,8 +1156,20 @@ app.post('/api/admin/forms/:slug/analytics/reset', adminAuth, async (req, res) =
 
 // ── Design templates ──────────────────────────────────────────────────────────
 app.get('/api/admin/design-templates', adminAuth, async (req, res) => {
-  try { res.json(await readDesignTemplates()); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  try {
+    const templates = await readDesignTemplates();
+    const withSize = await Promise.all(templates.map(async t => {
+      const urls = [t.design.logoUrl, t.design.backgroundImage].filter(Boolean);
+      let mediaSize = null;
+      if (urls.length) {
+        const { rows } = await pool.query(
+          'SELECT COALESCE(SUM(size), 0) AS total FROM media WHERE url = ANY($1)', [urls]);
+        mediaSize = parseInt(rows[0]?.total || 0, 10);
+      }
+      return { ...t, mediaSize };
+    }));
+    res.json(withSize);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/admin/design-templates', adminAuth, async (req, res) => {
