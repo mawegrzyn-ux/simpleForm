@@ -3384,19 +3384,12 @@ function heroBkBody(s){
 function formBkBody(){
   const form=cfg.sections.find(s=>s.id==='form')||{};
   const btnText=(cfg.design.buttonText||'Subscribe').replace(/"/g,'&quot;');
-  const btnRadius=(cfg.design.buttonRadius||'4px').replace('px','');
   const errHtml=form.submitErrorMessage||'';
   const gdprHtmlVal=cfg.site.gdprText||'';
   return `
     <div class="modal-section"><div class="modal-section-title">Submit button</div>
       <div class="cg"><label class="cl">Button label</label>
         <input type="text" value="${btnText}" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
-      <div class="cr" style="gap:8px">
-        <div class="cg" style="flex:1;margin:0"><label class="cl">Background</label><div id="bcp-form-btn-bg"></div></div>
-        <div class="cg" style="flex:1;margin:0"><label class="cl">Text colour</label><div id="bcp-form-btn-text"></div></div>
-        <div class="cg" style="flex:0 0 88px;margin:0"><label class="cl">Radius (px)</label>
-          <input type="number" value="${btnRadius}" min="0" max="50" oninput="cfg.design.buttonRadius=this.value+'px';schedulePreview()"></div>
-      </div>
     </div>
     <div class="modal-section"><div class="modal-section-title">Disclaimer &amp; errors</div>
       <div class="cg"><label class="cl">Disclaimer text</label>
@@ -3687,10 +3680,6 @@ function initBlockBcps(b,blockEl){
   // Container colour pickers are now initialised in openCntStyleModal()
   if(blockEl.querySelector('#bcp-div-'+b.id))
     buildBrandColorPicker('bcp-div-'+b.id,b.color||'#e0e0e0',v=>{updateBlockProp(b.id,'color',v);buildBrandColorPicker('bcp-div-'+b.id,v,_bcpCallbacks['bcp-div-'+b.id]);});
-  if(blockEl.querySelector('#bcp-form-btn-bg'))
-    buildBrandColorPicker('bcp-form-btn-bg',cfg.design.btnBg||'',v=>{cfg.design.btnBg=v;schedulePreview();buildBrandColorPicker('bcp-form-btn-bg',v,_bcpCallbacks['bcp-form-btn-bg']);});
-  if(blockEl.querySelector('#bcp-form-btn-text'))
-    buildBrandColorPicker('bcp-form-btn-text',cfg.design.btnTextColor||'',v=>{cfg.design.btnTextColor=v;schedulePreview();buildBrandColorPicker('bcp-form-btn-text',v,_bcpCallbacks['bcp-form-btn-text']);});
 }
 
 // ── Panel tabs ──
@@ -4387,16 +4376,16 @@ function openItemEdit(blockId,idx){
         <input type="text" id="ie-submit-label" value="${btnLabel}" placeholder="Uses form default if blank">
         <p style="font-size:0.73rem;color:var(--ink3);margin-top:3px">Leave blank to use the form-wide button label.</p>
       </div>
-      <div class="cg"><label class="cl">Button background</label><div id="ie-btn-bg-bcp"></div></div>
-      <div class="cg"><label class="cl">Button text colour</label><div id="ie-btn-text-bcp"></div></div>
-      <div class="cg"><label class="cl">Submit disclaimer</label>
+      <div class="cg"><label class="cl">Disclaimer text</label>
         <div class="wysi-preview" id="ie-submit-gdpr-preview" onclick="openSubmitDisclaimerWysiwyg()" style="min-height:36px">${gdprHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer text… (HTML allowed, use {privacyUrl} as placeholder)</span>'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <label class="tgl"><input type="checkbox" id="ie-submit-gdpr-checkbox" onchange="cfg.site.gdprCheckboxRequired=this.checked;schedulePreview()"${cfg.site.gdprCheckboxRequired?' checked':''}><span class="tgl-s"></span></label>
+        <label class="tgl-lbl">Require checkbox agreement</label>
       </div>
       <div class="cg"><label class="cl">Error message</label>
         <div class="wysi-preview" id="ie-submit-err-preview" onclick="openItemSubmitErrorWysiwyg()" style="min-height:36px">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
       </div>`;
-    buildBrandColorPicker('ie-btn-bg-bcp',item.btnBg||'',v=>{item.btnBg=v;buildBrandColorPicker('ie-btn-bg-bcp',v,_bcpCallbacks['ie-btn-bg-bcp']);schedulePreview();});
-    buildBrandColorPicker('ie-btn-text-bcp',item.btnTextColor||'',v=>{item.btnTextColor=v;buildBrandColorPicker('ie-btn-text-bcp',v,_bcpCallbacks['ie-btn-text-bcp']);schedulePreview();});
   }
   document.getElementById('item-edit-modal').classList.add('open');
 }
