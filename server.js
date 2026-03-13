@@ -819,7 +819,8 @@ app.get('/api/admin/forms', adminAuth, async (req, res) => {
         const { rows: countRows } = await pool.query(
           `SELECT COUNT(*) AS c FROM subscribers WHERE form_slug=$1 AND status='active'`, [f.slug]);
         entry.subscriberCount = parseInt(countRows[0].c, 10);
-        entry.description   = cfg.site.description || '';
+        entry.description        = cfg.site.description || '';
+        entry.designTemplateId   = cfg.designTemplateId || null;
         entry.embedPageSize = Buffer.byteLength(renderEmbedPage(cfg, sharedFonts, templates), 'utf8');
         entry.embedJsSize   = Buffer.byteLength(renderEmbedScript(origin, cfg), 'utf8');
         entry.mediaSize     = await getFormMediaSize(f.slug);

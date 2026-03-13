@@ -347,8 +347,10 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .help-group.help-hidden{display:none;}
 /* Design tab */
 #tab-design{flex-direction:row;overflow:hidden;}
-#design-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
+#design-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;position:relative;}
 #design-panel .page-body{max-width:none;padding:24px 20px;}
+#dtpl-editor-view{position:absolute;inset:0;background:var(--panel);flex-direction:column;overflow:hidden;z-index:2;}
+#dtpl-editor-view .page-body{flex:1;overflow-y:auto;padding-top:16px;}
 #tab-subscribers .page-body{max-width:none;}
 #tab-pfsettings{flex-direction:row;overflow:hidden;}
 #settings-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
@@ -375,6 +377,15 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .dtmpl-name{flex:1;font-size:0.84rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dtmpl-acts{display:flex;gap:4px;flex-shrink:0;}
 .design-tpl-bar{display:flex;align-items:center;gap:6px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border2);}
+.dtpl-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;transition:border-color 120ms var(--ease),box-shadow 120ms var(--ease);}
+.dtpl-card:hover{border-color:var(--ink3);box-shadow:var(--shadow-sm);}
+.dtpl-card-info{flex:1;min-width:0;}
+.dtpl-card-name{font-size:0.875rem;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dtpl-card-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;align-items:center;}
+.dtpl-badge{font-size:0.68rem;font-weight:500;padding:2px 8px;border-radius:10px;background:var(--bg2);color:var(--ink3);border:1px solid var(--border2);white-space:nowrap;}
+.dtpl-badge.used{background:var(--accent-bg);color:var(--accent);border-color:transparent;}
+.dtpl-card-actions{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity 120ms;}
+.dtpl-card:hover .dtpl-card-actions{opacity:1;}
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
@@ -540,17 +551,9 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   <div class="t-spacer"></div>
   <div class="t-actions">
     <span class="save-ind" id="save-ind">Saved</span>
-    <div id="tbar-tpl-btns" style="display:none;align-items:center;gap:6px">
-      <span id="tbar-tpl-name" style="font-size:0.78rem;font-weight:500;color:var(--ink2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    <div id="tbar-tpl-btns" style="display:none;align-items:center;gap:8px">
+      <span id="tbar-tpl-name" style="font-size:0.78rem;font-weight:500;color:var(--ink2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
       <button class="tbtn tbtn-primary" onclick="saveTplFromDesignTab()"><span class="material-icons-round mi">save</span> Save</button>
-      <button class="tbtn tbtn-ghost" onclick="saveTplAsFromDesignTab()"><span class="material-icons-round mi">save_as</span> Save as…</button>
-      <button class="tbtn tbtn-ghost" onclick="exitTplEdit()">Done</button>
-      <div class="t-more-wrap">
-        <button class="tbtn tbtn-ghost t-icon-btn" onclick="toggleTplMore()" title="More options"><span class="material-icons-round mi">more_vert</span></button>
-        <div id="tpl-more-menu" class="t-dropdown" style="display:none;right:0">
-          <button class="t-drop-item danger" onclick="deleteTplCurrent();document.getElementById('tpl-more-menu').style.display='none'"><span class="material-icons-round mi">delete</span> Delete template</button>
-        </div>
-      </div>
     </div>
     <button class="tbtn tbtn-ghost" id="view-site-btn" onclick="window.open('/','_blank')" style="display:none"><span class="material-icons-round mi">open_in_new</span> View site</button>
     <button class="tbtn tbtn-primary" id="save-btn" onclick="saveConfig()" style="display:none"><span class="material-icons-round mi">save</span> Save</button>
@@ -886,17 +889,31 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 <!-- DESIGN TAB -->
 <div id="tab-design" class="page">
   <div id="design-panel">
-  <div class="page-body">
-    <div class="page-head" style="margin-bottom:0"><h2>Branding</h2><p>Manage design templates. Assign a template to a form in its settings.</p></div>
-    <div class="design-tpl-bar" id="design-tpl-bar">
-      <select id="design-tpl-sel" style="flex:1" onchange="onDesignTplSelChange(this.value)">
-        <option value="">— Select template to edit —</option>
-      </select>
-      <button class="btn btn-outline btn-sm" onclick="createNewTpl()"><span class="material-icons-round mi">add</span> New</button>
-      <button class="btn btn-outline btn-sm" id="dtpl-delete-btn" style="display:none;color:var(--danger)" onclick="deleteTplCurrent()" title="Delete this template"><span class="material-icons-round mi">delete</span> Delete</button>
+
+  <!-- ── TEMPLATE LIST VIEW ─────────────────────────────────────────────── -->
+  <div id="dtpl-list-view" class="page-body">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:24px">
+      <div>
+        <h2 style="font-family:var(--display);font-weight:300;font-size:1.7rem;color:var(--ink);letter-spacing:-0.4px;margin-bottom:3px">Branding</h2>
+        <p style="color:var(--ink3);font-size:0.88rem">Design templates — assign to a form in its settings.</p>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="createNewTpl()" style="margin-top:6px;flex-shrink:0"><span class="material-icons-round mi">add</span> New template</button>
     </div>
-    <div id="dtpl-empty" style="padding:40px 20px;text-align:center;color:var(--ink3);font-size:0.84rem">No templates yet — click <strong>New</strong> to create one.</div>
-    <div id="design-cards-wrap" style="display:none">
+    <div id="dtpl-list-empty" style="padding:48px 0;text-align:center;color:var(--ink3);font-size:0.84rem;display:none">
+      No templates yet — click <strong>New template</strong> to create one.
+    </div>
+    <div id="dtpl-list-cards" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <!-- ── TEMPLATE EDITOR VIEW ──────────────────────────────────────────── -->
+  <div id="dtpl-editor-view" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0">
+      <button class="ibtn" onclick="exitTplEdit()" title="Back to templates" style="padding:4px 5px"><span class="material-icons-round" style="font-size:18px">arrow_back</span></button>
+      <span style="font-size:0.75rem;color:var(--ink3)">Templates /</span>
+      <span id="dtpl-editor-name" style="font-size:0.85rem;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">…</span>
+    </div>
+    <div class="page-body">
+    <div id="design-cards-wrap">
     <div class="card">
       <div class="card-title"><span class="material-icons-round mi">text_fields</span> Typography</div>
       <div class="cg"><label class="cl">H1 font</label><div class="font-picker" id="h1-font-picker"></div></div>
@@ -1016,7 +1033,9 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <button class="up-btn del" onclick="clearBg()"><span class="material-icons-round mi">delete</span> Remove background</button>
     </div>
     </div><!-- /design-cards-wrap -->
-  </div>
+    </div><!-- /page-body inside editor -->
+  </div><!-- /dtpl-editor-view -->
+
   </div><!-- /design-panel -->
   <div id="design-preview">
     <div class="prev-toolbar"><span class="prev-lbl" style="margin-left:0">Live preview</span></div>
@@ -5235,14 +5254,10 @@ function switchTab(tab,btn){
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help')switchInnerTab('help');
   if(tab==='design'){
-    // Populate preview frame — always use branding-preview (no slug dependency)
-    const dpf=document.getElementById('design-preview-frame');
+    // Clicking Branding always exits template editing back to list
+    if(_editingTpl)exitTplEdit();
     _reloadDesignFrame();
-    loadDesignTemplates().then(()=>{
-      populateDesignTplSelect();
-      const empty=document.getElementById('dtpl-empty');
-      if(empty)empty.style.display=designTemplates.length?'none':'';
-    });
+    loadDesignTemplates().then(()=>renderDesignTemplates());
   }
 }
 
@@ -5538,25 +5553,50 @@ async function loadDesignTemplates(){
 }
 function renderDesignTemplates(){
   populateDesignTplSelect();
-  const empty=document.getElementById('dtpl-empty');
-  if(empty)empty.style.display=designTemplates.length?'none':'';
+  const cards=document.getElementById('dtpl-list-cards');
+  const empty=document.getElementById('dtpl-list-empty');
+  if(!cards)return;
+  if(!designTemplates.length){
+    cards.innerHTML='';
+    if(empty)empty.style.display='';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  cards.innerHTML=designTemplates.map(t=>{
+    const usedForms=formsIndex.filter(f=>f.designTemplateId===t.id);
+    const usedCount=usedForms.length;
+    const usedTitle=usedForms.map(f=>f.name).join(', ');
+    const badge=usedCount>0
+      ?`<span class="dtpl-badge used" title="${escHtml(usedTitle)}">${usedCount} form${usedCount!==1?'s':''}</span>`
+      :`<span class="dtpl-badge">Unused</span>`;
+    return`<div class="dtpl-card" onclick="enterTplEditById('${t.id}')">
+      <span class="material-icons-round" style="font-size:22px;color:var(--ink3);flex-shrink:0">palette</span>
+      <div class="dtpl-card-info">
+        <div class="dtpl-card-name">${escHtml(t.name)}</div>
+        <div class="dtpl-card-meta">${badge}</div>
+      </div>
+      <div class="dtpl-card-actions" onclick="event.stopPropagation()">
+        <button class="ibtn" onclick="duplicateTpl('${t.id}')" title="Duplicate"><span class="material-icons-round mi">content_copy</span></button>
+        <button class="ibtn danger" onclick="deleteTplById('${t.id}')" title="Delete"><span class="material-icons-round mi">delete</span></button>
+      </div>
+    </div>`;
+  }).join('');
+  // Keep pf/subnav selects in sync
+  if(cfg)populatePfDesignTplSelect();
 }
 
 function populateDesignTplSelect(){
-  const sel=document.getElementById('design-tpl-sel');if(!sel)return;
-  sel.innerHTML='<option value="">— Select template to edit —</option>';
-  designTemplates.forEach(t=>{
-    const o=document.createElement('option');
-    o.value=t.id;o.textContent=t.name;
-    if(_editingTpl&&_editingTpl.id===t.id)o.selected=true;
-    sel.appendChild(o);
-  });
-  // Keep pf/subnav selects in sync
+  // Keep the hidden pf/subnav selects in sync (still used by form settings panel)
   if(cfg)populatePfDesignTplSelect();
 }
 
 function onDesignTplSelChange(id){
   if(!id){exitTplEdit();return;}
+  const tpl=designTemplates.find(t=>t.id===id);
+  if(tpl)enterTplEdit(tpl);
+}
+
+function enterTplEditById(id){
   const tpl=designTemplates.find(t=>t.id===id);
   if(tpl)enterTplEdit(tpl);
 }
@@ -5571,29 +5611,26 @@ function enterTplEdit(tpl){
     cfg.design=JSON.parse(JSON.stringify(tpl.design));
   }
   if(!cfg.design.customFonts)cfg.design.customFonts=[];
-  document.getElementById('design-cards-wrap').style.display='';
-  const empty=document.getElementById('dtpl-empty');if(empty)empty.style.display='none';
-  // Delete button in bar
-  const delBtn=document.getElementById('dtpl-delete-btn');if(delBtn)delBtn.style.display='';
-  // Topbar: swap form Save for template actions
+  // Show editor overlay
+  const editorView=document.getElementById('dtpl-editor-view');
+  if(editorView)editorView.style.display='flex';
+  const nameEl=document.getElementById('dtpl-editor-name');if(nameEl)nameEl.textContent=tpl.name;
+  // Topbar: swap form Save for template Save
   const formSaveBtn=document.getElementById('save-btn');if(formSaveBtn)formSaveBtn.style.display='none';
-  const tbarTpl=document.getElementById('tbar-tpl-btns');
-  if(tbarTpl){tbarTpl.style.display='flex';}
+  const tbarTpl=document.getElementById('tbar-tpl-btns');if(tbarTpl)tbarTpl.style.display='flex';
   const tplName=document.getElementById('tbar-tpl-name');if(tplName)tplName.textContent=tpl.name;
   buildFontPickers();buildPalettes();rebuildDesignColorPickers();renderBrandColorList();
   _populateDesignNonColorControls();
-  scheduleDesignTplPreview(); // uses /branding-preview — no slug needed
+  scheduleDesignTplPreview();
 }
 
 function exitTplEdit(){
   if(_cfgDesignBackup&&cfg){cfg.design=_cfgDesignBackup;}
   else if(cfg&&!currentFormSlug){cfg=null;}
   _cfgDesignBackup=null;_editingTpl=null;
-  document.getElementById('design-cards-wrap').style.display='none';
-  const delBtn=document.getElementById('dtpl-delete-btn');if(delBtn)delBtn.style.display='none';
-  const sel=document.getElementById('design-tpl-sel');if(sel)sel.value='';
-  const empty=document.getElementById('dtpl-empty');
-  if(empty)empty.style.display=designTemplates.length?'none':'';
+  // Hide editor overlay — list shows through
+  const editorView=document.getElementById('dtpl-editor-view');
+  if(editorView)editorView.style.display='none';
   // Topbar: restore form save button, hide template actions
   const tbarTpl=document.getElementById('tbar-tpl-btns');if(tbarTpl)tbarTpl.style.display='none';
   if(currentFormSlug){const sb=document.getElementById('save-btn');if(sb)sb.style.display='';}
@@ -5621,7 +5658,7 @@ async function saveTplAsFromDesignTab(){
   });
   if(r.ok){
     const t=await r.json();designTemplates.push(t);
-    populateDesignTplSelect();
+    renderDesignTemplates();
     // Switch editing context to the new copy
     exitTplEdit();
     enterTplEdit(t);
@@ -5630,17 +5667,42 @@ async function saveTplAsFromDesignTab(){
 }
 
 async function createNewTpl(){
-  const name=prompt('Template name:');if(!name)return;
+  const name=prompt('Template name:');if(!name||!name.trim())return;
   const design=cfg?JSON.parse(JSON.stringify(cfg.design)):{};
   const r=await adminFetch('/api/admin/design-templates',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name,design})
+    body:JSON.stringify({name:name.trim(),design})
   });
   if(r.ok){
     const t=await r.json();designTemplates.push(t);
-    populateDesignTplSelect();enterTplEdit(t);
+    renderDesignTemplates();
+    enterTplEdit(t);
     toast('Template created','success');
   }else toast('Create failed','error');
+}
+
+async function duplicateTpl(id){
+  const t=designTemplates.find(t=>t.id===id);if(!t)return;
+  const r=await adminFetch('/api/admin/design-templates',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:t.name+' (copy)',design:JSON.parse(JSON.stringify(t.design))})
+  });
+  if(r.ok){
+    const newT=await r.json();designTemplates.push(newT);
+    renderDesignTemplates();
+    toast('Template duplicated','success');
+  }else toast('Duplicate failed','error');
+}
+
+async function deleteTplById(id){
+  const t=designTemplates.find(t=>t.id===id);if(!t)return;
+  if(!confirm(`Delete template "${t.name}"? This cannot be undone.`))return;
+  const r=await adminFetch(`/api/admin/design-templates/${id}`,{method:'DELETE'});
+  if(r.ok){
+    designTemplates=designTemplates.filter(t=>t.id!==id);
+    renderDesignTemplates();populatePfDesignTplSelect();
+    toast('Template deleted','success');
+  }else toast('Delete failed','error');
 }
 
 let _tplPreviewTimer=null;
@@ -5739,10 +5801,8 @@ async function deleteTplCurrent(){
   const r=await adminFetch(`/api/admin/design-templates/${id}`,{method:'DELETE'});
   if(r.ok){
     designTemplates=designTemplates.filter(t=>t.id!==id);
-    exitTplEdit();
-    populateDesignTplSelect();populatePfDesignTplSelect();
-    const empty=document.getElementById('dtpl-empty');
-    if(empty)empty.style.display=designTemplates.length?'none':'';
+    exitTplEdit(); // returns to list view
+    renderDesignTemplates();populatePfDesignTplSelect();
     toast('Template deleted','success');
   }else toast('Delete failed','error');
 }
