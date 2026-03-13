@@ -1004,6 +1004,41 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
     <div id="system-sections">
 
+    <!-- EXECUTIVE SUMMARY -->
+    <div class="help-group" data-tags="executive summary overview scope objective business benefits roadmap risks">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">summarize</span> Executive Summary
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+
+        <h3>1. Scope &amp; Objective</h3>
+        <p>SignFlow is a self-hosted, white-label newsletter signup platform built for Obscure Kitty. The platform enables the creation and management of fully branded, embeddable signup forms — without reliance on third-party subscription tools, recurring SaaS fees, or sharing subscriber data with external vendors.</p>
+        <p>The core objective is full ownership: the business controls its subscriber data, its brand presentation, and the rules around how data is collected and stored. SignFlow runs on private cloud infrastructure (AWS) and is operated exclusively by authorised administrators.</p>
+
+        <h3>2. Functionality &amp; Flexibility</h3>
+        <p>Administrators can create multiple forms — each independently branded, with its own field set, confirmation flow, welcome email, and embed configuration. Forms support a wide variety of field types beyond a simple email box: date pickers, age selectors, option grids with images or icons, sliders, and rich content blocks (headings, images, video, preference toggles). The form builder is fully visual with a live preview, and completed designs can be saved as reusable templates.</p>
+        <p>Every form can be embedded on any external website via a script tag, or linked directly. Subscriber lists are exportable at any time as CSV or JSON. The platform is designed to grow with the business — new field types, layouts, and integrations can be added without rearchitecting the system.</p>
+
+        <h3>3. Security</h3>
+        <p>Security is built in at every layer, not added as an afterthought. Admin access requires authentication through Auth0 (industry-standard identity provider) with role-based access control — only credentialed administrators can log in. All admin actions are protected against cross-site request forgery (CSRF), and all user-generated content is sanitised before it reaches any page to prevent script injection attacks. Rate limiting on the signup route and strict content security policies further reduce the attack surface.</p>
+        <p>Subscriber data is stored in a private, encrypted PostgreSQL database on AWS — not in flat files or shared cloud services. File uploads (images, fonts) go directly to a private Amazon S3 bucket. No subscriber data is shared with any third-party analytics or advertising platform.</p>
+
+        <h3>4. Enterprise-Grade Architecture</h3>
+        <p>Despite its focused scope, SignFlow is built on the same technology stack used by large-scale production platforms: Node.js on AWS Lightsail, PostgreSQL 16 (managed cloud database), Amazon S3 for media storage, Nginx as a reverse proxy with TLS, and Let's Encrypt for automatic SSL certificate renewal. Sessions survive server restarts (stored in the database), and the process manager (PM2) automatically restarts the application after any failure or reboot.</p>
+        <p>The admin interface is a single-page application requiring no build pipeline — changes are deployed in seconds with a single <code>git pull</code>. The architecture is intentionally simple to operate solo, while remaining straightforward to hand off or scale if requirements change.</p>
+
+        <h3>5. Key Risks &amp; Mitigations</h3>
+        <p>The primary operational risk is the single-server hosting model: if the AWS Lightsail instance becomes unavailable, the platform goes offline. This is mitigated by automated restarts via PM2, regular database backups via Lightsail's managed DB snapshots, and the low complexity of restoring the application on a fresh instance. The second risk is the solo-operator dependency — all configuration and deployment knowledge is documented in this system panel and the project README to enable handover.</p>
+        <p>On the data side, the main risk is a breach of the subscriber database. Mitigations include encrypted storage at rest (Lightsail managed DB default), private network access only (no public DB endpoint), strong session secrets, and strict input validation on all subscriber-facing routes. GDPR compliance obligations (right to erasure, consent logging, data export) are fully implemented in the current codebase.</p>
+
+        <h3>6. Roadmap</h3>
+        <p>Near-term priorities are completing the security hardening phase (adding CAPTCHA to the public signup route and automated dependency vulnerability scanning) and expanding analytics (per-form view and conversion tracking). Medium-term, the platform will gain webhook and API integrations — allowing subscriber data to flow automatically into email service providers (Mailchimp, Klaviyo) or CRM platforms (HubSpot) without manual exports.</p>
+        <p>Longer term, the roadmap includes a full REST API with API-key authentication, multi-user admin access with role-based permissions, double opt-in email confirmation, and configurable data retention policies. The architecture supports all of these additions without a rebuild — they extend the existing foundation rather than replace it.</p>
+
+      </div>
+    </div>
+
     <!-- AUTHENTICATION -->
     <div class="help-group" data-tags="auth auth0 oidc login sso session role admin">
       <div class="help-group-head" onclick="toggleHelp(this)">
@@ -1335,6 +1370,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-13 — Icon / tile selector improvements</h3>
+        <ul>
+          <li>✅ <strong>Material icons now render correctly on public &amp; embed pages</strong> — <code>Material Icons Round</code> font link injected conditionally when any iconselect field uses material-type tiles; <code>font-feature-settings:'liga'</code> added to <code>.sf-isel-mat</code> so ligature-based icon names display as icons instead of raw text</li>
+          <li>✅ <strong>Highlight colour — brand colour swatches</strong> — the highlight colour picker in the icon/tile selector modal now shows up to 12 quick-pick swatches sourced from the form's brand palette (primary, accent, background, text, button, custom brand colours + neutral defaults)</li>
+          <li>✅ <strong>Tile background &amp; border styling</strong> — new per-field controls: tile background colour, tile border colour, and border width (0–8 px); all three colour pickers include brand colour swatches; values passed as CSS custom properties (<code>--sf-isel-tile-bg</code>, <code>--sf-isel-border</code>, <code>--sf-isel-bw</code>) on the tile wrapper so defaults are overridable without extra class names</li>
+        </ul>
         <h3>2026-03-12 — Field types &amp; form logic</h3>
         <ul>
           <li>✅ <strong>Year + Month + Day picker</strong> — three-drum scroll picker (day / month / year) submits as <code>YYYY-MM-DD</code></li>
