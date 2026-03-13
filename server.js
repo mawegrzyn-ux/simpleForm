@@ -1374,6 +1374,12 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
     } catch(e) { return res.status(500).json({ error: 'CAPTCHA service error. Please try again.' }); }
   }
 
+  // ── Disclaimer checkbox validation ───────────────────────────────────────
+  if (cfg.site.gdprCheckboxRequired && body['_gdpr_check'] !== 'on') {
+    bumpAnalytic(slug, 'errors');
+    return res.status(400).json({ error: 'Please tick the checkbox to continue.' });
+  }
+
   // ── Joi input validation ──────────────────────────────────────────────────
   const schemaShape = { email: Joi.string().email({ tlds: { allow: false } }).max(254).required() };
   cfg.fields.filter(f => !f.system).forEach(f => {
@@ -1475,7 +1481,11 @@ function googleFontTag(cfg, effectiveDesign, sharedFonts = []) {
 function gdprHtml(siteCfg) {
   const text = siteCfg.gdprText ||
     'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.';
-  return text.replace(/\{privacyUrl\}/g, siteCfg.privacyPolicyUrl || '#');
+  const resolved = text.replace(/\{privacyUrl\}/g, siteCfg.privacyPolicyUrl || '#');
+  if (siteCfg.gdprCheckboxRequired) {
+    return `<label class="sf-gdpr-check"><input type="checkbox" name="_gdpr_check" required> <span>${resolved}</span></label>`;
+  }
+  return resolved;
 }
 
 function customFontFaceCSS(cfg, sharedFonts = []) {
@@ -1566,7 +1576,7 @@ function renderFormField(f, cfg) {
     for (let y = maxY; y >= minY; y--) years.push(y);
     return `<div class="sf-field sf-field--picker"${condAttr}>
       <label>${escapeHtml(f.label)}${req}</label>
-      <div class="sf-picker-wrap">
+      <div class="sf-picker-wrap"${f.pickerHeight ? ` style="--sf-picker-h:${parseInt(f.pickerHeight)}px"` : ''}>
         <div class="sf-picker-drum" id="sf_drum_${f.id}">
           ${years.map(y => `<div class="sf-pick-item" data-val="${y}">${y}</div>`).join('')}
         </div>
@@ -1585,7 +1595,7 @@ function renderFormField(f, cfg) {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return `<div class="sf-field sf-field--picker"${condAttr}>
       <label>${escapeHtml(f.label)}${req}</label>
-      <div class="sf-picker-wrap sf-picker-dual">
+      <div class="sf-picker-wrap sf-picker-dual"${f.pickerHeight ? ` style="--sf-picker-h:${parseInt(f.pickerHeight)}px"` : ''}>
         <div class="sf-picker-drum" id="sf_drum_m_${f.id}">
           ${months.map((m, i) => `<div class="sf-pick-item" data-val="${String(i+1).padStart(2,'0')}">${m}</div>`).join('')}
         </div>
@@ -1609,7 +1619,7 @@ function renderFormField(f, cfg) {
     for (let d = 1; d <= 31; d++) days.push(d);
     return `<div class="sf-field sf-field--picker"${condAttr}>
       <label>${escapeHtml(f.label)}${req}</label>
-      <div class="sf-picker-wrap sf-picker-triple">
+      <div class="sf-picker-wrap sf-picker-triple"${f.pickerHeight ? ` style="--sf-picker-h:${parseInt(f.pickerHeight)}px"` : ''}>
         <div class="sf-picker-drum" id="sf_drum_d_${f.id}">
           ${days.map(d => `<div class="sf-pick-item" data-val="${String(d).padStart(2,'0')}">${d}</div>`).join('')}
         </div>
@@ -1779,7 +1789,7 @@ function renderFormField(f, cfg) {
 function sliderPickerCSS(accent) {
   return `
   /* Picker (year / yearmonth / yearmonthday) */
-  .sf-field--picker .sf-picker-wrap{position:relative;height:120px;overflow:hidden;border:2px solid #e0e0e0;border-radius:8px;background:#fafafa;user-select:none;}
+  .sf-field--picker .sf-picker-wrap{position:relative;height:var(--sf-picker-h,120px);overflow:hidden;border:2px solid #e0e0e0;border-radius:8px;background:#fafafa;user-select:none;}
   .sf-picker-dual,.sf-picker-triple{display:flex;}
   .sf-picker-dual .sf-picker-drum,.sf-picker-triple .sf-picker-drum{flex:1;border-right:1px solid #e0e0e0;}
   .sf-picker-dual .sf-picker-drum:last-child,.sf-picker-triple .sf-picker-drum:last-child{border-right:none;}
@@ -2428,6 +2438,9 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   .sf-msg.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
   .sf-gdpr { font-size: 0.78rem; color: #999; text-align: center; margin-top: 16px; line-height: 1.5; }
   .sf-gdpr a { color: var(--accent); }
+  .sf-gdpr-check { display: flex; align-items: flex-start; gap: 9px; font-size: 0.78rem; color: #999; margin-top: 16px; line-height: 1.5; cursor: pointer; text-align: left; }
+  .sf-gdpr-check input[type=checkbox] { margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+  .sf-gdpr-check a { color: var(--accent); }
   .sf-footer { text-align: center; margin-top: 28px; font-size: 0.82rem; color: #aaa; }
   /* Cookie banner */
   #sf-cookie { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; color: #eee; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; z-index: 9999; flex-wrap: wrap; font-size: 0.88rem; }
@@ -2812,6 +2825,9 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
   .sf-msg.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
   .sf-gdpr { font-size: 0.74rem; color: #aaa; text-align: center; margin-top: 12px; line-height: 1.5; }
   .sf-gdpr a { color: var(--accent); }
+  .sf-gdpr-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.74rem; color: #aaa; margin-top: 12px; line-height: 1.5; cursor: pointer; text-align: left; }
+  .sf-gdpr-check input[type=checkbox] { margin-top: 2px; flex-shrink: 0; width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+  .sf-gdpr-check a { color: var(--accent); }
   .sf-footer { text-align: center; margin-top: 20px; font-size: 0.78rem; color: #bbb; }
   .sf-captcha { margin: 12px 0 4px; display: flex; justify-content: center; }
   ${sliderPickerCSS(d.accentColor)}

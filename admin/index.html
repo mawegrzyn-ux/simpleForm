@@ -1430,6 +1430,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-13 — Group B — Drum picker, submit button &amp; disclaimer</h3>
+        <ul>
+          <li>✅ <strong>Drum picker height control (B1)</strong> — new "Drum height (px)" field setting (80–320 px, default 120) for year / yearmonth / yearmonthday pickers; applied via <code>--sf-picker-h</code> CSS custom property so the picker wrapper grows or shrinks without touching any layout rules</li>
+          <li>✅ <strong>Submit button editable in builder (B2)</strong> — Form block sidebar now includes full button styling: background colour picker, text colour picker and border-radius input, all wired directly to <code>cfg.design</code>; disclaimer WYSIWYG editor also moved here for one-stop editing; changes reflect instantly in the live preview</li>
+          <li>✅ <strong>Disclaimer checkbox (B3)</strong> — new "Require checkbox agreement" toggle on the Form block; when enabled the GDPR disclaimer renders as a labelled <code>&lt;input type="checkbox" required&gt;</code> instead of static text; server validates the <code>_gdpr_check</code> field server-side and returns a 400 if unchecked; styled via <code>.sf-gdpr-check</code> (both full-page and embed CSS)</li>
+        </ul>
         <h3>2026-03-13 — Icon / tile selector — Group A overhaul</h3>
         <ul>
           <li>✅ <strong>Material icons render fix (A1a)</strong> — <code>Material Icons Round</code> font link injected conditionally on public &amp; embed pages; <code>font-feature-settings:'liga'</code> on <code>.sf-isel-mat</code> so icon ligatures display correctly</li>
@@ -2316,6 +2322,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <div class="cr">
         <div class="cg" style="flex:1;margin:0"><label class="cl">Min year</label><input type="number" id="modal-year-min" placeholder="1920"></div>
         <div class="cg" style="flex:1;margin:0"><label class="cl">Max year</label><input type="number" id="modal-year-max" placeholder="2010"></div>
+        <div class="cg" style="flex:0 0 100px;margin:0"><label class="cl">Drum height (px)</label><input type="number" id="modal-year-height" value="120" min="80" max="320" step="8"></div>
       </div>
     </div>
     <div id="modal-slider-group" style="display:none">
@@ -3377,14 +3384,33 @@ function heroBkBody(s){
 function formBkBody(){
   const form=cfg.sections.find(s=>s.id==='form')||{};
   const btnText=(cfg.design.buttonText||'Subscribe').replace(/"/g,'&quot;');
+  const btnRadius=(cfg.design.buttonRadius||'4px').replace('px','');
   const errHtml=form.submitErrorMessage||'';
+  const gdprHtmlVal=cfg.site.gdprText||'';
   return `
-    <div class="cg"><label class="cl">Button label</label>
-      <input type="text" value="${btnText}" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
-    <div class="cg"><label class="cl">Error message</label>
-      <div class="wysi-preview" onclick="openFormErrorWysiwyg()">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
+    <div class="modal-section"><div class="modal-section-title">Submit button</div>
+      <div class="cg"><label class="cl">Button label</label>
+        <input type="text" value="${btnText}" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
+      <div class="cr" style="gap:8px">
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Background</label><div id="bcp-form-btn-bg"></div></div>
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Text colour</label><div id="bcp-form-btn-text"></div></div>
+        <div class="cg" style="flex:0 0 88px;margin:0"><label class="cl">Radius (px)</label>
+          <input type="number" value="${btnRadius}" min="0" max="50" oninput="cfg.design.buttonRadius=this.value+'px';schedulePreview()"></div>
+      </div>
     </div>
-    <div class="modal-section" style="margin-top:12px"><div class="modal-section-title">Fields</div>
+    <div class="modal-section"><div class="modal-section-title">Disclaimer &amp; errors</div>
+      <div class="cg"><label class="cl">Disclaimer text</label>
+        <div class="wysi-preview" id="form-bk-gdpr-preview" onclick="openSubmitDisclaimerWysiwyg()" style="min-height:36px">${gdprHtmlVal||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer… (HTML, use {privacyUrl})</span>'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <label class="tgl"><input type="checkbox" id="form-bk-gdpr-checkbox" onchange="cfg.site.gdprCheckboxRequired=this.checked;schedulePreview()"${cfg.site.gdprCheckboxRequired?' checked':''}><span class="tgl-s"></span></label>
+        <label class="tgl-lbl">Require checkbox agreement</label>
+      </div>
+      <div class="cg"><label class="cl">Error message</label>
+        <div class="wysi-preview" onclick="openFormErrorWysiwyg()">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
+      </div>
+    </div>
+    <div class="modal-section"><div class="modal-section-title">Fields</div>
     <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:7px;line-height:1.5">Email always required. Drag to reorder. Use conditions for dynamic visibility.</p>
     <div class="field-list" id="field-list"></div>
     <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>
@@ -3661,6 +3687,10 @@ function initBlockBcps(b,blockEl){
   // Container colour pickers are now initialised in openCntStyleModal()
   if(blockEl.querySelector('#bcp-div-'+b.id))
     buildBrandColorPicker('bcp-div-'+b.id,b.color||'#e0e0e0',v=>{updateBlockProp(b.id,'color',v);buildBrandColorPicker('bcp-div-'+b.id,v,_bcpCallbacks['bcp-div-'+b.id]);});
+  if(blockEl.querySelector('#bcp-form-btn-bg'))
+    buildBrandColorPicker('bcp-form-btn-bg',cfg.design.btnBg||'',v=>{cfg.design.btnBg=v;schedulePreview();buildBrandColorPicker('bcp-form-btn-bg',v,_bcpCallbacks['bcp-form-btn-bg']);});
+  if(blockEl.querySelector('#bcp-form-btn-text'))
+    buildBrandColorPicker('bcp-form-btn-text',cfg.design.btnTextColor||'',v=>{cfg.design.btnTextColor=v;schedulePreview();buildBrandColorPicker('bcp-form-btn-text',v,_bcpCallbacks['bcp-form-btn-text']);});
 }
 
 // ── Panel tabs ──
@@ -4507,8 +4537,9 @@ function openSubmitDisclaimerWysiwyg(){
   const current=cfg.site.gdprText||'';
   openWysiwygModal(current,'Submit disclaimer',html=>{
     cfg.site.gdprText=html;
-    const prev=document.getElementById('ie-submit-gdpr-preview');
-    if(prev)prev.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer text… (HTML allowed, use {privacyUrl} as placeholder)</span>';
+    const placeholder='<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer text… (HTML allowed, use {privacyUrl} as placeholder)</span>';
+    const prev=document.getElementById('ie-submit-gdpr-preview');if(prev)prev.innerHTML=html||placeholder;
+    const prev2=document.getElementById('form-bk-gdpr-preview');if(prev2)prev2.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer… (HTML, use {privacyUrl})</span>';
     schedulePreview();
   },[
     {label:'Privacy link',html:'<a href="{privacyUrl}" target="_blank">Privacy Policy</a>'},
@@ -4670,7 +4701,7 @@ function openFieldModal(fieldId){
     document.getElementById('modal-id').disabled=f.system;document.getElementById('modal-type').disabled=f.system;
     if(f.type==='age'){sv('modal-age-min',f.minAge||'');sv('modal-age-max',f.maxAge||'');}
     if(f.type==='date'){sv('modal-date-mode',f.dateMode||'free');sv('modal-date-min',f.minDate||'');sv('modal-date-max',f.maxDate||'');sv('modal-date-specific',(f.allowedDates||[]).join('\n'));}
-    if(f.type==='year'||f.type==='yearmonth'||f.type==='yearmonthday'){sv('modal-year-min',f.minYear||'');sv('modal-year-max',f.maxYear||'');}
+    if(f.type==='year'||f.type==='yearmonth'||f.type==='yearmonthday'){sv('modal-year-min',f.minYear||'');sv('modal-year-max',f.maxYear||'');sv('modal-year-height',f.pickerHeight||120);}
     if(f.type==='slider'){
       sv('modal-slider-min',f.min??0);sv('modal-slider-max',f.max??100);sv('modal-slider-step',f.step??1);sv('modal-slider-default',f.defaultValue??50);
       sv('modal-slider-track',f.trackStyle||'linear');sv('modal-slider-mode',f.slideMode||'smooth');sv('modal-slider-icon',f.knobIcon||'●');
@@ -4695,7 +4726,7 @@ function openFieldModal(fieldId){
     }
     renderConditions(f.conditions||[]);
   }else{
-    ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon','modal-slider-min-label','modal-slider-max-label'].forEach(id=>sv(id,''));
+    ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon','modal-slider-min-label','modal-slider-max-label'].forEach(id=>sv(id,''));sv('modal-year-height',120);
     sv('modal-type','text');sv('modal-date-mode','free');sv('modal-slider-min','0');sv('modal-slider-max','100');sv('modal-slider-step','1');sv('modal-slider-default','50');sv('modal-slider-track','linear');sv('modal-slider-mode','smooth');sv('modal-slider-icon','●');sv('modal-slider-knob-size','32');sv('modal-slider-track-size','6');sv('modal-slider-val-size','14');
     document.getElementById('modal-required').checked=false;
     document.getElementById('modal-id').disabled=false;document.getElementById('modal-type').disabled=false;
@@ -4752,7 +4783,7 @@ function saveField(){
   if(type==='select')field.options=options;
   if(type==='age'){field.minAge=parseInt(document.getElementById('modal-age-min').value)||0;field.maxAge=parseInt(document.getElementById('modal-age-max').value)||120;}
   if(type==='date'){field.dateMode=document.getElementById('modal-date-mode').value;field.minDate=document.getElementById('modal-date-min').value||'';field.maxDate=document.getElementById('modal-date-max').value||'';field.allowedDates=document.getElementById('modal-date-specific').value.split('\n').map(d=>d.trim()).filter(Boolean);}
-  if(type==='year'||type==='yearmonth'||type==='yearmonthday'){field.minYear=parseInt(document.getElementById('modal-year-min').value)||1920;field.maxYear=parseInt(document.getElementById('modal-year-max').value)||new Date().getFullYear();}
+  if(type==='year'||type==='yearmonth'||type==='yearmonthday'){field.minYear=parseInt(document.getElementById('modal-year-min').value)||1920;field.maxYear=parseInt(document.getElementById('modal-year-max').value)||new Date().getFullYear();const ph=parseInt(document.getElementById('modal-year-height').value)||120;field.pickerHeight=ph!==120?ph:undefined;}
   if(type==='slider'){
     field.min=parseFloat(document.getElementById('modal-slider-min').value)||0;
     field.max=parseFloat(document.getElementById('modal-slider-max').value)||100;
