@@ -1430,6 +1430,13 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-13 — GA4 + Meta Pixel tracking integration</h3>
+        <ul>
+          <li>✅ <strong>GA4 integration</strong> — per-form GA4 Measurement ID in Settings → Analytics &amp; Tracking; <code>ga4Snippet()</code> injects <code>gtag.js</code> + config into direct-load form pages; fires <code>generate_lead</code> event on successful submission</li>
+          <li>✅ <strong>Meta Pixel integration</strong> — per-form Pixel ID; <code>metaPixelSnippet()</code> injects <code>fbevents.js</code>; fires <code>Lead</code> + <code>PageView</code> events</li>
+          <li>✅ <strong>Embed postMessage bridge</strong> — embedded forms fire <code>sf-success</code> postMessage with slug; <code>embed.js</code> relays <code>generate_lead</code> / <code>Lead</code> into the parent page's existing <code>window.gtag</code> / <code>window.fbq</code>; also dispatches <code>signflow:success</code> CustomEvent for custom listeners</li>
+          <li>✅ <strong>CSP updated</strong> — <code>googletagmanager.com</code>, <code>connect.facebook.net</code> added to <code>script-src</code>; <code>google-analytics.com</code>, <code>region1.google-analytics.com</code>, <code>facebook.com</code> added to <code>connect-src</code> (both global Helmet and embed-specific CSP strings)</li>
+        </ul>
         <h3>2026-03-13 — Group B — Drum picker, submit button &amp; disclaimer</h3>
         <ul>
           <li>✅ <strong>Drum picker height control (B1)</strong> — new "Drum height (px)" field setting (80–320 px, default 120) for year / yearmonth / yearmonthday pickers; applied via <code>--sf-picker-h</code> CSS custom property so the picker wrapper grows or shrinks without touching any layout rules</li>
@@ -1527,6 +1534,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </ul>
         <h3>Phase 6 — Analytics &amp; Performance</h3>
         <ul>
+          <li>✅ <strong>GA4 + Meta Pixel</strong> — per-form Measurement ID / Pixel ID injected into direct-load pages; <code>generate_lead</code> / <code>Lead</code> events on submission; <code>postMessage</code> bridge fires into parent page's analytics for embeds; no config needed on embed side</li>
           <li>Form funnel dashboard: views → starts → completions → drop-off per field</li>
           <li>A/B testing: split variants, auto-select winner by conversion rate</li>
           <li>Email open / click tracking via pixel + link proxy</li>
@@ -1676,6 +1684,14 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <div class="cg"><label class="cl">Secret key (private)</label><input type="password" id="hcaptcha-secret-key" placeholder="0x000…" oninput="cfg.site.hcaptchaSecretKey=this.value"></div>
       </div>
       <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="saveCaptchaSettings()">Save CAPTCHA settings</button>
+    </div>
+    <div class="card" style="padding:16px">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">bar_chart</span> Analytics &amp; Tracking</div>
+      <p class="card-desc" style="font-size:0.78rem;color:var(--ink3);margin-bottom:12px">IDs are injected into the <strong>direct-load</strong> form page only. For <strong>embedded</strong> forms the conversion event is fired into the host page's existing GA4/Pixel automatically via <code>postMessage</code> — no IDs needed.</p>
+      <div class="cg"><label class="cl">GA4 Measurement ID</label>
+        <input type="text" id="pf-ga4-id" placeholder="G-XXXXXXXXXX" oninput="cfg.site.ga4MeasurementId=this.value.trim()"></div>
+      <div class="cg"><label class="cl">Meta Pixel ID</label>
+        <input type="text" id="pf-pixel-id" placeholder="1234567890123" oninput="cfg.site.metaPixelId=this.value.trim()"></div>
     </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">mail</span> Welcome Email</div>
@@ -1965,6 +1981,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </ul>
         <h3>hCaptcha</h3>
         <p>Enable bot protection per-form. Enter your <strong>hCaptcha site key</strong> and <strong>secret key</strong> (from hcaptcha.com). When enabled, a CAPTCHA challenge appears above the submit button.</p>
+        <h3>Analytics &amp; Tracking (GA4 + Meta Pixel)</h3>
+        <p>Two tracking methods are supported:</p>
+        <ul>
+          <li><strong>Direct-load forms</strong> (wingvibes.com/your-slug) — enter a <strong>GA4 Measurement ID</strong> (e.g. <code>G-XXXXXXXXXX</code>) and/or a <strong>Meta Pixel ID</strong> in Settings → Analytics &amp; Tracking. The scripts are injected into the form page and fire <code>generate_lead</code> / <code>Lead</code> events on successful submission.</li>
+          <li><strong>Embedded forms</strong> (iframe via embed.js) — no IDs needed. On submission the embed script fires a <code>generate_lead</code> / <code>Lead</code> event directly into the <em>host page's</em> existing GA4 and Meta Pixel instances (if present), using <code>postMessage</code>. It also dispatches a <code>signflow:success</code> DOM event on the parent window for custom integrations: <code>window.addEventListener('signflow:success', e =&gt; console.log(e.detail.slug))</code>.</li>
+        </ul>
         <h3>Branding assignment</h3>
         <p>Link a branding to a form here. The live form will use the branding's visual design while keeping form-specific settings (slug, fields, sections) intact.</p>
         <h3>Submission deduplication</h3>
@@ -2093,6 +2115,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </ul>
         <h3>📊 Analytics &amp; Reporting</h3>
         <ul>
+          <li>✅ <strong>GA4 + Meta Pixel</strong> — per-form Measurement ID / Pixel ID; <code>generate_lead</code> / <code>Lead</code> events on submission; <code>postMessage</code> bridge fires into parent page's analytics for embeds (no host-side config needed)</li>
           <li><strong>Form funnel dashboard</strong> — views, starts, completions, drop-off points per field</li>
           <li><strong>A/B testing</strong> — split traffic between form variants, auto-select winner by conversion rate</li>
           <li><strong>Email metrics</strong> — open rate, click rate, bounce, unsubscribe per campaign</li>
@@ -2843,6 +2866,7 @@ function populateControls(){
   renderBrandColorList();
   const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
   sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
+  sv('pf-ga4-id',cfg.site.ga4MeasurementId||'');sv('pf-pixel-id',cfg.site.metaPixelId||'');
   sv('embed-allowed-domains',(cfg.site.embedAllowedDomains||[]).join(', '));
   toggleCaptchaFields();
   // Welcome email — populated lazily when Email tab is opened
@@ -3387,6 +3411,11 @@ function formBkBody(){
   const errHtml=form.submitErrorMessage||'';
   const gdprHtmlVal=cfg.site.gdprText||'';
   return `
+    <div class="modal-section"><div class="modal-section-title">Fields</div>
+      <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:7px;line-height:1.5">Email always required. Drag to reorder. Use conditions for dynamic visibility.</p>
+      <div class="field-list" id="field-list"></div>
+      <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>
+    </div>
     <div class="modal-section"><div class="modal-section-title">Submit button</div>
       <div class="cg"><label class="cl">Button label</label>
         <input type="text" value="${btnText}" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
@@ -3402,11 +3431,6 @@ function formBkBody(){
       <div class="cg"><label class="cl">Error message</label>
         <div class="wysi-preview" onclick="openFormErrorWysiwyg()">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
       </div>
-    </div>
-    <div class="modal-section"><div class="modal-section-title">Fields</div>
-    <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:7px;line-height:1.5">Email always required. Drag to reorder. Use conditions for dynamic visibility.</p>
-    <div class="field-list" id="field-list"></div>
-    <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>
     </div>`;
 }
 

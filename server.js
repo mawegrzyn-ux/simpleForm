@@ -192,12 +192,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:     ["'self'"],
-      scriptSrc:      ["'self'", "'unsafe-inline'", 'https://js.hcaptcha.com'],
+      scriptSrc:      ["'self'", "'unsafe-inline'", 'https://js.hcaptcha.com', 'https://www.googletagmanager.com', 'https://connect.facebook.net'],
       scriptSrcAttr:  ["'unsafe-inline'"],  // allow onclick/onchange handlers in admin SPA & public pages
       styleSrc:       ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc:        ["'self'", 'https://fonts.gstatic.com', 'https://*.amazonaws.com'],
       imgSrc:         ["'self'", 'data:', 'blob:', 'https:'],
-      connectSrc:     ["'self'", 'https://api.hcaptcha.com'],
+      connectSrc:     ["'self'", 'https://api.hcaptcha.com', 'https://www.google-analytics.com', 'https://region1.google-analytics.com', 'https://www.facebook.com'],
       frameSrc:       ["'self'", 'https://www.youtube.com', 'https://player.vimeo.com'],  // 'self' needed for admin live preview iframe
       frameAncestors: ["'self'"],   // overridden to * on /:slug/embed routes
       objectSrc:      ["'none'"],
@@ -1333,11 +1333,11 @@ app.get('/:slug/embed', async (req, res) => {
 
     res.setHeader('X-Frame-Options', 'ALLOWALL');
     res.setHeader('Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.hcaptcha.com; " +
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.hcaptcha.com https://www.googletagmanager.com https://connect.facebook.net; " +
       "script-src-attr 'unsafe-inline'; " +
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src 'self' https://fonts.gstatic.com https://*.amazonaws.com; img-src 'self' data: blob: https:; " +
-      "connect-src 'self' https://api.hcaptcha.com; " +
+      "connect-src 'self' https://api.hcaptcha.com https://www.google-analytics.com https://region1.google-analytics.com https://www.facebook.com; " +
       "frame-src https://www.youtube.com https://player.vimeo.com; " +
       `frame-ancestors ${faVal}; object-src 'none'; base-uri 'self'`);
     res.send(renderEmbedPage(cfg, sharedFonts, templates));
@@ -1476,6 +1476,28 @@ function googleFontTag(cfg, effectiveDesign, sharedFonts = []) {
   if (!fonts.length) return '';
   const query = fonts.map(f => f.replace(/ /g, '+')).join('&family=');
   return `<link href="https://fonts.googleapis.com/css2?family=${query}:wght@300;400;600;700&display=swap" rel="stylesheet">`;
+}
+
+// ── Analytics snippets ────────────────────────────────────────────────────────
+function ga4Snippet(measurementId) {
+  if (!measurementId || !measurementId.trim()) return '';
+  const id = measurementId.trim();
+  return `<script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>\n` +
+    `<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}` +
+    `gtag('js',new Date());gtag('config','${id}',{send_page_view:true});</script>`;
+}
+
+function metaPixelSnippet(pixelId) {
+  if (!pixelId || !pixelId.trim()) return '';
+  const id = pixelId.trim();
+  return `<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?` +
+    `n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;` +
+    `n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;` +
+    `s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}` +
+    `(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');` +
+    `fbq('init','${id}');fbq('track','PageView');</script>` +
+    `<noscript><img height="1" width="1" style="display:none" ` +
+    `src="https://www.facebook.com/tr?id=${id}&ev=PageView&noscript=1"/></noscript>`;
 }
 
 function gdprHtml(siteCfg) {
@@ -2451,6 +2473,8 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   ${sliderPickerCSS(d.accentColor)}
 </style>
 ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
+${ga4Snippet(s.ga4MeasurementId)}
+${metaPixelSnippet(s.metaPixelId)}
 </head>
 <body>
 <div class="sf-card">
@@ -2871,12 +2895,16 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
         if(conf && conf.children.length > 0){
           if(fc) fc.style.display = 'none';
           conf.style.display = 'block';
-          window.parent.postMessage({ type: 'sf-success' }, '*');
+          window.parent.postMessage({ type: 'sf-success', slug: '${cfg.slug}' }, '*');
+          if(window.gtag) gtag('event','generate_lead',{form_id:'${cfg.slug}'});
+          if(window.fbq) fbq('track','Lead');
           reportHeight();
         } else {
           if(msg){msg.className='sf-msg success'; msg.textContent=${JSON.stringify((formSection && formSection.submitSuccessMessage) || "Thank you! You're subscribed.")};msg.style.display='block';}
           form.reset();
-          window.parent.postMessage({ type: 'sf-success' }, '*');
+          window.parent.postMessage({ type: 'sf-success', slug: '${cfg.slug}' }, '*');
+          if(window.gtag) gtag('event','generate_lead',{form_id:'${cfg.slug}'});
+          if(window.fbq) fbq('track','Lead');
           reportHeight();
         }
       } else {
@@ -2950,9 +2978,14 @@ function renderEmbedScript(origin, cfg) {
       });
     }
     if (e.data.type === 'sf-success') {
-      // Developers can listen for this on the parent page:
-      // window.addEventListener('message', e => { if(e.data.type==='sf-success') ... })
-      w.dispatchEvent(new CustomEvent('signflow:success'));
+      var slug = e.data.slug || '';
+      // Fire into parent page's existing GA4 (if present)
+      if (w.gtag) w.gtag('event', 'generate_lead', { form_id: slug });
+      // Fire into parent page's existing Meta Pixel (if present)
+      if (w.fbq) w.fbq('track', 'Lead');
+      // Custom DOM event — developers can listen:
+      // window.addEventListener('signflow:success', e => console.log(e.detail.slug))
+      w.dispatchEvent(new CustomEvent('signflow:success', { detail: { slug: slug } }));
     }
   });
 })(window, document);
