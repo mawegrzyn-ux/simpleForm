@@ -3500,7 +3500,7 @@ function removeReward(blockId,idx){const found=_blockArray(blockId);if(found&&fo
 // ── Brand Colour Picker (bcp) ──
 let _bcpCallbacks={};
 let _bcpBuilders={}; // containerId → custom rebuild fn (used by _buildIselColorPicker)
-function buildBrandColorPicker(containerId,currentColor,onChange){
+function buildBrandColorPicker(containerId,currentColor,onChange,compact=false){
   const c=document.getElementById(containerId);if(!c)return;
   _migrateBrandColors();
   let brands=(cfg&&cfg.design&&cfg.design.brandColors)||[];
@@ -3515,16 +3515,17 @@ function buildBrandColorPicker(containerId,currentColor,onChange){
   const clearItem=`<div class="bcp-item${!currentColor?' active':''}" onclick="bcpPick('${containerId}','')"><span class="bcp-item-sw" style="background:transparent;border:1.5px dashed var(--border)"></span><span class="bcp-item-name" style="color:var(--ink3)">None / clear</span></div>`;
   const items=clearItem+(brands.length
     ?brands.map(b=>`<div class="bcp-item${b.color===currentColor?' active':''}" onclick="bcpPick('${containerId}','${b.color.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')"><span class="bcp-item-sw" style="background:${b.color}"></span><span class="bcp-item-name">${escHtml(b.name||b.color)}</span><span class="bcp-item-hex">${b.color}</span></div>`).join('')
-    :'<p style="font-size:0.75rem;color:var(--ink3);padding:4px 2px">No brand colours defined yet.</p>');
-  c.innerHTML=`<div class="bcp-wrap" id="bcpw-${containerId}">
+    :'<p style="font-size:0.75rem;color:var(--ink3);padding:4px 2px">No brand colours defined yet — add them in the Branding tab.</p>');
+  c.innerHTML=`<div class="bcp-wrap${compact?' bcp-compact':''}" id="bcpw-${containerId}" title="${compact?escHtml(label):''}">
     <button type="button" class="bcp-trigger" onclick="event.stopPropagation();bcpToggle('${containerId}')">
       <span class="bcp-swatch-pill" style="${swatchStyle}"></span>
-      <span class="bcp-sel">${escHtml(label)}</span>
-      <span class="material-icons-round" style="font-size:13px;color:var(--ink3);flex-shrink:0">expand_more</span>
+      ${compact?'':`<span class="bcp-sel">${escHtml(label)}</span><span class="material-icons-round mi-expand" style="font-size:13px;color:var(--ink3);flex-shrink:0">expand_more</span>`}
     </button>
     <div class="bcp-dropdown">${items}</div>
   </div>`;
   _bcpCallbacks[containerId]=onChange;
+  // Register rebuild function so bcpPick preserves compact mode
+  _bcpBuilders[containerId]=(color,cb)=>buildBrandColorPicker(containerId,color,cb,compact);
 }
 function _bcpResetDd(wrap){const dd=wrap.querySelector('.bcp-dropdown');if(dd){dd.style.position='';dd.style.top='';dd.style.left='';dd.style.right='';dd.style.width='';dd.style.zIndex='';}}
 function bcpToggle(id){
@@ -4749,9 +4750,10 @@ function iselRenderTilesModal(){
     const row=document.createElement('div');
     row.className='isel-tile-row';
     row.style.cssText=`display:grid;grid-template-columns:${GRID};gap:4px;align-items:center;padding:4px 0;border-bottom:1px solid var(--brd);${i%2===1?'background:var(--bg2);':''}`;
-    row.draggable=true;
-    row.ondragstart=()=>{_iselDragIdx=i;row.style.opacity='0.45';};
-    row.ondragend=()=>{row.style.opacity='';document.querySelectorAll('.isel-tile-row').forEach(r=>r.classList.remove('drag-over'));};
+    // Drag events — row.draggable is set to true ONLY on handle mousedown to avoid
+    // blocking clicks on buttons/colour pickers inside the row
+    row.ondragstart=(e)=>{if(!row.draggable)e.preventDefault();else{_iselDragIdx=i;row.style.opacity='0.45';}};
+    row.ondragend=()=>{row.draggable=false;row.style.opacity='';document.querySelectorAll('.isel-tile-row').forEach(r=>r.classList.remove('drag-over'));};
     row.ondragover=(e)=>{e.preventDefault();row.classList.add('drag-over');};
     row.ondragleave=()=>row.classList.remove('drag-over');
     row.ondrop=(e)=>{e.preventDefault();row.classList.remove('drag-over');if(_iselDragIdx>=0&&_iselDragIdx!==i){const it=_iselItems.splice(_iselDragIdx,1)[0];_iselItems.splice(i,0,it);_iselDragIdx=-1;iselRenderTilesModal();}};
@@ -4760,7 +4762,7 @@ function iselRenderTilesModal(){
     const tileBgId=`isel-tr-bg-${i}`;
     const tileBorderId=`isel-tr-bor-${i}`;
     row.innerHTML=`
-      <span style="display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--ink3)" title="Drag to reorder"><span class="material-icons-round" style="font-size:16px">drag_indicator</span></span>
+      <span data-drag-handle style="display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--ink3);user-select:none" title="Drag to reorder"><span class="material-icons-round" style="font-size:16px;pointer-events:none">drag_indicator</span></span>
       <select style="font-size:0.73rem" onchange="_iselItems[${i}].iconType=this.value;iselRenderTilesModal()">
         <option value="material"${item.iconType==='material'?' selected':''}>Material icon</option>
         <option value="emoji"${item.iconType==='emoji'?' selected':''}>Emoji</option>
@@ -4775,10 +4777,16 @@ function iselRenderTilesModal(){
       <div id="${tileBorderId}" style="display:flex;justify-content:center"></div>
       <button class="ibtn danger" title="Remove" onclick="_iselItems.splice(${i},1);iselRenderItems()" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">close</span></button>`;
     el.appendChild(row);
-    // Build compact per-tile colour pickers after row is in DOM
-    _buildIselColorPicker(tileTextClrId,item.tileTextColor||'',v=>{_iselItems[i].tileTextColor=v;},true);
-    _buildIselColorPicker(tileBgId,     item.tileBg||'',        v=>{_iselItems[i].tileBg=v;},true);
-    _buildIselColorPicker(tileBorderId, item.tileBorderColor||'',v=>{_iselItems[i].tileBorderColor=v;},true);
+    // Activate drag ONLY when user presses on the drag handle
+    const handle=row.querySelector('[data-drag-handle]');
+    if(handle){
+      handle.addEventListener('mousedown',()=>{row.draggable=true;});
+      handle.addEventListener('mouseup',()=>{row.draggable=false;});
+    }
+    // Build compact per-tile brand colour pickers after row is in DOM
+    buildBrandColorPicker(tileTextClrId,item.tileTextColor||'',v=>{_iselItems[i].tileTextColor=v;},true);
+    buildBrandColorPicker(tileBgId,     item.tileBg||'',        v=>{_iselItems[i].tileBg=v;},true);
+    buildBrandColorPicker(tileBorderId, item.tileBorderColor||'',v=>{_iselItems[i].tileBorderColor=v;},true);
   });
   // Add tile button at bottom of list
   const addBtn=document.createElement('button');
@@ -4798,9 +4806,9 @@ function iselOpenTilesModal(){
   const colorEl=document.getElementById('modal-isel-color');
   if(colorEl&&!colorEl.querySelector('.bcp-wrap'))_buildIselColorDropdowns(_iselSelColor,_iselTileBg,_iselTileBorder);
   iselRenderTilesModal();
-  _buildIselColorPicker('isel-batch-text-wrap',  '', v=>{_iselBatchTextColor=v;});
-  _buildIselColorPicker('isel-batch-bg-wrap',    '', v=>{_iselBatchBgColor=v;});
-  _buildIselColorPicker('isel-batch-border-wrap','', v=>{_iselBatchBorderColor=v;});
+  buildBrandColorPicker('isel-batch-text-wrap',  '', v=>{_iselBatchTextColor=v;});
+  buildBrandColorPicker('isel-batch-bg-wrap',    '', v=>{_iselBatchBgColor=v;});
+  buildBrandColorPicker('isel-batch-border-wrap','', v=>{_iselBatchBorderColor=v;});
 }
 function iselBatchApply(prop,batchVar){
   const val=batchVar==='_iselBatchTextColor'?_iselBatchTextColor:batchVar==='_iselBatchBgColor'?_iselBatchBgColor:_iselBatchBorderColor;
@@ -4981,9 +4989,9 @@ function _buildIselColorDropdowns(selColor,tileBg,tileBorder){
   _iselSelColor=selColor||'';
   _iselTileBg=tileBg||'';
   _iselTileBorder=tileBorder||'';
-  _buildIselColorPicker('modal-isel-color',  _iselSelColor,  v=>{_iselSelColor=v;});
-  _buildIselColorPicker('modal-isel-tilebg', _iselTileBg,    v=>{_iselTileBg=v;});
-  _buildIselColorPicker('modal-isel-tileborder',_iselTileBorder,v=>{_iselTileBorder=v;});
+  buildBrandColorPicker('modal-isel-color',  _iselSelColor,  v=>{_iselSelColor=v;});
+  buildBrandColorPicker('modal-isel-tilebg', _iselTileBg,    v=>{_iselTileBg=v;});
+  buildBrandColorPicker('modal-isel-tileborder',_iselTileBorder,v=>{_iselTileBorder=v;});
 }
 
 // ── Material Icon Picker ──
