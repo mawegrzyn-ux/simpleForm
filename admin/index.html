@@ -392,6 +392,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #wysiwyg-modal{z-index:510;}
 #wysiwyg-modal.wysi-fs .modal-box{width:calc(100vw - 40px)!important;max-width:calc(100vw - 40px)!important;height:calc(100vh - 40px);max-height:none!important;display:flex;flex-direction:column;}
 #wysiwyg-modal.wysi-fs #wysiwyg-area{flex:1;min-height:0;max-height:none!important;}
+#field-modal.modal-fullscreen .modal-box{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0!important;display:flex;flex-direction:column;}
+#field-modal.modal-fullscreen .modal-box>*:last-child{flex:1;overflow-y:auto;}
 .modal-box{background:var(--panel);border-radius:var(--rlg);padding:26px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:fadeUp .18s var(--ease);}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-head h2{font-weight:600;font-size:1rem;}
@@ -1424,6 +1426,79 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       </div>
     </div>
 
+    <!-- EMBED & ANALYTICS ARCHITECTURE -->
+    <div class="help-group" data-tags="embed analytics tracking ga4 pixel postmessage consent iframe architecture">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">analytics</span> Embed &amp; Analytics Architecture
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <p>SignFlow handles analytics in two fundamentally different ways depending on how the form is accessed. Understanding this distinction is important for correct setup and GDPR compliance.</p>
+
+        <h3>Direct-load page (<code>/your-slug</code>)</h3>
+        <p>SignFlow owns the page, so it controls the full lifecycle — including consent and script loading.</p>
+        <ul>
+          <li>A GDPR-compliant consent manager is shown on first visit. No third-party scripts fire until the visitor explicitly opts in.</li>
+          <li>GA4 and Meta Pixel IDs are stored in Settings → Analytics &amp; Tracking. They are embedded as a <code>&lt;script type="application/json" id="sf-tc"&gt;</code> data block — not executed at load time.</li>
+          <li>The consent manager JS reads that block and dynamically injects <code>gtag.js</code> / <code>fbevents.js</code> only after the visitor grants the relevant category.</li>
+          <li>On successful submission, the page fires <code>gtag('event','generate_lead')</code> and <code>fbq('track','Lead')</code> — both conditional on <code>window.gtag</code> / <code>window.fbq</code> existing (i.e. consent was given).</li>
+        </ul>
+
+        <h3>Embedded form (<code>/your-slug/embed</code> via iframe)</h3>
+        <p>SignFlow does not own the page — it is a guest inside the host site's iframe. The host site controls consent.</p>
+        <ul>
+          <li>The embed page contains <strong>no consent manager</strong> and <strong>no tracking scripts</strong> whatsoever.</li>
+          <li>The GA4 / Pixel IDs configured in Settings are <strong>not used</strong> in the embed context.</li>
+          <li>On successful submission, the iframe fires a <code>postMessage</code> to the parent: <code>{ type: 'sf-success', slug: '...' }</code>.</li>
+          <li><code>embed.js</code> (running on the host page, outside the iframe) listens for that message and calls <code>window.gtag</code> / <code>window.fbq</code> if they exist.</li>
+          <li>Those globals only exist if the <strong>host site's own consent manager</strong> has already loaded them. If the visitor rejected cookies on the host site, neither global exists and nothing fires.</li>
+        </ul>
+
+        <h3>Consent responsibility in the embed scenario</h3>
+        <table class="help-table">
+          <tr><th>Question</th><th>Answer</th></tr>
+          <tr><td>Who shows the consent banner?</td><td>The host website — not SignFlow</td></tr>
+          <tr><td>Who loads GA4 / Pixel scripts?</td><td>The host website's consent manager</td></tr>
+          <tr><td>What does embed.js do?</td><td>Fires events into already-loaded globals — it never loads scripts itself</td></tr>
+          <tr><td>What if the visitor rejected cookies?</td><td><code>window.gtag</code> / <code>window.fbq</code> don't exist → nothing fires</td></tr>
+          <tr><td>Do I need to enter IDs in SignFlow for embeds?</td><td>No — the conversion event fires into the host's GA4/Pixel property automatically</td></tr>
+          <tr><td>Which GA4 property receives the event?</td><td>Whatever property the host site has configured, not the one in SignFlow Settings</td></tr>
+        </table>
+
+        <h3>Flow diagram</h3>
+        <div class="info-box" style="font-family:monospace;font-size:0.78rem;line-height:1.9;white-space:pre">Visitor lands on host page
+  ↓
+Host consent banner shown (host's responsibility)
+  ↓
+Visitor accepts analytics + marketing
+  ↓
+Host consent manager loads GA4  →  window.gtag now exists
+Host consent manager loads Pixel →  window.fbq now exists
+  ↓
+Visitor submits the embedded SignFlow form
+  ↓
+iframe fires postMessage { type: 'sf-success', slug }
+  ↓
+embed.js catches postMessage on host page
+  ↓
+if (window.gtag) → generate_lead event → host's GA4 property  ✓
+if (window.fbq)  → Lead event         → host's Meta Pixel      ✓
+dispatchEvent('signflow:success')      → custom listeners       ✓</div>
+
+        <h3>Host uses Google Tag Manager instead of direct gtag</h3>
+        <p>If the host loads GA4 via GTM, <code>window.gtag</code> may not exist even when GA4 is active. Use the <code>signflow:success</code> CustomEvent as the GTM trigger instead:</p>
+        <div class="info-box"><code>window.addEventListener('signflow:success', e =&gt; {<br>&nbsp;&nbsp;// push to GTM dataLayer, custom analytics, etc.<br>&nbsp;&nbsp;console.log('Form submitted:', e.detail.slug);<br>});</code></div>
+        <p>In GTM: create a <em>Custom Event</em> trigger listening for <code>signflow:success</code>, then attach any tag (GA4 event, Floodlight, etc.) to it.</p>
+
+        <h3>Summary</h3>
+        <table class="help-table">
+          <tr><th>Context</th><th>Who controls consent</th><th>How scripts load</th></tr>
+          <tr><td>Direct-load page</td><td>SignFlow consent manager</td><td>Injected dynamically after opt-in</td></tr>
+          <tr><td>Embedded via iframe</td><td>Host website's consent manager</td><td><code>embed.js</code> calls <code>window.gtag</code> / <code>window.fbq</code> if already present</td></tr>
+        </table>
+      </div>
+    </div>
+
     <!-- RECENT CHANGES -->
     <div class="help-group" data-tags="changelog recent changes updates">
       <div class="help-group-head" onclick="toggleHelp(this)">
@@ -1431,6 +1506,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-13 — Group C — Field modal fullscreen &amp; custom help notes</h3>
+        <ul>
+          <li>✅ <strong>Field modal fullscreen (C1)</strong> — fullscreen toggle button (<code>fullscreen</code> / <code>fullscreen_exit</code> icon) added to the field editor modal header; toggles <code>.modal-fullscreen</code> class which sets <code>width/height:100vw/vh</code> and removes border-radius; icon resets and class is cleared when the modal is closed via ✕ or Cancel</li>
+          <li>✅ <strong>Backdrop click disabled (C1)</strong> — removed the click-outside-to-close listener on <code>#field-modal</code>; the modal can now only be closed via the ✕ button or Cancel, preventing accidental loss of edits when clicking near the modal edge</li>
+          <li>✅ <strong>Custom help notes (C2)</strong> — "Your Notes" section at the top of the Help tab; <strong>+ Add note section</strong> button creates a note with an editable title and a WYSIWYG body; notes stored as <code>cfg.site.helpSections [{id,title,html}]</code> and saved with the form config; notes are admin-only and not visible on public pages; searchable alongside built-in help entries</li>
+        </ul>
         <h3>2026-03-13 — GDPR cookie consent manager</h3>
         <ul>
           <li>✅ <strong>Three-category consent</strong> — Necessary (always active) / Analytics (GA4) / Marketing (Meta Pixel); category rows only shown when the corresponding ID is configured</li>
@@ -1784,6 +1865,14 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <input type="search" id="help-search" placeholder="Search help…" style="flex:1;max-width:340px" oninput="filterHelp(this.value)">
     </div>
     <div id="help-sections">
+
+    <!-- USER NOTES -->
+    <div id="user-notes-wrap"></div>
+    <div id="user-notes-add-row" style="margin-bottom:18px">
+      <button class="tbtn tbtn-ghost" style="font-size:0.8rem;display:flex;align-items:center;gap:5px" onclick="addUserNote()">
+        <span class="material-icons-round mi" style="font-size:14px">add</span> Add note section
+      </button>
+    </div>
 
     <!-- GETTING STARTED -->
     <div class="help-group" data-tags="start create form publish embed overview">
@@ -2325,7 +2414,10 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   <div class="modal-box">
     <div class="modal-head">
       <h2 id="modal-title">Add field</h2>
-      <button class="modal-close" onclick="closeFieldModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="modal-close" id="field-modal-fs-btn" onclick="toggleFieldModalFS()" title="Toggle fullscreen"><span class="material-icons-round" style="font-size:18px">fullscreen</span></button>
+        <button class="modal-close" onclick="closeFieldModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+      </div>
     </div>
     <div class="cg"><label class="cl">Field label</label><input type="text" id="modal-label" placeholder="e.g. Company name"></div>
     <div class="cg"><label class="cl">Field ID (no spaces)</label><input type="text" id="modal-id" placeholder="e.g. companyName"></div>
@@ -2902,6 +2994,7 @@ function populateControls(){
   renderFieldList();renderCustomFontList();
   rebuildDesignColorPickers();
   populatePfDesignTplSelect();
+  renderUserNotes();
 }
 
 function sv(id,val){const e=document.getElementById(id);if(e)e.value=val||'';}
@@ -4607,6 +4700,51 @@ function openPrivacyWysiwyg(){
     if(pp)pp.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit privacy page content…</span>';
   });
 }
+// ── User Notes (Help tab — per-form custom sections) ──────────────────────
+function renderUserNotes(){
+  const wrap=document.getElementById('user-notes-wrap');
+  if(!wrap)return;
+  const notes=(cfg&&cfg.site&&cfg.site.helpSections)||[];
+  if(!notes.length){wrap.innerHTML='';return;}
+  wrap.innerHTML=notes.map((n,i)=>`
+    <div class="help-group" id="unote-${n.id}" style="margin-bottom:8px;border:1.5px solid var(--accent);border-radius:var(--r)">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--accent-bg);border-radius:calc(var(--r) - 2px) calc(var(--r) - 2px) 0 0">
+        <span class="material-icons-round mi" style="color:var(--accent);font-size:15px">sticky_note_2</span>
+        <input type="text" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Section title…"
+               style="flex:1;border:none;background:none;font-weight:600;font-size:0.85rem;color:var(--ink);outline:none;font-family:var(--font)"
+               oninput="(function(v){const f=(cfg.site.helpSections||[]).find(x=>x.id==='${n.id}');if(f)f.title=v;})(this.value)">
+        <button class="tbtn tbtn-ghost" style="font-size:0.76rem;padding:3px 10px;display:flex;align-items:center;gap:4px"
+                onclick="openUserNoteWysiwyg('${n.id}')"><span class="mi" style="font-size:13px">edit</span> Edit</button>
+        <button class="tbtn tbtn-ghost" style="padding:3px 7px;color:var(--danger)" title="Delete note"
+                onclick="deleteUserNote('${n.id}')"><span class="mi" style="font-size:14px">delete</span></button>
+      </div>
+      <div style="padding:12px 14px;font-size:0.83rem;color:var(--ink2);line-height:1.65;min-height:36px">
+        ${n.html||'<span style="color:var(--ink3);font-size:0.77rem;font-style:italic">Click Edit to add content…</span>'}
+      </div>
+    </div>`).join('');
+}
+function addUserNote(){
+  if(!cfg||!cfg.site)return;
+  if(!cfg.site.helpSections)cfg.site.helpSections=[];
+  const id='n'+Date.now();
+  cfg.site.helpSections.push({id,title:'',html:''});
+  renderUserNotes();
+  setTimeout(()=>{const inp=document.querySelector(`#unote-${id} input[type=text]`);if(inp)inp.focus();},40);
+}
+function deleteUserNote(id){
+  if(!cfg||!cfg.site||!cfg.site.helpSections)return;
+  cfg.site.helpSections=cfg.site.helpSections.filter(n=>n.id!==id);
+  renderUserNotes();
+}
+function openUserNoteWysiwyg(id){
+  const note=(cfg.site.helpSections||[]).find(n=>n.id===id);
+  if(!note)return;
+  openWysiwygModal(note.html||'',note.title||'Note',html=>{
+    note.html=html;
+    renderUserNotes();
+  });
+}
+
 function openCookieBannerWysiwyg(){
   openWysiwygModal(cfg.site.cookieBannerText||'','Cookie banner text',html=>{
     cfg.site.cookieBannerText=html;
@@ -4782,7 +4920,18 @@ function openFieldModal(fieldId){
   onModalTypeChange();
   document.getElementById('field-modal').classList.add('open');
 }
-function closeFieldModal(){document.getElementById('field-modal').classList.remove('open');}
+function closeFieldModal(){
+  const m=document.getElementById('field-modal');
+  m.classList.remove('open','modal-fullscreen');
+  const ic=document.querySelector('#field-modal-fs-btn .material-icons-round');
+  if(ic)ic.textContent='fullscreen';
+}
+function toggleFieldModalFS(){
+  const m=document.getElementById('field-modal');
+  const ic=document.querySelector('#field-modal-fs-btn .material-icons-round');
+  const isFs=m.classList.toggle('modal-fullscreen');
+  if(ic)ic.textContent=isFs?'fullscreen_exit':'fullscreen';
+}
 
 function onModalTypeChange(){
   const t=document.getElementById('modal-type').value;
@@ -6024,7 +6173,7 @@ async function deleteForm(slug,name){
 // ── Init ──
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveConfig();}});
 document.getElementById('new-form-modal').addEventListener('click',e=>{if(e.target===document.getElementById('new-form-modal'))closeNewFormModal();});
-document.getElementById('field-modal').addEventListener('click',e=>{if(e.target===document.getElementById('field-modal'))closeFieldModal();});
+// field-modal: backdrop click intentionally disabled — use X or Cancel to close
 document.getElementById('custom-fonts-modal').addEventListener('click',e=>{if(e.target===document.getElementById('custom-fonts-modal'))closeCustomFontsModal();});
 document.getElementById('block-modal').addEventListener('click',e=>{if(e.target===document.getElementById('block-modal'))closeBlockPicker();});
 document.getElementById('el-modal').addEventListener('click',e=>{if(e.target===document.getElementById('el-modal'))closeElPicker();});
