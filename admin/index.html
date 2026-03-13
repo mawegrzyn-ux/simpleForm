@@ -1463,7 +1463,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     <!-- ENTERPRISE ROADMAP -->
-    <div class="help-group" data-tags="roadmap enterprise future plan sso saml postgres redis s3 api webhooks gdpr">
+    <div class="help-group" data-tags="roadmap enterprise future plan sso saml postgres redis s3 api webhooks gdpr playwright testing ci cd qa jest github actions">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">map</span> Enterprise Roadmap
         <span class="material-icons-round mi help-chevron">expand_more</span>
@@ -1536,6 +1536,18 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <li>Custom domain per tenant with automated Let's Encrypt</li>
           <li>Admin super-console with cross-tenant oversight and audit-logged impersonation</li>
           <li>99.9% SLA target; multi-AZ PostgreSQL; health dashboard</li>
+        </ul>
+        <h3>Phase 8 — Quality Assurance &amp; CI/CD</h3>
+        <ul>
+          <li><strong>Playwright E2E test suite</strong> — browser-automated tests covering form submission, admin login, embed flow, branding editor, subscriber export; runs against Chromium, Firefox and WebKit</li>
+          <li><strong>Critical path coverage</strong> — subscribe happy path, required-field validation, unsubscribe token flow, CSRF rejection, rate-limit enforcement</li>
+          <li><strong>Admin UI smoke tests</strong> — form create/edit/delete, field modal, tiles editor, design templates, subscriber table pagination</li>
+          <li><strong>Visual regression</strong> — Playwright screenshots diffed on each PR to catch unintended layout changes</li>
+          <li><strong>Unit tests</strong> — Jest for pure server-side functions (slug generation, CSV export, sanitisation helpers, joi validation schemas)</li>
+          <li><strong>CI pipeline</strong> — GitHub Actions: lint → unit tests → Playwright E2E → build; blocks merge on failure</li>
+          <li><strong>Staging environment</strong> — ephemeral Lightsail instance spun up per PR; torn down after merge</li>
+          <li><strong>Load testing</strong> — k6 scripts simulating 5 000 concurrent subscribe requests; integrated into release pipeline</li>
+          <li><strong>Dependency scanning</strong> — Dependabot PRs + Snyk on every push; high-severity CVEs block deploys</li>
         </ul>
       </div>
     </div>
@@ -2005,7 +2017,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     <!-- ENTERPRISE ROADMAP -->
-    <div class="help-group" data-tags="roadmap enterprise security database sso performance api gdpr future plan">
+    <div class="help-group" data-tags="roadmap enterprise security database sso performance api gdpr future plan playwright testing ci cd qa jest github actions">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">map</span> Enterprise Roadmap
         <span class="material-icons-round mi help-chevron">expand_more</span>
@@ -2079,6 +2091,18 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <li><strong>A/B testing</strong> — split traffic between form variants, auto-select winner by conversion rate</li>
           <li><strong>Email metrics</strong> — open rate, click rate, bounce, unsubscribe per campaign</li>
           <li><strong>Scheduled reports</strong> — weekly subscriber growth digest emailed to admin</li>
+        </ul>
+        <h3>🧪 Quality Assurance &amp; CI/CD</h3>
+        <ul>
+          <li><strong>Playwright E2E test suite</strong> — browser-automated tests across Chromium, Firefox and WebKit covering: form submission, admin login, embed flow, branding editor, subscriber export, unsubscribe token</li>
+          <li><strong>Critical path coverage</strong> — subscribe happy path, required-field validation, CSRF rejection, rate-limit enforcement, GDPR delete</li>
+          <li><strong>Admin UI smoke tests</strong> — form create/edit/delete, field modal, tiles editor, design templates, subscriber table</li>
+          <li><strong>Visual regression testing</strong> — Playwright screenshots diffed on each PR; catches layout regressions before they reach production</li>
+          <li><strong>Unit tests (Jest)</strong> — pure functions: slug generation, CSV export, sanitisation helpers, joi validation schemas</li>
+          <li><strong>GitHub Actions CI pipeline</strong> — lint → unit tests → Playwright E2E → build; blocks merge on any failure</li>
+          <li><strong>Ephemeral staging environments</strong> — per-PR Lightsail instance spun up automatically; torn down after merge</li>
+          <li><strong>Load testing (k6)</strong> — 5 000 concurrent subscribe requests benchmark; runs on each release candidate</li>
+          <li><strong>Dependency scanning</strong> — Dependabot + Snyk on every push; high-severity CVEs block deployments</li>
         </ul>
       </div>
     </div>
