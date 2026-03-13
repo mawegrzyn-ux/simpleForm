@@ -2104,8 +2104,70 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <button class="ibtn" id="isel-fs-btn" onclick="iselToggleFullscreen()" title="Toggle fullscreen" style="padding:3px 6px"><span class="material-icons-round mi" style="font-size:18px">fullscreen</span></button>
       <button class="btn-primary" onclick="document.getElementById('isel-tiles-modal').style.display='none'" style="font-size:0.8rem;padding:5px 14px">Done</button>
     </div>
+    <!-- Formatting panel (tile display settings + presets) -->
+    <div id="isel-fmt-panel" style="padding:10px 16px 8px;border-bottom:1px solid var(--brd);background:var(--bg2);flex-shrink:0">
+      <!-- Row 1: size / mode / style / border width -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+        <div><label class="cl" style="font-size:0.65rem">Tile size (px)</label><input type="number" id="modal-isel-size" value="64" min="40" max="300" style="font-size:0.78rem"></div>
+        <div><label class="cl" style="font-size:0.65rem">Size mode</label>
+          <select id="modal-isel-size-mode" style="font-size:0.78rem">
+            <option value="fixed">Fixed px</option>
+            <option value="fill">Fill width</option>
+          </select>
+        </div>
+        <div><label class="cl" style="font-size:0.65rem">Selected style</label>
+          <select id="modal-isel-selstyle" style="font-size:0.78rem">
+            <option value="border">Border highlight</option>
+            <option value="fill">Fill background</option>
+          </select>
+        </div>
+        <div><label class="cl" style="font-size:0.65rem">Border width (px)</label><input type="number" id="modal-isel-borderw" value="2" min="0" max="8" style="font-size:0.78rem"></div>
+      </div>
+      <!-- Row 2: colour pickers -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+        <div><label class="cl" style="font-size:0.65rem">Highlight colour</label><div id="modal-isel-color"></div></div>
+        <div><label class="cl" style="font-size:0.65rem">Tile background</label><div id="modal-isel-tilebg"></div></div>
+        <div><label class="cl" style="font-size:0.65rem">Tile border colour</label><div id="modal-isel-tileborder"></div></div>
+      </div>
+      <!-- Row 3: alignment / layout / arrows -->
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px"><label class="cl" style="font-size:0.65rem">Alignment</label>
+          <select id="modal-isel-align" style="font-size:0.78rem">
+            <option value="left">Left</option>
+            <option value="center">Centre</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:130px"><label class="cl" style="font-size:0.65rem">Layout</label>
+          <select id="modal-isel-layout" onchange="iselOnLayoutChange()" style="font-size:0.78rem">
+            <option value="scroll">Horizontal scroll</option>
+            <option value="grid">Grid</option>
+          </select>
+        </div>
+        <div id="modal-isel-grid-opts" style="display:none;flex:2;min-width:200px;gap:8px" class="cr">
+          <div style="flex:1"><label class="cl" style="font-size:0.65rem">Columns</label><input type="number" id="modal-isel-cols" value="4" min="1" max="12" style="font-size:0.78rem"></div>
+          <div style="flex:1"><label class="cl" style="font-size:0.65rem">Fill direction</label>
+            <select id="modal-isel-flow" style="font-size:0.78rem">
+              <option value="row">Left → Right</option>
+              <option value="col">Down first</option>
+            </select>
+          </div>
+        </div>
+        <div id="modal-isel-arrows-wrap" style="display:flex;align-items:center;gap:6px;padding-bottom:2px;flex-shrink:0">
+          <label class="tgl"><input type="checkbox" id="modal-isel-arrows" checked><span class="tgl-s"></span></label>
+          <label class="tgl-lbl" style="font-size:0.75rem">Scroll arrows</label>
+        </div>
+      </div>
+      <!-- Presets row -->
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd)">
+        <span style="font-size:0.68rem;color:var(--ink3);flex-shrink:0">Tile presets:</span>
+        <button class="ibtn" onclick="iselSavePreset()" style="font-size:0.7rem;padding:2px 8px"><span class="material-icons-round mi" style="font-size:13px">bookmark_add</span> Save</button>
+        <button class="ibtn" onclick="iselShowPresets()" style="font-size:0.7rem;padding:2px 8px"><span class="material-icons-round mi" style="font-size:13px">bookmarks</span> Load</button>
+        <div id="modal-isel-preset-list" style="display:none;flex:1;min-width:140px"></div>
+      </div>
+    </div>
     <!-- Column headers -->
-    <div style="display:grid;grid-template-columns:20px 88px 1fr 80px 80px 34px 34px 34px 24px;gap:4px;padding:5px 16px;font-size:0.67rem;color:var(--ink3);border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--bg2);position:sticky;top:0;z-index:1">
+    <div style="display:grid;grid-template-columns:20px 88px 1fr 80px 80px 34px 34px 34px 24px;gap:4px;padding:5px 16px;font-size:0.67rem;color:var(--ink3);border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--bg2)">
       <span></span><span>Type</span><span>Icon / Font</span><span>Value</span><span>Label</span><span style="text-align:center">Txt</span><span style="text-align:center">BG</span><span style="text-align:center">Brd</span><span></span>
     </div>
     <!-- Tile rows -->
@@ -2161,6 +2223,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <option value="iconselect">Icon / tile selector</option>
       </select>
     </div>
+    <hr style="border:none;border-top:1px solid var(--brd);margin:10px 0">
     <div class="cg" id="modal-options-group" style="display:none"><label class="cl">Options (one per line)</label><textarea id="modal-options" rows="4" placeholder="Option 1&#10;Option 2"></textarea></div>
     <div class="cg" id="modal-placeholder-group"><label class="cl">Placeholder</label><input type="text" id="modal-placeholder"></div>
     <div id="modal-age-group" style="display:none">
@@ -2228,83 +2291,15 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
     <!-- Icon Select options -->
     <div id="modal-isel-group" style="display:none">
-      <!-- A7: Presets row -->
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        <button class="ibtn" onclick="iselSavePreset()" style="font-size:0.72rem;padding:3px 8px"><span class="material-icons-round mi" style="font-size:14px">bookmark_add</span> Save as preset</button>
-        <button class="ibtn" onclick="iselShowPresets()" style="font-size:0.72rem;padding:3px 8px"><span class="material-icons-round mi" style="font-size:14px">bookmarks</span> Load preset</button>
-        <div id="modal-isel-preset-list" style="display:none;flex:1;min-width:140px"></div>
-      </div>
-      <!-- Tiles: summary + Edit Tiles button (full editor in secondary popup) -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <label class="cl" style="margin:0">Tiles</label>
-          <span id="modal-isel-tile-count" style="font-size:0.75rem;color:var(--ink3)">0 tiles</span>
-        </div>
-        <button class="add-field-btn" onclick="iselOpenTilesModal()" style="font-size:0.72rem;padding:4px 10px">
-          <span class="material-icons-round mi" style="font-size:14px">grid_view</span> Edit tiles
+      <!-- Tiles summary row -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label class="cl" style="margin:0">Tiles</label>
+        <span id="modal-isel-tile-count" style="font-size:0.75rem;color:var(--ink3)">0 tiles</span>
+        <button class="ibtn" onclick="iselOpenTilesModal()" style="margin-left:auto;font-size:0.7rem;padding:2px 8px;display:flex;align-items:center;gap:3px">
+          <span class="material-icons-round mi" style="font-size:13px">grid_view</span> Edit tiles
         </button>
       </div>
-      <!-- Row 1: tile size + size mode + selected style -->
-      <div class="cr" style="gap:8px;margin-bottom:6px">
-        <div style="flex:1"><label class="cl">Tile size (px)</label><input type="number" id="modal-isel-size" value="64" min="40" max="300"></div>
-        <div style="flex:1"><label class="cl">Size mode</label>
-          <select id="modal-isel-size-mode">
-            <option value="fixed">Fixed px</option>
-            <option value="fill">Fill width</option>
-          </select>
-        </div>
-        <div style="flex:1"><label class="cl">Selected style</label>
-          <select id="modal-isel-selstyle">
-            <option value="border">Border highlight</option>
-            <option value="fill">Fill background</option>
-          </select>
-        </div>
-      </div>
-      <!-- Row 2: A1 brand colour pickers -->
-      <div class="cr" style="gap:8px;margin-bottom:6px">
-        <div style="flex:1"><label class="cl">Highlight colour</label>
-          <div id="modal-isel-color"></div>
-        </div>
-        <div style="flex:1"><label class="cl">Tile background</label>
-          <div id="modal-isel-tilebg"></div>
-        </div>
-        <div style="flex:1"><label class="cl">Tile border colour</label>
-          <div id="modal-isel-tileborder"></div>
-        </div>
-      </div>
-      <!-- Row 3: border width + alignment -->
-      <div class="cr" style="gap:8px;margin-bottom:6px">
-        <div style="flex:1"><label class="cl">Border width (px)</label>
-          <input type="number" id="modal-isel-borderw" value="2" min="0" max="8">
-        </div>
-        <div style="flex:1"><label class="cl">Alignment</label>
-          <select id="modal-isel-align">
-            <option value="left">Left</option>
-            <option value="center">Centre</option>
-            <option value="right">Right</option>
-          </select>
-        </div>
-        <div style="flex:1"></div>
-      </div>
-      <!-- Row 4: layout -->
-      <div class="cr" style="gap:8px;margin-bottom:4px">
-        <div style="flex:1"><label class="cl">Layout</label>
-          <select id="modal-isel-layout" onchange="iselOnLayoutChange()">
-            <option value="scroll">Horizontal scroll</option>
-            <option value="grid">Grid</option>
-          </select>
-        </div>
-      </div>
-      <div id="modal-isel-grid-opts" class="cr" style="display:none;gap:8px;margin-bottom:4px">
-        <div style="flex:1"><label class="cl">Columns</label><input type="number" id="modal-isel-cols" value="4" min="1" max="12"></div>
-        <div style="flex:1"><label class="cl">Fill direction</label>
-          <select id="modal-isel-flow">
-            <option value="row">Left → Right, then down</option>
-            <option value="col">Down first, then right</option>
-          </select>
-        </div>
-      </div>
-      <!-- Row 5: toggles (multi + min/max + labels + arrows) -->
+      <!-- Behavioural toggles only — all visual formatting lives in the tile editor -->
       <div class="cr" style="gap:12px;flex-wrap:wrap;align-items:center">
         <div style="display:flex;align-items:center;gap:8px">
           <label class="tgl"><input type="checkbox" id="modal-isel-multi" onchange="iselOnMultiChange()"><span class="tgl-s"></span></label>
@@ -2320,10 +2315,6 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <div style="display:flex;align-items:center;gap:8px">
           <label class="tgl"><input type="checkbox" id="modal-isel-labels" checked><span class="tgl-s"></span></label>
           <label class="tgl-lbl">Show labels</label>
-        </div>
-        <div id="modal-isel-arrows-wrap" style="display:flex;align-items:center;gap:8px">
-          <label class="tgl"><input type="checkbox" id="modal-isel-arrows" checked><span class="tgl-s"></span></label>
-          <label class="tgl-lbl">Scroll arrows</label>
         </div>
       </div>
     </div>
@@ -4803,6 +4794,9 @@ function iselRenderTilesModal(){
 let _iselBatchTextColor='',_iselBatchBgColor='',_iselBatchBorderColor='';
 function iselOpenTilesModal(){
   document.getElementById('isel-tiles-modal').style.display='flex';
+  // Ensure field-level colour pickers are initialised (they live in this modal now)
+  const colorEl=document.getElementById('modal-isel-color');
+  if(colorEl&&!colorEl.querySelector('.bcp-wrap'))_buildIselColorDropdowns(_iselSelColor,_iselTileBg,_iselTileBorder);
   iselRenderTilesModal();
   _buildIselColorPicker('isel-batch-text-wrap',  '', v=>{_iselBatchTextColor=v;});
   _buildIselColorPicker('isel-batch-bg-wrap',    '', v=>{_iselBatchBgColor=v;});
