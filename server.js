@@ -1633,7 +1633,12 @@ function renderFormField(f, cfg) {
         iconHtml = `<span class="sf-isel-icon sf-isel-emoji">${escapeHtml(item.icon || '')}</span>`;
       }
       const lblHtml = `<span class="sf-isel-lbl${showLbls ? '' : ' sf-isel-lbl-hide'}">${escapeHtml(item.label || item.value || '')}</span>`;
-      return `<div class="sf-isel-tile" data-val="${escapeHtml(item.value || '')}" role="option" aria-selected="false" tabindex="0">${iconHtml}${lblHtml}</div>`;
+      const perTileStyle = [
+        item.tileBg          ? `--sf-tile-bg:${item.tileBg}`              : '',
+        item.tileTextColor   ? `--sf-tile-text:${item.tileTextColor}`     : '',
+        item.tileBorderColor ? `--sf-tile-border:${item.tileBorderColor}` : '',
+      ].filter(Boolean).join(';');
+      return `<div class="sf-isel-tile"${perTileStyle ? ` style="${perTileStyle}"` : ''} data-val="${escapeHtml(item.value || '')}" role="option" aria-selected="false" tabindex="0">${iconHtml}${lblHtml}</div>`;
     }).join('');
 
     // Layout extras
@@ -1663,7 +1668,7 @@ function renderFormField(f, cfg) {
 
     const wrapHtml = `<div class="${wrapClass}" data-multi="${multi}" data-sel-style="${selStyle}" data-min-sel="${minSel}" data-max-sel="${maxSel}" style="--sf-isel-accent:${selColor}${sizeVar};--sf-isel-tile-bg:${tileBg};--sf-isel-border:${tileBorderColor};--sf-isel-bw:${tileBorderWidth}px;--sf-isel-align:${alignVal}${gridVars}">
         ${showArrows ? '<button type="button" class="sf-isel-arrow sf-isel-arrow-l" aria-label="Scroll left">&#8249;</button>' : ''}
-        <div class="${trackClass}">${tilesHtml}</div>
+        <div class="sf-isel-scroll"><div class="${trackClass}">${tilesHtml}</div></div>
         ${showArrows ? '<button type="button" class="sf-isel-arrow sf-isel-arrow-r" aria-label="Scroll right">&#8250;</button>' : ''}
         <input type="hidden" id="sf_${f.id}" name="${f.id}" value="" ${f.required ? 'required' : ''}>
       </div>`;
@@ -1789,10 +1794,13 @@ function sliderPickerCSS(accent) {
   .sf-arc-handle{transition:transform .05s linear;}
 
   /* Icon Select */
-  .sf-field--isel .sf-isel-wrap{position:relative;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none;justify-content:var(--sf-isel-align,flex-start);}
-  .sf-field--isel .sf-isel-wrap::-webkit-scrollbar{display:none;}
-  .sf-isel-track{display:flex;gap:8px;width:max-content;padding:2px;}
-  .sf-isel-tile{width:var(--sf-isel-size,64px);height:var(--sf-isel-size,64px);border-radius:10px;border:var(--sf-isel-bw,2px) solid var(--sf-isel-border,#e0e0e0);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color 150ms,background 150ms,box-shadow 150ms,color 150ms;background:var(--sf-isel-tile-bg,#fff);flex-shrink:0;user-select:none;-webkit-tap-highlight-color:transparent;padding:4px;box-sizing:border-box;}
+  .sf-field--isel .sf-isel-wrap{position:relative;padding:4px 0 8px;}
+  .sf-isel-has-arrows{padding-left:28px;padding-right:28px;}
+  /* sf-isel-scroll = the actual overflow/scroll container (arrows sit outside it in sf-isel-wrap) */
+  .sf-isel-scroll{display:flex;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;justify-content:var(--sf-isel-align,flex-start);}
+  .sf-isel-scroll::-webkit-scrollbar{display:none;}
+  .sf-isel-track{display:flex;gap:8px;width:max-content;padding:2px;flex-shrink:0;}
+  .sf-isel-tile{width:var(--sf-isel-size,64px);height:var(--sf-isel-size,64px);border-radius:10px;border:var(--sf-isel-bw,2px) solid var(--sf-tile-border,var(--sf-isel-border,#e0e0e0));display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color 150ms,background 150ms,box-shadow 150ms,color 150ms;background:var(--sf-tile-bg,var(--sf-isel-tile-bg,#fff));color:var(--sf-tile-text,currentColor);flex-shrink:0;user-select:none;-webkit-tap-highlight-color:transparent;padding:4px;box-sizing:border-box;}
   .sf-isel-tile:hover{border-color:#bbb;}
   .sf-isel-tile.sf-isel-sel.sf-isel-bdr{border-color:var(--sf-isel-accent);box-shadow:0 0 0 1px var(--sf-isel-accent);}
   .sf-isel-tile.sf-isel-sel.sf-isel-fill{background:var(--sf-isel-accent);border-color:var(--sf-isel-accent);}
@@ -1801,21 +1809,21 @@ function sliderPickerCSS(accent) {
   .sf-isel-mat{font-family:'Material Icons Round',sans-serif;font-weight:normal;font-style:normal;font-size:calc(var(--sf-isel-size,64px)*0.42);font-feature-settings:'liga';}
   .sf-isel-emoji{font-size:calc(var(--sf-isel-size,64px)*0.40);}
   .sf-isel-img{width:calc(var(--sf-isel-size,64px)*0.55);height:calc(var(--sf-isel-size,64px)*0.55);object-fit:contain;}
-  .sf-isel-txt{font-size:calc(var(--sf-isel-size,64px)*0.38);line-height:1;display:block;text-align:center;}
+  .sf-isel-txt{font-size:calc(var(--sf-isel-size,64px)*0.38);line-height:1;display:block;text-align:center;font-weight:600;color:inherit;}
   .sf-isel-lbl{font-size:11px;margin-top:3px;text-align:center;max-width:calc(var(--sf-isel-size,64px) - 6px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;line-height:1.2;}
   .sf-isel-lbl-hide{display:none;}
-  /* Scroll arrows */
-  .sf-isel-has-arrows{padding-left:28px;padding-right:28px;}
-  .sf-isel-arrow{position:absolute;top:50%;transform:translateY(-60%);z-index:2;width:24px;height:32px;background:rgba(255,255,255,0.88);border:1px solid #ddd;border-radius:6px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;color:#444;box-shadow:0 1px 4px rgba(0,0,0,.1);}
+  /* Scroll arrows — positioned relative to sf-isel-wrap (non-scrolling) so they never drift */
+  .sf-isel-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:24px;height:32px;background:rgba(255,255,255,0.88);border:1px solid #ddd;border-radius:6px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;color:#444;box-shadow:0 1px 4px rgba(0,0,0,.1);}
   .sf-isel-arrow:hover{background:#fff;color:#000;}
   .sf-isel-arrow-l{left:0;}
   .sf-isel-arrow-r{right:0;}
   .sf-isel-arrow[hidden]{display:none;}
   /* Fill-width layout */
+  .sf-isel-fill-w .sf-isel-scroll{width:100%;}
   .sf-isel-fill-w .sf-isel-track{display:flex;width:100%;}
   .sf-isel-fill-w .sf-isel-tile{flex:1;min-width:0;width:auto;height:var(--sf-isel-size,64px);}
   /* Grid layout */
-  .sf-isel-grid{overflow-x:visible;}
+  .sf-isel-grid .sf-isel-scroll{overflow:visible;}
   .sf-isel-grid .sf-isel-track{display:grid;grid-template-columns:repeat(var(--sf-isel-cols,4),var(--sf-isel-size,64px));width:auto;}
   .sf-isel-grid.sf-isel-fill-w .sf-isel-track{grid-template-columns:repeat(var(--sf-isel-cols,4),1fr);width:100%;}
   .sf-isel-grid .sf-isel-track-col{grid-auto-flow:column;grid-template-rows:repeat(var(--sf-isel-rows,4),var(--sf-isel-size,64px));grid-template-columns:unset;}
@@ -2001,17 +2009,19 @@ function sliderPickerJS() {
       });
     });
     /* ── Scroll arrows (A2) ── */
+    /* Arrows live in wrap (non-scrolling); actual scroll happens on sf-isel-scroll inside */
     var arrowL=wrap.querySelector('.sf-isel-arrow-l');
     var arrowR=wrap.querySelector('.sf-isel-arrow-r');
     if(arrowL&&arrowR){
+      var scroll=wrap.querySelector('.sf-isel-scroll')||wrap;
       function updateArrows(){
-        arrowL.hidden=wrap.scrollLeft<=0;
-        arrowR.hidden=wrap.scrollLeft>=wrap.scrollWidth-wrap.clientWidth-1;
+        arrowL.hidden=scroll.scrollLeft<=0;
+        arrowR.hidden=scroll.scrollLeft>=scroll.scrollWidth-scroll.clientWidth-1;
       }
       var tilePx=parseInt(getComputedStyle(wrap).getPropertyValue('--sf-isel-size'))||64;
-      arrowL.addEventListener('click',function(){wrap.scrollBy({left:-(tilePx+8),behavior:'smooth'});});
-      arrowR.addEventListener('click',function(){wrap.scrollBy({left:tilePx+8,behavior:'smooth'});});
-      wrap.addEventListener('scroll',updateArrows,{passive:true});
+      arrowL.addEventListener('click',function(){scroll.scrollBy({left:-(tilePx+8),behavior:'smooth'});});
+      arrowR.addEventListener('click',function(){scroll.scrollBy({left:tilePx+8,behavior:'smooth'});});
+      scroll.addEventListener('scroll',updateArrows,{passive:true});
       updateArrows();
     }
   });
