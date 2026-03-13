@@ -3476,6 +3476,7 @@ function removeReward(blockId,idx){const found=_blockArray(blockId);if(found&&fo
 
 // ── Brand Colour Picker (bcp) ──
 let _bcpCallbacks={};
+let _bcpBuilders={}; // containerId → custom rebuild fn (used by _buildIselColorPicker)
 function buildBrandColorPicker(containerId,currentColor,onChange){
   const c=document.getElementById(containerId);if(!c)return;
   _migrateBrandColors();
@@ -3525,7 +3526,9 @@ function bcpToggle(id){
 function bcpPick(containerId,color){
   const w=document.getElementById('bcpw-'+containerId);if(w)w.classList.remove('open');
   const cb=_bcpCallbacks[containerId];if(cb)cb(color);
-  buildBrandColorPicker(containerId,color,cb);
+  const builder=_bcpBuilders[containerId];
+  if(builder)builder(color,cb);
+  else buildBrandColorPicker(containerId,color,cb);
 }
 
 function rebuildDesignColorPickers(){
@@ -4622,7 +4625,7 @@ function onModalTypeChange(){
     iselOnLayoutChange();iselOnMultiChange();
     // Build colour dropdowns if not yet populated (e.g. user switching from another field type)
     const colorEl=document.getElementById('modal-isel-color');
-    if(colorEl&&!colorEl.options.length)_buildIselColorDropdowns('','','');
+    if(colorEl&&!colorEl.querySelector('.bcp-wrap'))_buildIselColorDropdowns('','','');
   }
 }
 function onDateModeChange(){
@@ -4749,11 +4752,11 @@ function iselRenderTilesModal(){
 }
 let _iselBatchTextColor='',_iselBatchBgColor='',_iselBatchBorderColor='';
 function iselOpenTilesModal(){
+  document.getElementById('isel-tiles-modal').style.display='flex';
   iselRenderTilesModal();
   _buildIselColorPicker('isel-batch-text-wrap',  '', v=>{_iselBatchTextColor=v;});
   _buildIselColorPicker('isel-batch-bg-wrap',    '', v=>{_iselBatchBgColor=v;});
   _buildIselColorPicker('isel-batch-border-wrap','', v=>{_iselBatchBorderColor=v;});
-  document.getElementById('isel-tiles-modal').style.display='flex';
 }
 function iselBatchApply(prop,batchVar){
   const val=batchVar==='_iselBatchTextColor'?_iselBatchTextColor:batchVar==='_iselBatchBgColor'?_iselBatchBgColor:_iselBatchBorderColor;
@@ -4870,6 +4873,7 @@ function _buildIselColorPicker(containerId, currentColor, onChange){
     <div class="bcp-dropdown">${items}</div>
   </div>`;
   _bcpCallbacks[containerId]=onChange;
+  _bcpBuilders[containerId]=(color,cb)=>_buildIselColorPicker(containerId,color,cb);
 }
 
 function _buildIselColorDropdowns(selColor,tileBg,tileBorder){
