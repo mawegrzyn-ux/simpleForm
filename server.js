@@ -1204,6 +1204,17 @@ app.put('/api/admin/design-templates/:id', adminAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.patch('/api/admin/design-templates/:id', adminAuth, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
+    const { rowCount } = await pool.query(
+      'UPDATE design_templates SET name=$1 WHERE id=$2', [name.trim(), req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Icon Select presets ────────────────────────────────────────────────────────
 app.get('/api/admin/isel-presets', adminAuth, async (req, res) => {
   try {
