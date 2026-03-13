@@ -1082,15 +1082,16 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 
         <h3>5. Key Risks &amp; Mitigations</h3>
         <p>The primary operational risk is the single-server model: if the AWS Lightsail instance becomes unavailable, the platform goes offline. This is mitigated by automated process restarts via PM2, continuous database backups via Lightsail's managed snapshot system, and the low recovery complexity — the application can be restored on a fresh instance from the repository and environment variables alone. The second risk is key-person dependency: all architecture decisions, configuration, and deployment knowledge are documented in this system panel and the project README specifically to make the platform operable without its original developer.</p>
-        <p>On the data side, the primary risk is a breach of the subscriber database. Mitigations include encrypted storage at rest (Lightsail managed DB default), private network access only (no public database endpoint), strong session secrets, strict input validation on all subscriber-facing routes, and Content Security Policy headers that block injection of unauthorised scripts. GDPR compliance obligations — right to erasure, consent audit logging, data export — are fully implemented in the current codebase.</p>
+        <p>On the data side, the primary risk is a breach of the subscriber database. Mitigations include encrypted storage at rest (Lightsail managed DB default), private network access only (no public database endpoint), strong session secrets, strict input validation on all subscriber-facing routes, and Content Security Policy headers that block injection of unauthorised scripts. GDPR compliance obligations — right to erasure, consent audit logging, data export, and a three-category cookie consent manager with script blocking — are fully implemented in the current codebase.</p>
 
         <h3>6. Roadmap</h3>
-        <p>Near-term priorities are completing the security hardening phase (adding CAPTCHA to the public signup route and automated dependency vulnerability scanning) and expanding analytics (per-form view and conversion tracking). Medium-term, the platform will gain webhook and API integrations — enabling subscriber data to flow automatically into email service providers (Mailchimp, Klaviyo) or CRM platforms (HubSpot) without manual exports, reducing operational overhead as audience volume grows.</p>
+        <p>Near-term priorities are completing the security hardening phase (adding CAPTCHA to the public signup route and automated dependency vulnerability scanning). GA4 and Meta Pixel integration with a GDPR-compliant consent manager are now live — analytics (GA4) and marketing (Meta Pixel) scripts are consent-gated and injected dynamically only after the visitor opts in. Medium-term, the platform will gain webhook and API integrations — enabling subscriber data to flow automatically into email service providers (Mailchimp, Klaviyo) or CRM platforms (HubSpot) without manual exports, reducing operational overhead as audience volume grows.</p>
         <p>Longer term, the roadmap includes a full REST API with API-key authentication, multi-user admin access with role-based permissions, double opt-in email confirmation flows, and configurable data retention policies. All of these extend the current architecture rather than replace it — the foundation is already in place.</p>
 
         <h3>7. GDPR &amp; Data Protection</h3>
         <p>SignFlow is built with data protection as a first-class requirement. Every subscriber signup captures a consent timestamp and IP address as a permanent audit record — evidence that consent was freely given at a specific moment in time. Each subscriber receives a unique, private token granting them direct self-service access to update their preferences, unsubscribe from individual newsletters, or request complete deletion of their data — with no need to contact WingVibes directly. All deletion requests result in a hard, permanent removal from the database, satisfying the right to erasure under UK and EU GDPR.</p>
-        <p>WingVibes, as the business operating this platform, is the data controller. Subscriber data is never shared with advertising networks or analytics platforms. Data is held exclusively on private AWS infrastructure within the EU (Paris region). The platform's export capability allows a full data package to be produced for any subject access request within minutes. Remaining compliance obligations — maintaining a Record of Processing Activities and executing a Data Processing Agreement with the configured SMTP provider — sit with WingVibes as operator and are outside the platform's technical scope.</p>
+        <p>A GDPR-compliant cookie consent manager is displayed on every direct-load form page. Visitors must explicitly opt in before any analytics (GA4) or marketing (Meta Pixel) scripts are loaded — no tracking scripts fire until consent is granted. Visitors can withdraw or change their preferences at any time via the "Cookie settings" link. Consent is versioned and timestamped in <code>localStorage</code>.</p>
+        <p>WingVibes, as the business operating this platform, is the data controller. Subscriber data is never shared with third parties without the visitor's explicit cookie consent. Analytics and marketing data is only transmitted to Google / Meta if the visitor opts in. Data is held exclusively on private AWS infrastructure within the EU (Paris region). The platform's export capability allows a full data package to be produced for any subject access request within minutes. Remaining compliance obligations — maintaining a Record of Processing Activities and executing a Data Processing Agreement with the configured SMTP provider — sit with WingVibes as operator and are outside the platform's technical scope.</p>
 
         <h3>8. AI-Assisted Development &amp; Developer Handover</h3>
         <p>SignFlow is developed using Claude (Anthropic's AI coding assistant) as the primary development tool. Every feature and architectural decision is implemented through a structured, documented process: requirements are stated in plain language, a technical plan is reviewed and approved before any code is written, and changes are verified against the live codebase before deployment. The full development history — including the intent behind each decision and the rationale for every design choice — is captured in session transcripts, not buried in commit messages. Any developer brought in can understand not just <em>what</em> was built, but <em>why</em>, without a handover meeting.</p>
@@ -1281,12 +1282,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>renderFormField()</code></td><td>label, placeholder, select options, slider min/max labels, slider icon</td></tr>
           <tr><td><code>renderBlockElement()</code></td><td>heading/paragraph text, image alt, video caption, button label</td></tr>
           <tr><td><code>renderSectionBlock()</code></td><td>hero heading + subheading, footer text, video caption, spin button text, CTA button text</td></tr>
-          <tr><td><code>renderPublicPage()</code></td><td>page <code>&lt;title&gt;</code>, cookie banner text</td></tr>
+          <tr><td><code>renderPublicPage()</code></td><td>page <code>&lt;title&gt;</code></td></tr>
           <tr><td><code>renderPreferencePage()</code></td><td>page title, heading, subtext, status message, subscriber email, form name, subscriber status, hidden token/email inputs</td></tr>
           <tr><td><code>renderPrefCenterBlock()</code></td><td>block heading/paragraph text, image alt, button label</td></tr>
           <tr><td><code>renderUnsubscribePage()</code>, <code>renderPrivacyPage()</code></td><td>page title, site title</td></tr>
         </table>
-        <p>WYSIWYG fields (<code>emailBodyHtml</code>, <code>privacyContent</code>, <code>el.html</code>, <code>block.html</code>) are admin-authored rich content passed through <code>sanitizeWysiwyg()</code> before rendering — see Plan B below.</p>
+        <p>WYSIWYG fields (<code>emailBodyHtml</code>, <code>privacyContent</code>, <code>el.html</code>, <code>block.html</code>, <code>cookieBannerText</code>) are admin-authored rich content passed through <code>sanitizeWysiwyg()</code> before rendering — see Plan B below.</p>
 
         <h3>XSS prevention — Plan B: WYSIWYG sanitisation</h3>
         <p><code>sanitizeWysiwyg(html)</code> wraps <code>sanitize-html</code> with an explicit allowlist of safe tags and attributes. It is applied to every WYSIWYG field before it is interpolated into a page HTML string.</p>
@@ -1294,7 +1295,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><th>Allowed tags</th><td>h1–h6, p, strong, em, b, i, u, s, br, ul, ol, li, a, img, blockquote, code, pre, table, thead, tbody, tr, td, th, span, div, hr</td></tr>
           <tr><th>Allowed attributes</th><td><code>a</code>: href, target, rel &nbsp;·&nbsp; <code>img</code>: src, alt, width, height, style &nbsp;·&nbsp; <code>*</code>: style, class</td></tr>
           <tr><th>Allowed URL schemes</th><td>http, https, mailto (blocks javascript: URIs)</td></tr>
-          <tr><th>Applied to</th><td><code>el.html</code> (WYSIWYG blocks in forms), <code>block.html</code> (pref centre), <code>s.privacyContent</code> (privacy page), <code>s.emailBodyHtml</code> (welcome email)</td></tr>
+          <tr><th>Applied to</th><td><code>el.html</code> (WYSIWYG blocks in forms), <code>block.html</code> (pref centre), <code>s.privacyContent</code> (privacy page), <code>s.emailBodyHtml</code> (welcome email), <code>s.cookieBannerText</code> (cookie consent banner)</td></tr>
         </table>
 
         <h3>XSS prevention — Plan C: admin subscriber table</h3>
@@ -1384,7 +1385,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Right to withdraw consent</strong> — <code>/unsubscribe?token=…</code> sets status to unsubscribed</div>
           <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Consent timestamp + IP</strong> — recorded on every signup as GDPR evidence</div>
           <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Data deletion</strong> — <code>/delete-data?token=…</code> hard-deletes on subscriber request</div>
-          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Cookie consent banner</strong> — shown on first visit with accept / reject</div>
+          <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Cookie consent manager</strong> — granular opt-in per category (Necessary / Analytics / Marketing); GA4 + Meta Pixel scripts blocked until the visitor explicitly consents; preferences stored in <code>localStorage</code> with version + timestamp; "Cookie settings" link allows withdrawal at any time</div>
           <div class="gdpr-item"><div class="gdpr-dot"><span class="material-icons-round mi">check</span></div> <strong>Export portability</strong> — CSV and JSON download available at any time</div>
         </div>
         <h3>Operator responsibilities</h3>
@@ -1430,6 +1431,17 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-13 — GDPR cookie consent manager</h3>
+        <ul>
+          <li>✅ <strong>Three-category consent</strong> — Necessary (always active) / Analytics (GA4) / Marketing (Meta Pixel); category rows only shown when the corresponding ID is configured</li>
+          <li>✅ <strong>Script blocking</strong> — GA4 and Meta Pixel are <em>never</em> injected at page load; <code>trackingConfigBlock()</code> embeds IDs as a JSON data block; consent manager JS injects scripts dynamically only after the visitor explicitly opts in</li>
+          <li>✅ <strong>Three-button UI</strong> — Accept all / Necessary only (equal prominence) / Manage preferences (expands per-category toggles, all off by default — no pre-ticked boxes)</li>
+          <li>✅ <strong>Persistent choice</strong> — <code>sf_consent</code> localStorage key stores <code>{v, ts, necessary, analytics, marketing}</code>; returning visitors have approved scripts applied immediately without re-prompting</li>
+          <li>✅ <strong>Withdraw anytime</strong> — "Cookie settings" fixed link appears after first consent; reopens banner in preferences mode</li>
+          <li>✅ <strong>Accessibility</strong> — <code>role="dialog"</code>, <code>aria-modal</code>, <code>aria-expanded</code>, <code>aria-controls</code> on all interactive elements</li>
+          <li>✅ <strong>Privacy page updated</strong> — built-in <code>/privacy</code> page section 7 now describes all three cookie categories and the withdrawal mechanism</li>
+          <li>✅ <strong>Default banner text updated</strong> — new forms get a proper GDPR-appropriate notice by default</li>
+        </ul>
         <h3>2026-03-13 — GA4 + Meta Pixel tracking integration</h3>
         <ul>
           <li>✅ <strong>GA4 integration</strong> — per-form GA4 Measurement ID in Settings → Analytics &amp; Tracking; <code>ga4Snippet()</code> injects <code>gtag.js</code> + config into direct-load form pages; fires <code>generate_lead</code> event on successful submission</li>
@@ -1516,12 +1528,13 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </ul>
         <h3>Phase 4 — GDPR Tooling</h3>
         <ul>
+          <li>✅ <strong>GDPR cookie consent manager</strong> — three-category opt-in (Necessary / Analytics / Marketing); GA4 + Meta Pixel scripts blocked until explicit consent; granular preferences panel; persistent <code>localStorage</code> record with version + timestamp; "Cookie settings" withdrawal link; embeds excluded (handled via postMessage)</li>
           <li>Immutable consent audit trail with form-version snapshot</li>
           <li>Double opt-in confirmation email flow</li>
           <li>Configurable data retention policies + automated purge job</li>
           <li>Subject access request (SAR) data-package generator</li>
           <li>Bulk GDPR erasure across all forms by email</li>
-          <li>IAB TCF 2.2 compliant cookie consent</li>
+          <li>IAB TCF 2.2 full compliance (registered CMP, encoded consent string, GVL integration)</li>
         </ul>
         <h3>Phase 5 — Export API &amp; Integrations</h3>
         <ul>
@@ -1660,10 +1673,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <div class="cg"><label class="cl">Form description <span style="font-weight:400;color:var(--ink3)">(internal notes / admin only)</span></label><textarea id="c-description" rows="2" style="resize:vertical;font-size:0.85rem;line-height:1.5" placeholder="What this form is for, any notes…" oninput="cfg.site.description=this.value"></textarea></div>
     </div>
     <div class="card" style="padding:16px">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">cookie</span> Cookie & Legal</div>
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">cookie</span> Cookie &amp; Legal</div>
+      <div class="info-box" style="margin-bottom:10px;font-size:0.73rem">A GDPR-compliant consent manager is shown automatically on direct-load pages. Analytics (GA4) and marketing (Meta Pixel) scripts are blocked until the visitor explicitly opts in. Configure tracking IDs in the <strong>Analytics &amp; Tracking</strong> card above.</div>
       <div class="cg">
         <label class="cl">Cookie banner text</label>
         <div class="wysi-preview" id="c-cookie-preview" onclick="openCookieBannerWysiwyg()" style="min-height:42px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit cookie banner text…</span></div>
+        <div class="info-box" style="margin-top:4px;font-size:0.73rem">This text appears in the consent banner. Leave blank to use the built-in GDPR notice.</div>
       </div>
       <div class="cg"><label class="cl">Privacy policy URL</label><input type="text" id="c-privacy" oninput="cfg.site.privacyPolicyUrl=this.value;schedulePreview()">
         <div class="info-box" style="margin-top:5px;font-size:0.73rem">Leave as <code>/privacy</code> to use the built-in form privacy page (editable in the Privacy Page section below).</div>
@@ -1976,8 +1991,18 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <ul>
           <li><strong>Form title</strong> — shown in browser tab and email subject line</li>
           <li><strong>Slug</strong> — URL path segment (e.g. <code>my-newsletter</code> → <code>/my-newsletter</code>). Must be unique and URL-safe. Reserved slugs: <code>admin, auth, api, embed, preferences</code>.</li>
-          <li><strong>Privacy policy URL</strong> — used in the GDPR disclaimer and cookie banner links</li>
-          <li><strong>Cookie banner text</strong> — shown to first-time visitors on the direct page load (not in embeds)</li>
+          <li><strong>Privacy policy URL</strong> — used in the GDPR disclaimer and cookie consent banner links</li>
+          <li><strong>Cookie banner text</strong> — the explanatory text shown in the consent banner. Supports rich text (bold, links). Leave blank to use the built-in default notice.</li>
+        </ul>
+        <h3>Cookie Consent Manager</h3>
+        <p>SignFlow includes a GDPR-compliant cookie consent manager on every direct-load form page. Key behaviours:</p>
+        <ul>
+          <li><strong>Three categories</strong> — <em>Necessary</em> (always active), <em>Analytics</em> (GA4 — opt-in), <em>Marketing</em> (Meta Pixel — opt-in). Category rows only appear when the corresponding ID is configured in Analytics &amp; Tracking.</li>
+          <li><strong>Script blocking</strong> — GA4 and Meta Pixel scripts are <em>never</em> injected at page load. They are loaded dynamically by client-side JS only after the visitor explicitly grants consent for that category.</li>
+          <li><strong>Three-button UI</strong> — <em>Accept all</em>, <em>Necessary only</em> (equal prominence, no dark patterns), and <em>Manage preferences</em> (expands granular toggles — all off by default).</li>
+          <li><strong>Persistent choice</strong> — consent is stored as JSON in <code>localStorage</code> under key <code>sf_consent</code> with a version number and timestamp. Previously consented visitors have scripts applied immediately on load without seeing the banner again.</li>
+          <li><strong>Withdraw anytime</strong> — a <em>Cookie settings</em> link appears at the bottom-right of the page after first consent, allowing visitors to reopen the manager and change or withdraw their choices.</li>
+          <li><strong>Embeds excluded</strong> — the consent banner does not appear inside embedded iframes. Analytics events for embeds are handled via the host page's existing GA4/Pixel via <code>postMessage</code>.</li>
         </ul>
         <h3>hCaptcha</h3>
         <p>Enable bot protection per-form. Enter your <strong>hCaptcha site key</strong> and <strong>secret key</strong> (from hcaptcha.com). When enabled, a CAPTCHA challenge appears above the submit button.</p>
@@ -2088,13 +2113,14 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </ul>
         <h3>📋 GDPR &amp; Data Protection</h3>
         <ul>
+          <li>✅ <strong>GDPR cookie consent manager</strong> — three-category opt-in (Necessary / Analytics / Marketing); GA4 + Meta Pixel scripts blocked until explicit consent; granular preferences panel with toggles off by default; "Cookie settings" withdrawal link; consent stored with version + timestamp</li>
           <li><strong>Consent audit trail</strong> — immutable log of each consent event (timestamp, IP, form version, text shown)</li>
           <li><strong>Data Processing Agreements (DPAs)</strong> — downloadable DPA template, sub-processor register</li>
           <li><strong>Right to access</strong> — API endpoint returning full subscriber data as structured JSON</li>
           <li><strong>Right to erasure</strong> — cryptographic erasure token; cascades across all forms when subscriber requests deletion</li>
           <li><strong>Data retention policies</strong> — configurable auto-purge of inactive subscribers after N months</li>
           <li><strong>Privacy-by-design</strong> — IP hashing / anonymisation option, configurable consent text per jurisdiction (EU, UK, CA, US)</li>
-          <li><strong>Cookie-free analytics</strong> — lightweight signup funnel stats (views → starts → completions) with no PII storage</li>
+          <li><strong>IAB TCF 2.2 full compliance</strong> — registered CMP, encoded consent string, Global Vendor List integration</li>
         </ul>
         <h3>⚡ Performance &amp; Scalability</h3>
         <ul>

@@ -359,7 +359,9 @@ const GENERIC_PREVIEW_FIELDS = [
 function defaultFormConfig(slug, name) {
   return {
     slug, name,
-    site: { title: name, description: '', favicon: '', adminPassword: '', cookieBannerText: '', privacyPolicyUrl: '/privacy',
+    site: { title: name, description: '', favicon: '', adminPassword: '',
+            cookieBannerText: 'We use <strong>necessary cookies</strong> to keep this site running. With your consent, analytics and marketing cookies help us improve our service.',
+            privacyPolicyUrl: '/privacy',
             gdprText: 'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.',
             unsubscribeEnabled: true, captchaEnabled: false, hcaptchaSiteKey: '', hcaptchaSecretKey: '',
             emailEnabled: false, emailFromName: '', emailReplyTo: '', emailSubject: '', emailBodyHtml: '',
@@ -1500,6 +1502,16 @@ function metaPixelSnippet(pixelId) {
     `src="https://www.facebook.com/tr?id=${id}&ev=PageView&noscript=1"/></noscript>`;
 }
 
+// Embeds tracking config as a JSON data block read by the consent manager JS.
+// Scripts are NOT injected at page load — the consent manager injects them
+// dynamically only after the visitor grants the relevant consent category.
+function trackingConfigBlock(siteCfg) {
+  const ga4 = (siteCfg.ga4MeasurementId || '').trim();
+  const pixel = (siteCfg.metaPixelId || '').trim();
+  if (!ga4 && !pixel) return '';
+  return `<script type="application/json" id="sf-tc">${JSON.stringify({ ga4, pixel })}</script>`;
+}
+
 function gdprHtml(siteCfg) {
   const text = siteCfg.gdprText ||
     'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.';
@@ -2464,17 +2476,35 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   .sf-gdpr-check input[type=checkbox] { margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
   .sf-gdpr-check a { color: var(--accent); }
   .sf-footer { text-align: center; margin-top: 28px; font-size: 0.82rem; color: #aaa; }
-  /* Cookie banner */
-  #sf-cookie { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; color: #eee; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; z-index: 9999; flex-wrap: wrap; font-size: 0.88rem; }
-  #sf-cookie a { color: var(--accent); }
-  #sf-cookie-accept { background: var(--accent); color: #fff; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 0.88rem; white-space: nowrap; }
+  /* ── Cookie Consent Manager ─────────────────────────────────────── */
+  #sf-consent{position:fixed;bottom:0;left:0;right:0;background:#1a1a1a;color:#eee;padding:18px 22px;z-index:9999;font-size:0.87rem;line-height:1.5;box-shadow:0 -4px 18px rgba(0,0,0,.4);}
+  #sf-consent a{color:var(--accent);}
+  #sf-cm-main{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  #sf-cm-text{flex:1;min-width:200px;}
+  #sf-cm-btns{display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;}
+  .sf-cb{border:none;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:0.83rem;white-space:nowrap;font-family:inherit;}
+  .sf-cb-primary{background:var(--accent);color:#fff;}
+  .sf-cb-ghost{background:transparent;color:#ccc;border:1px solid #555;}
+  .sf-cb-link{background:none;border:none;color:#999;font-size:0.8rem;text-decoration:underline;cursor:pointer;padding:0;font-family:inherit;}
+  #sf-cm-prefs{display:none;margin-top:14px;border-top:1px solid #333;padding-top:14px;}
+  .sf-cat{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;}
+  .sf-cat-info{flex:1;}
+  .sf-cat-label{font-weight:600;font-size:0.84rem;color:#eee;}
+  .sf-cat-desc{font-size:0.77rem;color:#aaa;margin-top:2px;}
+  .sf-cat-always{font-size:0.77rem;color:#777;font-style:italic;align-self:center;white-space:nowrap;}
+  .sf-tgl{position:relative;display:inline-block;width:34px;height:18px;flex-shrink:0;margin-top:3px;}
+  .sf-tgl input{opacity:0;width:0;height:0;}
+  .sf-tgl-s{position:absolute;inset:0;border-radius:18px;background:#444;cursor:pointer;transition:background 180ms;}
+  .sf-tgl-s:before{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform 180ms;}
+  .sf-tgl input:checked+.sf-tgl-s{background:var(--accent);}
+  .sf-tgl input:checked+.sf-tgl-s:before{transform:translateX(16px);}
+  #sf-cm-save-row{display:flex;justify-content:flex-end;margin-top:6px;}
+  #sf-cookie-link{display:none;position:fixed;bottom:6px;right:10px;font-size:0.72rem;color:#aaa;text-decoration:underline;z-index:9998;background:transparent;border:none;cursor:pointer;font-family:inherit;}
   .sf-captcha { margin: 16px 0 4px; display: flex; justify-content: center; }
   @media(max-width:500px){ .sf-card { padding: 32px 20px; } }
   ${sliderPickerCSS(d.accentColor)}
 </style>
 ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
-${ga4Snippet(s.ga4MeasurementId)}
-${metaPixelSnippet(s.metaPixelId)}
 </head>
 <body>
 <div class="sf-card">
@@ -2487,23 +2517,140 @@ ${metaPixelSnippet(s.metaPixelId)}
   ${confirmationBlocks ? `<div id="sf-confirmation" style="display:none">${confirmationBlocks}</div>` : ''}
 </div>
 
-<!-- Cookie Banner -->
-<div id="sf-cookie" style="display:none">
-  <span>${escapeHtml(s.cookieBannerText)} <a href="${s.privacyPolicyUrl}">Learn more</a></span>
-  <button id="sf-cookie-accept">Accept</button>
+<!-- "Cookie settings" link — shown after first consent is recorded -->
+<button id="sf-cookie-link" aria-label="Manage cookie preferences">Cookie settings</button>
+
+${trackingConfigBlock(s)}
+
+<!-- Cookie Consent Manager -->
+<div id="sf-consent" role="dialog" aria-label="Cookie consent" aria-modal="true" style="display:none">
+  <div id="sf-cm-main">
+    <div id="sf-cm-text">
+      ${sanitizeWysiwyg(s.cookieBannerText || 'We use <strong>necessary cookies</strong> to keep this site running. With your consent, analytics and marketing cookies help us improve our service.')}
+      <a href="${s.privacyPolicyUrl}" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+    </div>
+    <div id="sf-cm-btns">
+      <button class="sf-cb sf-cb-link" id="sf-c-manage" aria-expanded="false" aria-controls="sf-cm-prefs">Manage preferences</button>
+      <button class="sf-cb sf-cb-ghost" id="sf-c-reject">Necessary only</button>
+      <button class="sf-cb sf-cb-primary" id="sf-c-accept">Accept all</button>
+    </div>
+  </div>
+  <div id="sf-cm-prefs" role="region" aria-label="Cookie category preferences">
+    <div class="sf-cat">
+      <label class="sf-tgl"><input type="checkbox" disabled checked><span class="sf-tgl-s"></span></label>
+      <div class="sf-cat-info">
+        <div class="sf-cat-label">Necessary</div>
+        <div class="sf-cat-desc">Session management, CSRF protection, and your consent record. Required for the site to function correctly.</div>
+      </div>
+      <span class="sf-cat-always">Always active</span>
+    </div>
+    <div class="sf-cat" id="sf-cat-analytics">
+      <label class="sf-tgl"><input type="checkbox" id="sf-tgl-analytics"><span class="sf-tgl-s"></span></label>
+      <div class="sf-cat-info">
+        <div class="sf-cat-label">Analytics</div>
+        <div class="sf-cat-desc">Measures page visits and signup conversions via Google Analytics (GA4). No personally identifiable information is shared with Google.</div>
+      </div>
+    </div>
+    <div class="sf-cat" id="sf-cat-marketing">
+      <label class="sf-tgl"><input type="checkbox" id="sf-tgl-marketing"><span class="sf-tgl-s"></span></label>
+      <div class="sf-cat-info">
+        <div class="sf-cat-label">Marketing</div>
+        <div class="sf-cat-desc">Enables conversion tracking via Meta Pixel to measure advertising campaign effectiveness on Facebook/Instagram.</div>
+      </div>
+    </div>
+    <div id="sf-cm-save-row"><button class="sf-cb sf-cb-primary" id="sf-c-save">Save preferences</button></div>
+  </div>
 </div>
 
 <script>
+// ── Cookie Consent Manager ──────────────────────────────────────────────────
 (function(){
-  // Cookie banner — only on direct page loads (not in iframes/embeds)
-  if(window.self === window.top && !localStorage.getItem('sf_cookie_ok')){
-    document.getElementById('sf-cookie').style.display='flex';
+  var CKEY='sf_consent', CVER=1;
+  // Read tracking config injected by server (absent when no IDs configured)
+  var tc={};
+  try{var tcEl=document.getElementById('sf-tc');if(tcEl)tc=JSON.parse(tcEl.textContent);}catch(e){}
+  var hasGa4=!!(tc.ga4&&tc.ga4.trim()), hasPx=!!(tc.pixel&&tc.pixel.trim());
+  var banner=document.getElementById('sf-consent');
+  var prefs=document.getElementById('sf-cm-prefs');
+  var anaRow=document.getElementById('sf-cat-analytics');
+  var mktRow=document.getElementById('sf-cat-marketing');
+  var anaTgl=document.getElementById('sf-tgl-analytics');
+  var mktTgl=document.getElementById('sf-tgl-marketing');
+  var manBtn=document.getElementById('sf-c-manage');
+  var acceptBtn=document.getElementById('sf-c-accept');
+  var rejectBtn=document.getElementById('sf-c-reject');
+  var saveBtn=document.getElementById('sf-c-save');
+  var csLink=document.getElementById('sf-cookie-link');
+  // Hide category rows for unconfigured providers
+  if(anaRow)anaRow.style.display=hasGa4?'':'none';
+  if(mktRow)mktRow.style.display=hasPx?'':'none';
+  // When no optional cookies are present, simplify to a single acknowledgement
+  if(!hasGa4&&!hasPx){
+    if(rejectBtn)rejectBtn.style.display='none';
+    if(manBtn)manBtn.style.display='none';
+    if(acceptBtn)acceptBtn.textContent='OK';
   }
-  document.getElementById('sf-cookie-accept').addEventListener('click',function(){
-    localStorage.setItem('sf_cookie_ok','1');
-    document.getElementById('sf-cookie').style.display='none';
+  function readConsent(){
+    try{var c=JSON.parse(localStorage.getItem(CKEY)||'null');if(c&&c.v===CVER)return c;}catch(e){}
+    return null;
+  }
+  // Dynamically inject GA4 only after analytics consent is granted
+  function injectGa4(id){
+    if(document.getElementById('sf-ga4-js'))return;
+    window.dataLayer=window.dataLayer||[];
+    window.gtag=function(){dataLayer.push(arguments);};
+    gtag('js',new Date());gtag('config',id,{send_page_view:true});
+    var s=document.createElement('script');
+    s.id='sf-ga4-js';s.async=true;
+    s.src='https://www.googletagmanager.com/gtag/js?id='+id;
+    document.head.appendChild(s);
+  }
+  // Dynamically inject Meta Pixel only after marketing consent is granted
+  function injectPixel(id){
+    if(window.fbq)return;
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init',id);fbq('track','PageView');
+  }
+  function applyConsent(c){
+    if(c.analytics&&hasGa4)injectGa4(tc.ga4.trim());
+    if(c.marketing&&hasPx)injectPixel(tc.pixel.trim());
+  }
+  function saveAndApply(ana,mkt){
+    var c={v:CVER,ts:Date.now(),necessary:true,analytics:!!ana,marketing:!!mkt};
+    localStorage.setItem(CKEY,JSON.stringify(c));
+    banner.style.display='none';
+    if(csLink)csLink.style.display='block';
+    applyConsent(c);
+  }
+  // On load: apply existing consent or show banner
+  if(window.self===window.top){
+    var existing=readConsent();
+    if(existing){applyConsent(existing);if(csLink)csLink.style.display='block';}
+    else{banner.style.display='block';}
+  }
+  if(acceptBtn)acceptBtn.addEventListener('click',function(){saveAndApply(true,true);});
+  if(rejectBtn)rejectBtn.addEventListener('click',function(){saveAndApply(false,false);});
+  if(saveBtn)saveBtn.addEventListener('click',function(){
+    saveAndApply(anaTgl&&anaTgl.checked,mktTgl&&mktTgl.checked);
   });
+  if(manBtn)manBtn.addEventListener('click',function(){
+    var open=prefs.style.display==='block';
+    prefs.style.display=open?'none':'block';
+    manBtn.setAttribute('aria-expanded',String(!open));
+  });
+  // "Cookie settings" link re-opens the banner in preferences mode
+  if(csLink)csLink.addEventListener('click',function(){
+    var cur=readConsent();
+    if(anaTgl)anaTgl.checked=!!(cur&&cur.analytics);
+    if(mktTgl)mktTgl.checked=!!(cur&&cur.marketing);
+    prefs.style.display='block';
+    if(manBtn)manBtn.setAttribute('aria-expanded','true');
+    banner.style.display='block';
+    banner.scrollIntoView({behavior:'smooth'});
+  });
+})();
 
+(function(){
   // Form submission
   const form = document.getElementById('sf-form');
   if(!form) return;
@@ -2771,8 +2918,14 @@ ${customFontFaceCSS(cfg, sharedFonts)}
   </ul>
   <h2>6. Data retention</h2>
   <p>We retain your data for as long as you are subscribed. If you unsubscribe, we retain a minimal record for our legal consent logs. If you request deletion, all data is permanently removed.</p>
-  <h2>7. Cookies</h2>
-  <p>We use a single cookie/localStorage item to remember that you have accepted this cookie notice. No tracking or advertising cookies are used.</p>
+  <h2>7. Cookies &amp; Tracking</h2>
+  <p>We use a cookie consent manager to control what runs in your browser. Cookies are grouped into three categories:</p>
+  <ul>
+    <li><strong>Necessary</strong> — Always active. These include your session cookie, a CSRF security token, and the localStorage record of your cookie preferences. Without them the site cannot function.</li>
+    <li><strong>Analytics</strong> — Only loaded with your consent. If enabled, Google Analytics (GA4) measures page visits and signup conversions. No personally identifiable information is shared with Google.</li>
+    <li><strong>Marketing</strong> — Only loaded with your consent. If enabled, Meta Pixel measures advertising campaign effectiveness. Data is processed by Meta Platforms Ireland Ltd.</li>
+  </ul>
+  <p>You can review or withdraw your consent at any time using the <strong>Cookie settings</strong> link at the bottom of the page. Withdrawing consent does not affect the lawfulness of processing carried out before withdrawal.</p>
   <h2>8. Contact</h2>
   <p>For any data-related requests, please contact the site administrator.</p>
   <p style="margin-top:32px"><a href="/">← Back</a></p>`}
