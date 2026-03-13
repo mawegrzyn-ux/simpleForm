@@ -1005,7 +1005,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     <div id="system-sections">
 
     <!-- EXECUTIVE SUMMARY -->
-    <div class="help-group" data-tags="executive summary overview scope objective business benefits roadmap risks">
+    <div class="help-group" data-tags="executive summary overview scope objective business benefits roadmap risks gdpr data protection privacy ai coding handover onboarding developer">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">summarize</span> Executive Summary
         <span class="material-icons-round mi help-chevron">expand_more</span>
@@ -1035,6 +1035,14 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <h3>6. Roadmap</h3>
         <p>Near-term priorities are completing the security hardening phase (adding CAPTCHA to the public signup route and automated dependency vulnerability scanning) and expanding analytics (per-form view and conversion tracking). Medium-term, the platform will gain webhook and API integrations — allowing subscriber data to flow automatically into email service providers (Mailchimp, Klaviyo) or CRM platforms (HubSpot) without manual exports.</p>
         <p>Longer term, the roadmap includes a full REST API with API-key authentication, multi-user admin access with role-based permissions, double opt-in email confirmation, and configurable data retention policies. The architecture supports all of these additions without a rebuild — they extend the existing foundation rather than replace it.</p>
+
+        <h3>7. GDPR &amp; Data Protection</h3>
+        <p>SignFlow is built with data protection as a first-class requirement, not an afterthought. Every subscriber signup captures a consent timestamp and the subscriber's IP address as a permanent audit record — evidence that consent was freely given at a specific point in time. Each subscriber receives a unique, unguessable token that gives them direct self-service access to update their preferences, unsubscribe from individual newsletters, or request complete deletion of their data — without needing to contact the business. All deletion requests result in a hard, permanent removal from the database, satisfying the right to erasure under UK and EU GDPR.</p>
+        <p>As the platform operator, Obscure Kitty is the data controller. Subscriber data is never shared with advertising networks, analytics platforms, or any third party beyond the transactional email provider used to send welcome emails. Data is held exclusively on private AWS infrastructure within the EU (Paris region). The platform's export capability allows a full data package to be produced for any subject access request within minutes. Remaining compliance obligations — a formal Record of Processing Activities and a Data Processing Agreement with the SMTP provider — sit with the operator and are outside the platform's scope.</p>
+
+        <h3>8. AI-Assisted Development &amp; Developer Handover</h3>
+        <p>SignFlow is developed with Claude (Anthropic's AI coding assistant) as the primary development tool. Every feature, fix, and architectural decision is implemented through a structured conversation — requirements are stated in plain language, a plan is reviewed and approved before any code is written, and changes are verified against the live codebase. This means the full development history, intent behind each decision, and rationale for every design choice is captured in conversation transcripts rather than buried in uncommitted commit messages. A new developer can read recent session summaries to understand not just <em>what</em> was built, but <em>why</em>.</p>
+        <p>The codebase is deliberately kept in two files — <code>server.js</code> and <code>admin/index.html</code> — with no build pipeline, no framework abstractions, and no compiled output. Any competent Node.js developer can open either file and immediately understand what it does. This system panel documents the architecture, security model, environment setup, and deployment process in full. Combined with the AI-assisted workflow, onboarding a new developer or handing the project to an agency requires no tribal knowledge transfer — the documentation and code are self-contained.</p>
 
       </div>
     </div>
