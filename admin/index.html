@@ -2245,6 +2245,28 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
       <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="saveCaptchaSettings()">Save CAPTCHA settings</button>
     </div>
+    <div class="card" style="padding:16px" id="ip-flags-card">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:4px"><span class="material-icons-round mi">gpp_bad</span> IP Flagging</div>
+      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">Visitors who trigger honeypot, timing, or bot-detection checks are flagged with escalating challenges. Level 1 = invisible proof-of-work; Level 2 = visible math challenge; Level 3 = blocked. Flags expire automatically.</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <button class="tbtn tbtn-ghost" onclick="loadIpFlags()" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+        <button class="tbtn" id="ip-flags-clear-all-btn" onclick="clearAllIpFlags()" style="gap:4px;color:var(--danger);display:none"><span class="material-icons-round mi" style="font-size:15px">delete_sweep</span> Clear all</button>
+        <span id="ip-flags-status" style="font-size:0.75rem;color:var(--ink3)">Click Refresh to load</span>
+      </div>
+      <div id="ip-flags-table-wrap" style="overflow-x:auto;display:none">
+        <table class="ml-table" style="font-size:0.75rem">
+          <thead><tr>
+            <th style="width:110px">IP hash</th>
+            <th style="width:60px;text-align:center">Level</th>
+            <th style="width:60px;text-align:center">Strikes</th>
+            <th>Reason</th>
+            <th style="width:110px">Expires</th>
+            <th style="width:60px"></th>
+          </tr></thead>
+          <tbody id="ip-flags-tbody"></tbody>
+        </table>
+      </div>
+    </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">bar_chart</span> Analytics &amp; Tracking</div>
       <p class="card-desc" style="font-size:0.78rem;color:var(--ink3);margin-bottom:12px">IDs are injected into the <strong>direct-load</strong> form page only. For <strong>embedded</strong> forms the conversion event is fired into the host page's existing GA4/Pixel automatically via <code>postMessage</code> — no IDs needed.</p>
@@ -7107,6 +7129,65 @@ async function saveCaptchaSettings(){
   cfg.site.hcaptchaSiteKey=document.getElementById('hcaptcha-site-key').value.trim();
   cfg.site.hcaptchaSecretKey=document.getElementById('hcaptcha-secret-key').value.trim();
   await saveConfig();
+}
+
+// ── IP Flags ──
+async function loadIpFlags(){
+  const tbody=document.getElementById('ip-flags-tbody');
+  const wrap=document.getElementById('ip-flags-table-wrap');
+  const status=document.getElementById('ip-flags-status');
+  const clearBtn=document.getElementById('ip-flags-clear-all-btn');
+  if(!tbody)return;
+  status.textContent='Loading…';
+  try{
+    const r=await adminFetch('/api/admin/ip-flags');
+    if(!r.ok){status.textContent='Error loading flags';return;}
+    const rows=await r.json();
+    if(!rows.length){
+      status.textContent='No active flags';
+      wrap.style.display='none';
+      clearBtn.style.display='none';
+      return;
+    }
+    const levelLabel={1:'⚠ PoW',2:'🔴 Math',3:'🚫 Blocked'};
+    const relTime=d=>{
+      const s=Math.round((new Date(d)-Date.now())/1000);
+      if(s<0)return'expired';
+      if(s<60)return s+'s';
+      if(s<3600)return Math.round(s/60)+'m';
+      if(s<86400)return Math.round(s/3600)+'h';
+      return Math.round(s/86400)+'d';
+    };
+    tbody.innerHTML=rows.map(f=>`
+      <tr>
+        <td style="font-family:monospace;font-size:0.7rem">${f.ip_hash.slice(0,12)}…</td>
+        <td style="text-align:center">${levelLabel[f.level]||f.level}</td>
+        <td style="text-align:center">${f.strike_count}</td>
+        <td style="color:var(--ink3)">${f.reason||'—'}</td>
+        <td>${relTime(f.expires_at)}</td>
+        <td><button class="tbtn tbtn-ghost" style="padding:2px 6px;font-size:0.72rem;color:var(--danger)" onclick="clearIpFlag('${f.ip_hash}',this)">Clear</button></td>
+      </tr>`).join('');
+    wrap.style.display='block';
+    clearBtn.style.display='';
+    status.textContent=`${rows.length} active flag${rows.length===1?'':'s'}`;
+  }catch(e){status.textContent='Error: '+e.message;}
+}
+
+async function clearIpFlag(hash,btn){
+  if(btn)btn.disabled=true;
+  try{
+    const r=await adminFetch('/api/admin/ip-flags/'+encodeURIComponent(hash),{method:'DELETE'});
+    if(r.ok){await loadIpFlags();}else{toast('Failed to clear flag','error');}
+  }catch(e){toast('Error: '+e.message,'error');if(btn)btn.disabled=false;}
+}
+
+async function clearAllIpFlags(){
+  if(!confirm('Clear all active IP flags? Flagged visitors will need to re-trigger detection to be flagged again.'))return;
+  try{
+    const r=await adminFetch('/api/admin/ip-flags',{method:'DELETE'});
+    if(r.ok){const d=await r.json();toast(`Cleared ${d.cleared} flag${d.cleared===1?'':'s'}`,'success');await loadIpFlags();}
+    else{toast('Failed to clear flags','error');}
+  }catch(e){toast('Error: '+e.message,'error');}
 }
 
 // ── Toast ──

@@ -265,6 +265,87 @@ const submitLimiter = rateLimit({
 const adminLimiter  = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 const authLimiter   = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: 'Too many login attempts' });
 
+// ── IP Flagging ───────────────────────────────────────────────────────────────
+const crypto = require('crypto');
+
+function hashIp(ip) {
+  return crypto.createHmac('sha256', SESSION_SECRET + 'sf-ip-salt')
+    .update(ip || 'unknown').digest('hex').slice(0, 40);
+}
+function _ipFlagLevel(strikes) {
+  if (strikes >= 6) return 3;
+  if (strikes >= 3) return 2;
+  return 1;
+}
+function _ipFlagExpiry(level) {
+  const ms = { 1: 3_600_000, 2: 86_400_000, 3: 604_800_000 }[level] || 3_600_000;
+  return new Date(Date.now() + ms);
+}
+async function getIpFlagLevel(ipHash) {
+  try {
+    const { rows } = await pool.query(
+      'SELECT level FROM ip_flags WHERE ip_hash=$1 AND expires_at > NOW()', [ipHash]);
+    return rows[0]?.level || 0;
+  } catch(e) { return 0; }
+}
+async function flagIp(ipHash, reason) {
+  try {
+    const { rows } = await pool.query(
+      'SELECT strike_count FROM ip_flags WHERE ip_hash=$1', [ipHash]);
+    const strikes = (rows[0]?.strike_count || 0) + 1;
+    const level   = _ipFlagLevel(strikes);
+    const expires = _ipFlagExpiry(level);
+    await pool.query(`
+      INSERT INTO ip_flags (ip_hash, level, strike_count, reason, last_seen, expires_at)
+      VALUES ($1,$2,$3,$4,NOW(),$5)
+      ON CONFLICT (ip_hash) DO UPDATE SET
+        level=EXCLUDED.level, strike_count=EXCLUDED.strike_count,
+        reason=EXCLUDED.reason, last_seen=NOW(), expires_at=EXCLUDED.expires_at
+    `, [ipHash, level, strikes, reason, expires]);
+    return level;
+  } catch(e) { return 0; }
+}
+// Math challenge: server signs (answer + 10-min window) so no state needed
+function genChallenge() {
+  const a   = Math.floor(Math.random() * 20) + 5;
+  const b   = Math.floor(Math.random() * 20) + 5;
+  const op  = Math.random() < 0.5 ? '+' : '-';
+  const ans = op === '+' ? a + b : a - b;
+  const win = Math.floor(Date.now() / 600_000);
+  const tok = crypto.createHmac('sha256', SESSION_SECRET + 'sf-chal')
+    .update(`${ans}:${win}`).digest('hex').slice(0, 16);
+  return { question: `What is ${a} ${op} ${b}?`, token: tok };
+}
+function verifyChallenge(token, answer) {
+  if (!token || answer == null || isNaN(answer)) return false;
+  const win = Math.floor(Date.now() / 600_000);
+  for (const w of [win, win - 1]) {  // allow up to 20 min (prev window)
+    const exp = crypto.createHmac('sha256', SESSION_SECRET + 'sf-chal')
+      .update(`${answer}:${w}`).digest('hex').slice(0, 16);
+    if (token === exp) return true;
+  }
+  return false;
+}
+// Timing token: server signs timestamp; verified on submit
+function genTimingToken() {
+  const ts  = Date.now().toString();
+  const sig = crypto.createHmac('sha256', SESSION_SECRET + 'sf-timing')
+    .update(ts).digest('hex').slice(0, 16);
+  return `${ts}.${sig}`;
+}
+function verifyTimingToken(val) {
+  if (!val) return { ok: false, reason: 'missing' };
+  const [ts, sig] = val.split('.');
+  if (!ts || !sig) return { ok: false, reason: 'malformed' };
+  const exp = crypto.createHmac('sha256', SESSION_SECRET + 'sf-timing')
+    .update(ts).digest('hex').slice(0, 16);
+  if (sig !== exp) return { ok: false, reason: 'bad_sig' };
+  const age = Date.now() - parseInt(ts);
+  if (age < 2500)     return { ok: false, reason: 'too_fast' };
+  if (age > 3_600_000) return { ok: false, reason: 'expired' };
+  return { ok: true };
+}
+
 // ── Data helpers (PostgreSQL) ─────────────────────────────────────────────────
 
 // Map a subscribers DB row to the camelCase object shape used throughout the app
@@ -499,6 +580,17 @@ async function initDb() {
       items      JSONB        NOT NULL DEFAULT '[]',
       created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS ip_flags (
+      ip_hash      TEXT        PRIMARY KEY,
+      level        INT         NOT NULL DEFAULT 1,
+      strike_count INT         NOT NULL DEFAULT 1,
+      reason       TEXT,
+      first_seen   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at   TIMESTAMPTZ NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ip_flags_expires ON ip_flags(expires_at);
   `);
   console.log('✔ Database tables ready');
 }
@@ -1355,6 +1447,30 @@ app.delete('/api/admin/isel-presets/:id', adminAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── IP Flags (admin management) ───────────────────────────────────────────────
+app.get('/api/admin/ip-flags', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ip_hash, level, strike_count, reason, first_seen, last_seen, expires_at
+       FROM ip_flags WHERE expires_at > NOW() ORDER BY last_seen DESC`);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/ip-flags/:ipHash', adminAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM ip_flags WHERE ip_hash=$1', [req.params.ipHash]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/ip-flags', adminAuth, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query('DELETE FROM ip_flags WHERE expires_at > NOW()');
+    res.json({ cleared: rowCount });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Branding tab preview — standalone dummy form, no form slug required
 // Uses GENERIC_PREVIEW_SECTIONS/FIELDS with selected form's design (or defaults).
 app.get('/branding-preview', adminAuth, async (req, res) => {
@@ -1541,6 +1657,18 @@ app.get('/:slug/embed.js', async (req, res) => {
   } catch(e) { res.status(404).send('// Form not found'); }
 });
 
+// Challenge endpoint — returns flag level + timing token + optional math challenge
+// Called by the public page on load to configure anti-bot layers
+app.get('/:slug/challenge', async (req, res) => {
+  const ipHash = hashIp(req.ip);
+  const level  = await getIpFlagLevel(ipHash);
+  const ts     = genTimingToken();
+  if (level >= 3) return res.json({ level: 3, blocked: true, ts });
+  const resp = { level, ts };
+  if (level >= 2) resp.challenge = genChallenge();
+  res.json(resp);
+});
+
 // Form submission
 app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   const { slug } = req.params;
@@ -1548,6 +1676,65 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   try { cfg = await readFormConfig(slug); }
   catch(e) { return res.status(404).json({ error: 'Form not found' }); }
   const body = req.body;
+
+  // ── Anti-bot layers ──────────────────────────────────────────────────────────
+  const ipHash = hashIp(req.ip);
+
+  // Layer 1 — Honeypot: bots fill hidden fields, humans never see them
+  if (body._hp) {
+    await flagIp(ipHash, 'honeypot');
+    bumpAnalytic(slug, 'errors');
+    return res.status(400).json({ error: 'Invalid submission.' });
+  }
+
+  // Layer 2 — Timing: reject submissions that arrive impossibly fast
+  const timing = verifyTimingToken(body._ts);
+  if (!timing.ok) {
+    if (timing.reason === 'too_fast') {
+      await flagIp(ipHash, 'too_fast');
+      bumpAnalytic(slug, 'errors');
+      return res.status(400).json({ error: 'Please take a moment to fill in the form.' });
+    }
+    if (timing.reason === 'expired') {
+      return res.status(400).json({ error: 'The form has expired — please reload the page.' });
+    }
+    // missing/malformed token: page may be cached; don't flag but continue
+  }
+
+  // Layer 3 — Flag level gate
+  const flagLevel = await getIpFlagLevel(ipHash);
+  if (flagLevel >= 3) {
+    bumpAnalytic(slug, 'errors');
+    return res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
+  }
+
+  // Layer 4 — Proof-of-work (flagged level 1+)
+  if (flagLevel >= 1) {
+    const nonce     = parseInt(body._pow_nonce);
+    const challenge = (body._pow_challenge || '').trim();
+    if (!challenge || isNaN(nonce) || nonce < 0) {
+      await flagIp(ipHash, 'missing_pow');
+      bumpAnalytic(slug, 'errors');
+      return res.status(400).json({ error: 'Security check failed. Please reload and try again.' });
+    }
+    const hash = crypto.createHash('sha256').update(challenge + nonce).digest('hex');
+    if (!hash.startsWith('000')) {
+      await flagIp(ipHash, 'bad_pow');
+      bumpAnalytic(slug, 'errors');
+      return res.status(400).json({ error: 'Security check failed. Please reload and try again.' });
+    }
+  }
+
+  // Layer 5 — Math challenge (flagged level 2+)
+  if (flagLevel >= 2) {
+    const chalToken  = body._chal_token  || '';
+    const chalAnswer = parseInt(body._chal_answer);
+    if (!verifyChallenge(chalToken, chalAnswer)) {
+      await flagIp(ipHash, 'bad_challenge');
+      bumpAnalytic(slug, 'errors');
+      return res.status(400).json({ error: 'Incorrect answer — please try again.' });
+    }
+  }
 
   if (cfg.site.captchaEnabled && cfg.site.hcaptchaSecretKey) {
     const captchaToken = body['h-captcha-response'] || '';
@@ -2697,6 +2884,21 @@ ${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/
       ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
       ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
     </div>
+    <!-- Anti-bot honeypot — invisible to humans, bots fill it in -->
+    <div style="position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden" aria-hidden="true">
+      <label>Leave this empty<input type="text" name="_hp" tabindex="-1" autocomplete="off" value=""></label>
+    </div>
+    <!-- Anti-bot timing token (server-signed) -->
+    <input type="hidden" name="_ts" id="sf-ts" value="${genTimingToken()}">
+    <!-- Anti-bot PoW + math challenge fields (populated by JS for flagged IPs) -->
+    <input type="hidden" name="_pow_challenge" id="sf-pow-c" value="">
+    <input type="hidden" name="_pow_nonce"     id="sf-pow-n" value="">
+    <input type="hidden" name="_chal_token"    id="sf-chal-tok" value="">
+    <div id="sf-ip-chal" style="display:none;padding:12px 0 4px">
+      <label id="sf-chal-q" style="display:block;font-size:0.88rem;font-weight:600;margin-bottom:6px;color:${d.primaryColor||'#1a1a2e'}"></label>
+      <input type="number" name="_chal_answer" id="sf-chal-ans" placeholder="Your answer"
+             style="width:130px;padding:7px 10px;border:1.5px solid ${d.fieldBorderColor||'#ccc'};border-radius:6px;font-size:0.9rem">
+    </div>
   </form>
   ${confirmationBlocks ? `<div id="sf-confirmation" style="display:none">${confirmationBlocks}</div>` : ''}
 </div>
@@ -2871,6 +3073,49 @@ ${trackingConfigBlock(s)}
   });
 })();
 ${sliderPickerJS()}
+
+// ── IP flag security — runs on every page load ────────────────────────────────
+(async function sfSecurity(){
+  try {
+    const r = await fetch('/${cfg.slug}/challenge');
+    const d = await r.json();
+    // Refresh timing token with the server-issued one (fresher than the rendered one)
+    const tsEl = document.getElementById('sf-ts');
+    if (tsEl && d.ts) tsEl.value = d.ts;
+    if (d.blocked) {
+      // Level 3: disable the form entirely
+      const btn = document.querySelector('#sf-form button[type=submit]');
+      const msg = document.getElementById('sf-msg');
+      if (btn) { btn.disabled = true; btn.textContent = 'Submissions blocked'; }
+      if (msg) { msg.className = 'sf-msg error'; msg.textContent = 'Too many failed attempts from your connection. Please try again later.'; msg.style.display = 'block'; }
+      return;
+    }
+    if (d.level >= 1) {
+      // Solve proof-of-work in background (invisible to user, ~50-300ms)
+      const challenge = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      document.getElementById('sf-pow-c').value = challenge;
+      let nonce = 0;
+      while (true) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(challenge + nonce));
+        const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        if (hex.startsWith('000')) { document.getElementById('sf-pow-n').value = nonce; break; }
+        nonce++;
+        if (nonce % 500 === 0) await new Promise(ok => setTimeout(ok, 0)); // yield to UI
+      }
+    }
+    if (d.level >= 2 && d.challenge) {
+      // Show math puzzle above submit button
+      const chal = document.getElementById('sf-ip-chal');
+      const qEl  = document.getElementById('sf-chal-q');
+      const tok  = document.getElementById('sf-chal-tok');
+      if (chal && qEl && tok) {
+        qEl.textContent = d.challenge.question;
+        tok.value = d.challenge.token;
+        chal.style.display = 'block';
+      }
+    }
+  } catch(e) { /* fail open — network error should not block legit users */ }
+})();
 </script>
 </body>
 </html>`;
