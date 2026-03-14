@@ -92,6 +92,46 @@ function sanitizeWysiwyg(html) {
   return sanitizeHtml(html || '', SANITIZE_OPTS);
 }
 
+// ── Phone number validation ───────────────────────────────────────────────────
+// ISO 3166-1 alpha-2 → E.164 calling code (most common countries)
+const PHONE_COUNTRY_CODES = {
+  AF:'+93',AL:'+355',DZ:'+213',AR:'+54',AM:'+374',AU:'+61',AT:'+43',AZ:'+994',
+  BH:'+973',BD:'+880',BE:'+32',BR:'+55',BG:'+359',CA:'+1', CL:'+56',CN:'+86',
+  CO:'+57',HR:'+385',CY:'+357',CZ:'+420',DK:'+45',EG:'+20',EE:'+372',FI:'+358',
+  FR:'+33',GE:'+995',DE:'+49',GH:'+233',GR:'+30',HK:'+852',HU:'+36',IN:'+91',
+  ID:'+62',IE:'+353',IL:'+972',IT:'+39',JP:'+81',JO:'+962',KE:'+254',KW:'+965',
+  KZ:'+7', LV:'+371',LT:'+370',LU:'+352',MY:'+60',MX:'+52',MA:'+212',NL:'+31',
+  NZ:'+64',NG:'+234',NO:'+47',PK:'+92',PH:'+63',PL:'+48',PT:'+351',QA:'+974',
+  RO:'+40',RU:'+7', SA:'+966',SG:'+65',SK:'+421',ZA:'+27',KR:'+82',ES:'+34',
+  LK:'+94',SE:'+46',CH:'+41',TW:'+886',TH:'+66',TR:'+90',UA:'+380',AE:'+971',
+  GB:'+44',US:'+1', UY:'+598',VN:'+84'
+};
+/**
+ * Validates a phone number string.
+ * Strips spaces, dashes, parentheses, dots then checks E.164-ish format (7-15 digits, optional +).
+ * If allowedCountries is non-empty, the number must begin with one of those calling codes.
+ * Returns { ok: true } or { ok: false, msg: '...' }.
+ */
+function validatePhoneNumber(raw, allowedCountries) {
+  if (!raw || !raw.trim()) return { ok: true }; // empty → handled by Joi required/optional
+  const normalized = raw.trim().replace(/[\s\-\(\)\.]/g, '');
+  if (!/^\+?\d{7,15}$/.test(normalized)) {
+    return { ok: false, msg: 'Please enter a valid phone number (e.g. +44 7700 900000)' };
+  }
+  if (allowedCountries && allowedCountries.length > 0) {
+    // Require the number to start with + and a recognised calling code
+    const withPlus = normalized.startsWith('+') ? normalized : null;
+    const matched  = withPlus && allowedCountries.some(code => {
+      const prefix = PHONE_COUNTRY_CODES[code];
+      return prefix && withPlus.startsWith(prefix);
+    });
+    if (!matched) {
+      return { ok: false, msg: `Phone number must include a country dialling code for: ${allowedCountries.join(', ')}` };
+    }
+  }
+  return { ok: true };
+}
+
 // Replace {{merge tags}} in email subject/body before sending
 function replaceMergeTags(text, cfg, subscriber, unsubUrl) {
   const firstName = (subscriber.customFields && (subscriber.customFields.firstName || subscriber.customFields.first_name)) ||
@@ -1281,37 +1321,48 @@ app.patch('/api/admin/media/bulk-move-category', adminAuth, async (req, res) => 
 // Get subscribers for a form (paginated)
 app.get('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
   try {
-    const slug   = req.params.slug;
-    const page   = Math.max(1, parseInt(req.query.page)  || 1);
-    const limit  = Math.min(200, parseInt(req.query.limit) || 50);
-    const search = (req.query.search || '').trim();
-    const status = req.query.status || 'all';
-    const offset = (page - 1) * limit;
-    const SORT_ALLOW = { email:'email', status:'status', subscribed_at:'subscribed_at' };
-    const sort = SORT_ALLOW[req.query.sort] || 'subscribed_at';
+    const slug        = req.params.slug;
+    const page        = Math.max(1, parseInt(req.query.page)   || 1);
+    const limit       = Math.min(200, parseInt(req.query.limit) || 50);
+    const search      = (req.query.search || '').trim();
+    const status      = req.query.status      || 'all';
+    const emailStatus = req.query.emailStatus || 'all';
+    const offset      = (page - 1) * limit;
+
+    // Allowlisted sort columns — s.* columns and el.status from the LATERAL join
+    const SORT_ALLOW = {
+      email:'s.email', status:'s.status', subscribed_at:'s.subscribed_at',
+      exported:'s.exported', email_status:'el.status'
+    };
+    const sort = SORT_ALLOW[req.query.sort] || 's.subscribed_at';
     const dir  = req.query.dir === 'asc' ? 'ASC' : 'DESC';
 
-    const conditions = ['form_slug=$1'];
+    // Always include the email_log LATERAL join so we can filter/sort by email status
+    const lateral = `LEFT JOIN LATERAL (
+      SELECT status, error, id FROM email_log
+      WHERE subscriber_id = s.id ORDER BY sent_at DESC LIMIT 1
+    ) el ON true`;
+
+    const conditions = ['s.form_slug=$1'];
     const vals = [slug];
-    if (status !== 'all') { conditions.push(`status=$${vals.length+1}`); vals.push(status); }
+    if (status !== 'all') { conditions.push(`s.status=$${vals.length+1}`); vals.push(status); }
     if (search) {
-      conditions.push(`(email ILIKE $${vals.length+1} OR status ILIKE $${vals.length+1} OR ip_address ILIKE $${vals.length+1} OR custom_fields::text ILIKE $${vals.length+1})`);
+      conditions.push(`(s.email ILIKE $${vals.length+1} OR s.status ILIKE $${vals.length+1} OR s.ip_address ILIKE $${vals.length+1} OR s.custom_fields::text ILIKE $${vals.length+1})`);
       vals.push(`%${search}%`);
     }
+    if      (emailStatus === 'sent')   conditions.push(`el.status = 'sent'`);
+    else if (emailStatus === 'failed') conditions.push(`el.status = 'failed'`);
+    else if (emailStatus === 'none')   conditions.push(`el.status IS NULL`);
     const where = conditions.join(' AND ');
 
-    const countRes = await pool.query(`SELECT COUNT(*) AS c FROM subscribers WHERE ${where}`, vals);
+    const countRes = await pool.query(
+      `SELECT COUNT(*) AS c FROM subscribers s ${lateral} WHERE ${where}`, vals);
     const total = parseInt(countRes.rows[0].c, 10);
     const dataRes = await pool.query(
       `SELECT s.*, el.status AS email_status, el.error AS email_error, el.id AS email_log_id
-         FROM subscribers s
-         LEFT JOIN LATERAL (
-           SELECT status, error, id FROM email_log
-           WHERE subscriber_id = s.id
-           ORDER BY sent_at DESC LIMIT 1
-         ) el ON true
-         WHERE ${where.replace(/\b(form_slug|email|status|ip_address|custom_fields)\b/g, 's.$1')}
-         ORDER BY s.${sort} ${dir} LIMIT $${vals.length+1} OFFSET $${vals.length+2}`,
+         FROM subscribers s ${lateral}
+         WHERE ${where}
+         ORDER BY ${sort} ${dir} NULLS LAST LIMIT $${vals.length+1} OFFSET $${vals.length+2}`,
       [...vals, limit, offset]
     );
     res.json({ subscribers: dataRes.rows.map(rowToSubscriber), total, page, pages: Math.ceil(total/limit) });
@@ -1921,7 +1972,39 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   // ── Joi input validation ──────────────────────────────────────────────────
   const schemaShape = { email: Joi.string().email({ tlds: { allow: false } }).max(254).required() };
   cfg.fields.filter(f => !f.system).forEach(f => {
-    schemaShape[f.id] = Joi.string().max(1000).allow('').optional();
+    if (f.type === 'tel') {
+      // Phone-specific validation: format check + optional country restriction
+      const countries = f.phoneCountries || [];
+      schemaShape[f.id] = Joi.string().custom((val, helpers) => {
+        if (!val || !val.trim()) return val;
+        const { ok, msg } = validatePhoneNumber(val, countries);
+        if (!ok) return helpers.message(msg);
+        return val;
+      }).allow('').optional();
+    } else if (['year', 'yearmonth', 'yearmonthday'].includes(f.type)) {
+      // Date-picker validation: ensure submitted value represents a real date
+      schemaShape[f.id] = Joi.string().custom((val, helpers) => {
+        if (!val || !val.trim()) return val;
+        const parts = val.split('-').map(Number);
+        if (f.type === 'year') {
+          if (parts.length < 1 || isNaN(parts[0]) || parts[0] < 1800 || parts[0] > 2200)
+            return helpers.message('Invalid year');
+        } else if (f.type === 'yearmonth') {
+          if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1]) || parts[1] < 1 || parts[1] > 12)
+            return helpers.message('Invalid year or month');
+        } else { // yearmonthday
+          if (parts.length < 3 || parts.some(isNaN))
+            return helpers.message('Invalid date');
+          // Verify the day actually exists in that month (e.g. rejects Feb 31)
+          const d = new Date(parts[0], parts[1] - 1, parts[2]);
+          if (d.getFullYear() !== parts[0] || d.getMonth() + 1 !== parts[1] || d.getDate() !== parts[2])
+            return helpers.message('Invalid date — that day does not exist in the selected month');
+        }
+        return val;
+      }).allow('').optional();
+    } else {
+      schemaShape[f.id] = Joi.string().max(1000).allow('').optional();
+    }
   });
   const { error: valErr, value: validated } = Joi.object(schemaShape).unknown(true).validate(body);
   if (valErr) {
@@ -2383,7 +2466,25 @@ function renderFormField(f, cfg) {
       </div></div>`;
   }
 
-  // ── default (text, email, number, tel, etc.) ──
+  // ── tel (phone) — explicit case for better UX attributes + country hint ──
+  if (f.type === 'tel') {
+    const ph = escapeHtml(f.placeholder || '+1 234 567 8900');
+    const countriesHint = (f.phoneCountries && f.phoneCountries.length)
+      ? `<small style="display:block;margin-top:3px;font-size:0.8em;color:#666">Accepted countries: ${escapeHtml(f.phoneCountries.join(', '))}</small>`
+      : '';
+    return `<div class="sf-field"${condAttr}>
+    <label for="sf_${f.id}">${escapeHtml(f.label)}${req}</label>
+    <input type="tel" id="sf_${f.id}" name="${f.id}" placeholder="${ph}" inputmode="tel" autocomplete="tel" ${f.required ? 'required' : ''}>${countriesHint}</div>`;
+  }
+
+  // ── email — explicit case to add autocomplete + maxlength ──
+  if (f.type === 'email') {
+    return `<div class="sf-field"${condAttr}>
+    <label for="sf_${f.id}">${escapeHtml(f.label)}${req}</label>
+    <input type="email" id="sf_${f.id}" name="${f.id}" placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="email" maxlength="254" ${f.required ? 'required' : ''}></div>`;
+  }
+
+  // ── default (text, number, textarea handled above, etc.) ──
   return `<div class="sf-field"${condAttr}>
     <label for="sf_${f.id}">${escapeHtml(f.label)}${req}</label>
     <input type="${f.type || 'text'}" id="sf_${f.id}" name="${f.id}"
