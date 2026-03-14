@@ -542,8 +542,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .mf-item .material-icons-round{font-size:14px;flex-shrink:0;}
 .mf-new{display:flex;align-items:center;gap:5px;padding:5px 12px;font-size:0.77rem;color:var(--ink3);cursor:pointer;margin-top:2px;}
 .mf-new:hover{color:var(--accent);}
-#media-grid-wrap{flex:1;overflow-y:auto;padding:14px;}
-#media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;}
+#media-grid-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+#media-grid{flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;align-content:start;}
 .media-item{border:2px solid transparent;border-radius:var(--r);overflow:hidden;cursor:pointer;background:var(--bg);transition:border-color 120ms,box-shadow 120ms;position:relative;}
 .media-item:hover{border-color:var(--ink3);}
 .media-item.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,75,57,.15);}
@@ -561,9 +561,23 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #media-empty{text-align:center;padding:48px 24px;color:var(--ink3);font-size:0.88rem;display:none;}
 .media-upload-opts{display:flex;align-items:center;gap:6px;}
 /* Multi-select checkbox on media items */
-.media-item .mi-check{display:flex!important;opacity:0;transition:opacity 100ms;background:rgba(0,0,0,.3);}
+.media-item .mi-check{display:flex!important;opacity:0;transition:opacity 100ms;background:rgba(0,0,0,.3);pointer-events:auto;cursor:pointer;}
 .media-item:hover .mi-check{opacity:.7;}
 .media-item.selected .mi-check{opacity:1;background:var(--accent);}
+/* List view */
+#media-grid-wrap{display:flex;flex-direction:column;}
+#media-grid-wrap #media-grid{flex:1;overflow-y:auto;}
+.media-list-view{padding:0;display:block!important;}
+.ml-table{width:100%;border-collapse:collapse;font-size:0.82rem;table-layout:fixed;}
+.ml-table thead{position:sticky;top:0;background:var(--bg);z-index:1;}
+.ml-table th{padding:6px 10px;font-size:0.68rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border);text-align:left;user-select:none;}
+.ml-table th:hover{color:var(--ink);}
+.ml-row{cursor:pointer;transition:background 80ms;}
+.ml-row td{padding:5px 10px;border-bottom:1px solid var(--border2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
+.ml-row:hover{background:var(--bg2);}
+.ml-row.selected{background:var(--accent-bg);}
+.ml-check{color:var(--ink3);font-size:16px!important;vertical-align:middle;cursor:pointer;}
+.ml-row.selected .ml-check{color:var(--accent);}
 /* Bulk action bar */
 #media-bulk-bar{display:none;align-items:center;gap:6px;flex:1;padding:4px 8px;background:var(--accent-bg);border-radius:var(--r);border:1px solid rgba(201,75,57,.2);}
 #media-bulk-bar.show{display:flex;}
@@ -574,9 +588,6 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .mcat-item:hover{background:var(--bg);}
 /* Sidebar category drag-over highlight */
 .mf-item.cat-drop-over{background:var(--accent-bg)!important;color:var(--accent);outline:2px dashed var(--accent);outline-offset:-2px;}
-/* No form selected notice */
-#media-no-form-notice{display:none;text-align:center;padding:40px 20px;color:var(--ink3);font-size:0.87rem;}
-#media-no-form-notice .material-icons-round{font-size:44px;display:block;margin-bottom:8px;color:var(--ink3);}
 .media-upload-opts select{padding:4px 6px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.78rem;font-family:var(--font);background:var(--panel);color:var(--ink);}
 </style>
 </head>
@@ -2982,6 +2993,8 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
     <div id="media-picker-head">
       <h2>Media Library</h2>
+      <span id="media-form-indicator" style="font-size:0.75rem;color:var(--ink3);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:1px 8px;white-space:nowrap;flex-shrink:0">No form selected</span>
+      <div style="flex:1"></div>
       <div style="display:flex;gap:4px;align-items:center">
         <button class="modal-close" id="media-fs-btn" onclick="toggleMediaFs()" title="Toggle fullscreen"><span class="material-icons-round" style="font-size:18px">fullscreen</span></button>
         <button class="modal-close" onclick="closeMediaPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
@@ -3032,12 +3045,14 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <!-- Image grid -->
       <div id="media-grid-wrap">
         <div id="media-upload-chips"></div>
-        <div id="media-no-form-notice">
-          <span class="material-icons-round">photo_library</span>
-          No form selected — showing all shared media.
+        <!-- View toolbar -->
+        <div id="media-view-toolbar" style="display:flex;align-items:center;gap:6px;padding:7px 10px 4px;border-bottom:1px solid var(--border2);flex-shrink:0">
+          <div style="flex:1;font-size:0.72rem;color:var(--ink3)" id="media-item-count"></div>
+          <button id="media-view-grid-btn" onclick="setMediaViewMode('grid')" title="Grid view" style="border:none;background:var(--bg2);border-radius:5px;padding:3px 6px;cursor:pointer;display:flex;align-items:center;color:var(--ink)"><span class="material-icons-round" style="font-size:16px">grid_view</span></button>
+          <button id="media-view-list-btn" onclick="setMediaViewMode('list')" title="List view" style="border:none;background:none;border-radius:5px;padding:3px 6px;cursor:pointer;display:flex;align-items:center;color:var(--ink3)"><span class="material-icons-round" style="font-size:16px">view_list</span></button>
         </div>
         <div id="media-grid"></div>
-        <div id="media-empty">No media here — upload an image to get started.</div>
+        <div id="media-empty" style="display:none">No media here — upload an image to get started.</div>
       </div>
       <!-- Right detail panel -->
       <div id="media-detail">
@@ -3475,13 +3490,16 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 // ── Media state ──────────────────────────────────────────────────────────────
 let _mediaMultiSel=new Set(); // IDs currently selected in multi-select mode
+let _mediaMultiMode=false; // true = multi-select mode active (checkmark clicked)
 let _mediaFormFilter=''; // filter to show media by form slug
+let _mediaViewMode='grid'; // 'grid' | 'list'
+let _mediaListSort='uploadedAt',_mediaListSortDir='desc'; // list sort state
 async function openMediaPicker(callbackOrType){
   _mediaCallback=typeof callbackOrType==='function'?callbackOrType:null;
   _mediaType=typeof callbackOrType==='string'?callbackOrType:null;
   const insertBtn=document.getElementById('media-insert-btn');
   if(insertBtn)insertBtn.style.display=(_mediaCallback||(_mediaType&&_mediaType!=='manage'))?'':'none';
-  _mediaSelected=null;_mediaMultiSel=new Set();_mediaScope='all';_mediaFolder='';_mediaFormFilter='';
+  _mediaSelected=null;_mediaMultiSel=new Set();_mediaMultiMode=false;_mediaScope='all';_mediaFolder='';_mediaFormFilter='';
   document.getElementById('media-search').value='';
   _clearMediaDetail();_updateBulkBar();
   document.getElementById('media-picker-overlay').classList.add('open');
@@ -3506,9 +3524,21 @@ async function loadMediaLibrary(){
     // Use global endpoint when no form selected, otherwise form-scoped (includes shared)
     const url=currentFormSlug?`/api/admin/forms/${currentFormSlug}/media`:'/api/admin/media';
     _mediaItems=await adminFetch(url).then(r=>r.json());
-    // Show notice if no form open
-    const notice=document.getElementById('media-no-form-notice');
-    if(notice)notice.style.display=currentFormSlug?'none':'block';
+    // Update form indicator in header
+    const ind=document.getElementById('media-form-indicator');
+    if(ind){
+      if(currentFormSlug){
+        ind.textContent=currentFormSlug;
+        ind.style.color='var(--accent)';
+        ind.style.background='var(--accent-bg)';
+        ind.style.borderColor='var(--accent)';
+      }else{
+        ind.textContent='No form selected';
+        ind.style.color='var(--ink3)';
+        ind.style.background='var(--bg2)';
+        ind.style.borderColor='var(--border)';
+      }
+    }
     _rebuildCategorySidebar();
     _populateFormFilter();
     _applyMediaFilter();
@@ -3578,40 +3608,141 @@ function toggleMediaFs(){
   if(ic)ic.textContent=box.classList.contains('fs')?'fullscreen_exit':'fullscreen';
 }
 function filterMedia(q){_applyMediaFilter();}
+function setMediaViewMode(mode){
+  _mediaViewMode=mode;
+  const gb=document.getElementById('media-view-grid-btn');
+  const lb=document.getElementById('media-view-list-btn');
+  if(gb){gb.style.background=mode==='grid'?'var(--bg2)':'none';gb.style.color=mode==='grid'?'var(--ink)':'var(--ink3)';}
+  if(lb){lb.style.background=mode==='list'?'var(--bg2)':'none';lb.style.color=mode==='list'?'var(--ink)':'var(--ink3)';}
+  renderMediaGrid(_mediaFiltered);
+}
 function renderMediaGrid(items){
   const grid=document.getElementById('media-grid');const empty=document.getElementById('media-empty');
-  if(!items.length){grid.innerHTML='';empty.style.display='block';return;}
-  empty.style.display='none';
+  const cnt=document.getElementById('media-item-count');
+  if(cnt)cnt.textContent=items.length?`${items.length} item${items.length===1?'':'s'}`:'';
+  if(!items.length){grid.innerHTML='';if(empty)empty.style.display='block';return;}
+  if(empty)empty.style.display='none';
+  if(_mediaViewMode==='list'){renderMediaList(items,grid);return;}
+  grid.className='';
   grid.innerHTML=items.map(item=>{
     const sel=_mediaMultiSel.has(item.id)?' selected':'';
     const nm=(item.name||item.url.split('/').pop()).replace(/</g,'&lt;');
     const catBadge=item.folder?`<span class="mi-shared" style="top:auto;bottom:22px;background:rgba(0,0,0,.5);font-size:0.55rem">${escHtml(item.folder)}</span>`:'';
     return `<div class="media-item${sel}" data-id="${item.id}" draggable="true"
-      onclick="selectMediaItem('${item.id}')"
+      onclick="clickMediaItem('${item.id}')"
       ondragstart="event.dataTransfer.setData('media-id','${item.id}');if(!_mediaMultiSel.has('${item.id}')){_mediaMultiSel.add('${item.id}');_updateBulkBar();this.classList.add('selected');}"
-    >${catBadge}<img src="${item.url}" alt="${nm}" loading="lazy"><div class="mi-name">${nm}</div><span class="material-icons-round mi-check">check</span></div>`;
+    >${catBadge}<img src="${item.url}" alt="${nm}" loading="lazy"><div class="mi-name">${nm}</div><span class="material-icons-round mi-check" onclick="toggleMediaItemCheck('${item.id}',event)">check</span></div>`;
   }).join('');
 }
-function selectMediaItem(id){
-  // Toggle in multi-select set
+function renderMediaList(items,grid){
+  grid.className='media-list-view';
+  const cols=[
+    {key:'name',label:'File name'},
+    {key:'size',label:'Size'},
+    {key:'uploadedAt',label:'Uploaded'},
+  ];
+  const sortArrow=k=>{
+    if(_mediaListSort!==k)return '<span class="material-icons-round" style="font-size:13px;opacity:.3;vertical-align:middle">unfold_more</span>';
+    return `<span class="material-icons-round" style="font-size:13px;vertical-align:middle">${_mediaListSortDir==='asc'?'arrow_upward':'arrow_downward'}</span>`;
+  };
+  const sorted=[...items].sort((a,b)=>{
+    let va,vb;
+    if(_mediaListSort==='size'){va=a.size||0;vb=b.size||0;}
+    else if(_mediaListSort==='uploadedAt'){va=a.uploadedAt||'';vb=b.uploadedAt||'';}
+    else{va=(a.name||'').toLowerCase();vb=(b.name||'').toLowerCase();}
+    if(va<vb)return _mediaListSortDir==='asc'?-1:1;
+    if(va>vb)return _mediaListSortDir==='asc'?1:-1;
+    return 0;
+  });
+  grid.innerHTML=`<table class="ml-table">
+    <thead><tr>
+      <th style="width:36px"></th>
+      <th onclick="sortMediaList('name')" style="cursor:pointer">File name ${sortArrow('name')}</th>
+      <th onclick="sortMediaList('size')" style="cursor:pointer;width:70px">Size ${sortArrow('size')}</th>
+      <th onclick="sortMediaList('uploadedAt')" style="cursor:pointer;width:90px">Uploaded ${sortArrow('uploadedAt')}</th>
+    </tr></thead>
+    <tbody>${sorted.map(item=>{
+      const sel=_mediaMultiSel.has(item.id);
+      const nm=(item.name||item.url.split('/').pop()).replace(/</g,'&lt;');
+      const sz=item.size?fmtBytes(item.size):'—';
+      const d=item.uploadedAt?new Date(item.uploadedAt).toLocaleDateString():'—';
+      return `<tr class="ml-row${sel?' selected':''}" data-id="${item.id}" onclick="clickMediaItem('${item.id}')">
+        <td><span class="material-icons-round ml-check" onclick="toggleMediaItemCheck('${item.id}',event)">${sel?'check_box':'check_box_outline_blank'}</span></td>
+        <td style="display:flex;align-items:center;gap:7px"><img src="${item.url}" style="width:28px;height:28px;object-fit:cover;border-radius:3px;flex-shrink:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</span></td>
+        <td style="color:var(--ink3)">${sz}</td>
+        <td style="color:var(--ink3)">${d}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+function sortMediaList(col){
+  if(_mediaListSort===col)_mediaListSortDir=_mediaListSortDir==='asc'?'desc':'asc';
+  else{_mediaListSort=col;_mediaListSortDir='asc';}
+  renderMediaGrid(_mediaFiltered);
+}
+// Click on item body — single-select unless _mediaMultiMode is active
+function clickMediaItem(id){
+  if(_mediaMultiMode){
+    // Toggle in multi-select mode
+    if(_mediaMultiSel.has(id))_mediaMultiSel.delete(id);
+    else _mediaMultiSel.add(id);
+    // If dropped back to 1, exit multi-mode
+    if(_mediaMultiSel.size<=1){
+      _mediaMultiMode=false;
+      const remaining=[..._mediaMultiSel][0];
+      _mediaMultiSel.clear();
+      if(remaining){
+        _mediaMultiSel.add(remaining);
+        _mediaSelected=_mediaFiltered.find(i=>i.id===remaining)||null;
+      }else{
+        _mediaSelected=null;
+      }
+    }
+  }else{
+    // Single-select: clear any previous and select just this
+    _mediaMultiSel.clear();
+    _mediaMultiSel.add(id);
+    _mediaSelected=_mediaFiltered.find(i=>i.id===id)||null;
+  }
+  _syncMediaSelUI();
+}
+// Click on checkmark — enters multi-select mode
+function toggleMediaItemCheck(id,event){
+  event.stopPropagation();
   if(_mediaMultiSel.has(id))_mediaMultiSel.delete(id);
   else _mediaMultiSel.add(id);
-  _updateBulkBar();
-  // Update grid selection state
-  document.querySelectorAll('#media-grid .media-item').forEach(el=>{
+  if(_mediaMultiSel.size>=2){
+    _mediaMultiMode=true;
+  }else if(_mediaMultiSel.size===1){
+    _mediaMultiMode=true; // entered via checkmark, stay in multi-mode until it drops to 0
+    _mediaSelected=_mediaFiltered.find(i=>i.id===id)||null;
+  }else{
+    _mediaMultiMode=false;
+    _mediaSelected=null;
+  }
+  _syncMediaSelUI();
+}
+function _syncMediaSelUI(){
+  const n=_mediaMultiSel.size;
+  // Update grid/list item visual state
+  document.querySelectorAll('#media-grid .media-item,.ml-row').forEach(el=>{
     el.classList.toggle('selected',_mediaMultiSel.has(el.dataset.id));
   });
-  // Show detail panel for single selection, hide for 0 or multi
-  if(_mediaMultiSel.size===1){
+  // Update list checkboxes
+  document.querySelectorAll('#media-grid .ml-check').forEach(el=>{
+    const rowId=el.closest('[data-id]')?.dataset.id;
+    if(rowId)el.textContent=_mediaMultiSel.has(rowId)?'check_box':'check_box_outline_blank';
+  });
+  // Update right panel
+  if(n===0){_mediaSelected=null;_clearMediaDetail();}
+  else if(n===1){
+    const id=[..._mediaMultiSel][0];
     _mediaSelected=_mediaFiltered.find(i=>i.id===id)||null;
     _showDetailPanel(_mediaSelected);
-  }else if(_mediaMultiSel.size===0){
-    _mediaSelected=null;_clearMediaDetail();
-  }else{
-    _mediaSelected=null;_clearMediaDetail();
   }
+  _updateBulkBar();
   const ins=document.getElementById('media-insert-btn');
-  if(ins)ins.disabled=_mediaMultiSel.size!==1;
+  if(ins)ins.disabled=n!==1;
 }
 function _showDetailPanel(item){
   if(!item){_clearMediaDetail();return;}
@@ -3645,8 +3776,9 @@ function _updateBulkBar(){
   }
 }
 function clearMediaMultiSel(){
-  _mediaMultiSel.clear();_mediaSelected=null;
-  document.querySelectorAll('#media-grid .media-item').forEach(el=>el.classList.remove('selected'));
+  _mediaMultiSel.clear();_mediaSelected=null;_mediaMultiMode=false;
+  document.querySelectorAll('#media-grid .media-item,.ml-row').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('#media-grid .ml-check').forEach(el=>{el.textContent='check_box_outline_blank';});
   _clearMediaDetail();_updateBulkBar();
 }
 function insertSelectedMedia(){
@@ -3677,7 +3809,7 @@ async function bulkDeleteMedia(){
   if(!confirm(`Permanently delete ${ids.length} image${ids.length>1?'s':''}?`))return;
   try{
     await adminFetch('/api/admin/media/bulk-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});
-    _mediaMultiSel.clear();_mediaSelected=null;_clearMediaDetail();_updateBulkBar();
+    _mediaMultiSel.clear();_mediaSelected=null;_mediaMultiMode=false;_clearMediaDetail();_updateBulkBar();
     await loadMediaLibrary();toast(`${ids.length} item${ids.length>1?'s':''} deleted`,'success');
   }catch(e){toast('Bulk delete failed','error');}
 }
@@ -4042,7 +4174,7 @@ async function imgEdSaveAsCopy(){
       if(j.results?.[0]?.ok){
         closeImgEditor();await loadMediaLibrary();
         const newest=_mediaItems.find(i=>i.name===fileName)||_mediaItems[0];
-        if(newest)selectMediaItem(newest.id);
+        if(newest)clickMediaItem(newest.id);
         toast('Saved: '+fileName,'success');
       }else{toast('Save failed','error');}
     }catch(e){toast('Upload error: '+e.message,'error');}
