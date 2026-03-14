@@ -531,10 +531,11 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .ied-handle[data-h="br"]{cursor:nwse-resize;}
 #media-picker-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
 #media-picker-head h2{font-size:0.95rem;font-weight:600;flex:1;}
-#media-picker-toolbar{display:flex;align-items:center;gap:8px;padding:10px 18px;border-bottom:1px solid var(--border2);flex-shrink:0;background:var(--bg);}
-#media-search{flex:1;max-width:240px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.83rem;font-family:var(--font);width:auto;}
 #media-body{display:flex;flex:1;overflow:hidden;}
-#media-folders{width:148px;border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;padding:8px 0;background:var(--bg);}
+#media-folders{width:164px;border-right:1px solid var(--border);flex-shrink:0;padding:0;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;}
+#media-folders-scroll{flex:1;overflow-y:auto;}
+/* Bulk action bar — now lives in right panel, not toolbar */
+#media-bulk-bar{display:none;}
 .mf-item{display:flex;align-items:center;gap:6px;padding:5px 12px;font-size:0.8rem;cursor:pointer;border-radius:0;transition:background 80ms;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .mf-item:hover{background:var(--panel);}
 .mf-item.active{background:var(--accent-bg);color:var(--accent);font-weight:600;}
@@ -2986,44 +2987,49 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <button class="modal-close" onclick="closeMediaPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
       </div>
     </div>
-    <div id="media-picker-toolbar">
-      <input id="media-search" type="search" placeholder="Search…" oninput="filterMedia(this.value)">
-      <div id="media-bulk-bar">
-        <span class="material-icons-round mi" style="font-size:14px;color:var(--accent)">check_box</span>
-        <span id="media-bulk-count" style="font-size:0.8rem;font-weight:600;color:var(--accent)"></span>
-        <button class="ibtn" onclick="bulkMoveToCategory(event)" style="font-size:0.75rem;padding:3px 8px"><span class="material-icons-round mi" style="font-size:13px">drive_file_move</span> Move to category</button>
-        <button class="ibtn danger" onclick="bulkDeleteMedia()" style="font-size:0.75rem;padding:3px 8px"><span class="material-icons-round mi" style="font-size:13px">delete</span> Delete</button>
-        <button class="ibtn" onclick="clearMediaMultiSel()" style="font-size:0.75rem;padding:3px 8px;margin-left:auto"><span class="material-icons-round mi" style="font-size:13px">close</span></button>
-      </div>
-      <div class="media-upload-opts" style="margin-left:auto">
-        <select id="media-upload-folder" style="max-width:130px" title="Upload to category">
-          <option value="">No category</option>
-        </select>
-        <label class="tbtn tbtn-ghost" style="cursor:pointer" title="Upload images">
-          <span class="material-icons-round mi">upload</span> Upload
-          <input type="file" id="media-upload-input" accept="image/*" multiple style="display:none" onchange="handleMediaPickerUpload(this)">
-        </label>
-      </div>
-    </div>
     <div id="media-body">
+      <!-- Left sidebar -->
       <div id="media-folders">
+        <!-- Search at top -->
+        <div style="padding:8px 10px 6px">
+          <input id="media-search" type="search" placeholder="Search…" oninput="filterMedia(this.value)" style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.8rem;font-family:var(--font);background:var(--panel);color:var(--ink);box-sizing:border-box">
+        </div>
+        <div style="border-bottom:1px solid var(--border);margin-bottom:4px"></div>
+        <!-- Scope items -->
         <div class="mf-item active" data-scope="all" data-folder="" onclick="setMediaScope('all','')">
           <span class="material-icons-round">photo_library</span> All media
         </div>
         <div class="mf-item" data-scope="nofolder" data-folder="" onclick="setMediaScope('nofolder','')">
           <span class="material-icons-round">label_off</span> No category
         </div>
-        <div id="media-folder-list" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"></div>
-        <div style="border-top:1px solid var(--border);margin-top:4px;padding:6px 8px 2px">
-          <div style="font-size:0.64rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">Filter by form</div>
+        <!-- Dynamic category list -->
+        <div id="media-folder-list"></div>
+        <!-- New category — directly under list -->
+        <div class="mf-new" onclick="createMediaCategory()">
+          <span class="material-icons-round" style="font-size:14px">new_label</span> New category
+        </div>
+        <!-- Form filter -->
+        <div style="border-top:1px solid var(--border);margin-top:6px;padding:6px 10px 4px">
+          <div style="font-size:0.64rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Filter by form</div>
           <select id="media-form-filter" style="width:100%;font-size:0.75rem;padding:3px 5px;border:1px solid var(--border);border-radius:var(--r)" onchange="setMediaFormFilter(this.value)">
             <option value="">All forms</option>
           </select>
         </div>
-        <div class="mf-new" onclick="createMediaCategory()">
-          <span class="material-icons-round" style="font-size:14px">new_label</span> New category
+        <!-- Spacer pushes upload to bottom -->
+        <div style="flex:1;min-height:8px"></div>
+        <!-- Upload section pinned to bottom -->
+        <div style="border-top:1px solid var(--border);padding:8px 10px;flex-shrink:0">
+          <div style="font-size:0.64rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px">Upload to category</div>
+          <select id="media-upload-folder" style="width:100%;margin-bottom:6px;font-size:0.78rem;padding:4px 6px;border:1px solid var(--border);border-radius:var(--r)" title="Upload to category">
+            <option value="">No category</option>
+          </select>
+          <label class="tbtn tbtn-ghost" style="cursor:pointer;width:100%;justify-content:center;box-sizing:border-box" title="Upload images">
+            <span class="material-icons-round mi">upload</span> Upload
+            <input type="file" id="media-upload-input" accept="image/*" multiple style="display:none" onchange="handleMediaPickerUpload(this)">
+          </label>
         </div>
       </div>
+      <!-- Image grid -->
       <div id="media-grid-wrap">
         <div id="media-upload-chips"></div>
         <div id="media-no-form-notice">
@@ -3033,20 +3039,35 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <div id="media-grid"></div>
         <div id="media-empty">No media here — upload an image to get started.</div>
       </div>
+      <!-- Right detail panel -->
       <div id="media-detail">
+        <!-- State: nothing selected -->
         <div id="media-detail-none">Select an item<br>to see details</div>
+        <!-- State: single item selected -->
         <img id="media-detail-img" src="" alt="">
         <div id="media-detail-info"></div>
         <div id="media-detail-actions" style="display:none;flex-direction:column;gap:6px;margin-top:auto">
           <button class="up-btn" onclick="moveSingleToCategory(event)" style="font-size:0.78rem">
-            <span class="material-icons-round mi" style="font-size:14px">drive_file_move</span>
-            <span id="media-cat-lbl">Category: none</span>
+            <span class="material-icons-round mi" style="font-size:14px">label</span> Change category
           </button>
-          <button class="up-btn" id="media-edit-btn" onclick="openImgEditor(_mediaSelected)" style="font-size:0.78rem" title="Edit image (rotate, resize, crop — saves as new copy)">
+          <button class="up-btn" id="media-edit-btn" onclick="openImgEditor(_mediaSelected)" style="font-size:0.78rem">
             <span class="material-icons-round mi" style="font-size:14px">edit</span> Edit image
           </button>
-          <button class="up-btn del" id="media-del-btn" onclick="deleteSelectedMedia()" style="font-size:0.78rem">
+          <button class="up-btn del" onclick="deleteSelectedMedia()" style="font-size:0.78rem">
             <span class="material-icons-round mi" style="font-size:14px">delete</span> Delete
+          </button>
+        </div>
+        <!-- State: multiple items selected -->
+        <div id="media-detail-multi" style="display:none;flex-direction:column;gap:8px;padding:4px 0">
+          <div id="media-multi-count" onclick="clearMediaMultiSel()" style="font-size:0.88rem;font-weight:600;color:var(--ink);padding-bottom:4px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:space-between" title="Click to deselect all"><span></span><span class="material-icons-round" style="font-size:15px;color:var(--ink3)">close</span></div>
+          <button class="up-btn" id="media-bulk-move-btn" onclick="bulkMoveToCategory(event)" style="font-size:0.78rem">
+            <span class="material-icons-round mi" style="font-size:14px">drive_file_move</span> Move to category
+          </button>
+          <button class="up-btn del" onclick="bulkDeleteMedia()" style="font-size:0.78rem">
+            <span class="material-icons-round mi" style="font-size:14px">delete</span> Delete selected
+          </button>
+          <button class="up-btn" onclick="clearMediaMultiSel()" style="font-size:0.78rem;margin-top:4px">
+            <span class="material-icons-round mi" style="font-size:14px">deselect</span> Clear selection
           </button>
         </div>
       </div>
@@ -3471,6 +3492,7 @@ function _clearMediaDetail(){
   document.getElementById('media-detail-none').style.display='block';
   document.getElementById('media-detail-info').innerHTML='';
   const acts=document.getElementById('media-detail-actions');if(acts)acts.style.display='none';
+  const multi=document.getElementById('media-detail-multi');if(multi)multi.style.display='none';
   const ins=document.getElementById('media-insert-btn');if(ins)ins.disabled=true;
 }
 function closeMediaPicker(){
@@ -3595,23 +3617,31 @@ function _showDetailPanel(item){
   if(!item){_clearMediaDetail();return;}
   const dImg=document.getElementById('media-detail-img');const dNone=document.getElementById('media-detail-none');
   const dInfo=document.getElementById('media-detail-info');const acts=document.getElementById('media-detail-actions');
+  const multi=document.getElementById('media-detail-multi');if(multi)multi.style.display='none';
   dImg.src=item.url;dImg.style.display='block';dNone.style.display='none';
   const sz=item.size?fmtBytes(item.size):'—';
   const d=item.uploadedAt?new Date(item.uploadedAt).toLocaleDateString():'—';
-  dInfo.innerHTML=`<div class="md-row"><strong>File</strong>${(item.name||'').replace(/</g,'&lt;')}</div><div class="md-row"><strong>Type</strong>${item.mimeType||'image'}</div><div class="md-row"><strong>Size</strong>${sz}</div><div class="md-row"><strong>Uploaded</strong>${d}</div>`;
-  // Update category button label
-  const catLbl=document.getElementById('media-cat-lbl');
-  if(catLbl)catLbl.textContent=item.folder?`Category: ${item.folder}`:'Category: none';
+  const cat=item.folder?`<span style="background:var(--accent-bg);color:var(--accent);padding:1px 6px;border-radius:3px;font-size:0.72rem;font-weight:600">${escHtml(item.folder)}</span>`:'<span style="color:var(--ink3);font-size:0.72rem">None</span>';
+  const safeName=(item.name||'').replace(/</g,'&lt;');
+  dInfo.innerHTML=`<div class="md-row"><strong>File</strong><span onclick="renameMediaItem(_mediaSelected)" title="Click to rename" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;word-break:break-all">${safeName}<span class="material-icons-round" style="font-size:12px;color:var(--ink3);flex-shrink:0;vertical-align:middle">edit</span></span></div><div class="md-row"><strong>Type</strong>${item.mimeType||'image'}</div><div class="md-row"><strong>Size</strong>${sz}</div><div class="md-row"><strong>Uploaded</strong>${d}</div><div class="md-row"><strong>Category</strong>${cat}</div>`;
   if(acts)acts.style.display='flex';
 }
 function _updateBulkBar(){
-  const bar=document.getElementById('media-bulk-bar');const cnt=document.getElementById('media-bulk-count');
-  if(!bar)return;
-  if(_mediaMultiSel.size>0){
-    bar.classList.add('show');
-    if(cnt)cnt.textContent=`${_mediaMultiSel.size} selected`;
+  // Multi panel lives in right detail column now
+  const multi=document.getElementById('media-detail-multi');
+  const cnt=document.getElementById('media-multi-count');
+  const ins=document.getElementById('media-insert-btn');
+  if(_mediaMultiSel.size>=2){
+    // Show multi panel, hide single-item UI
+    document.getElementById('media-detail-img').style.display='none';
+    document.getElementById('media-detail-info').innerHTML='';
+    const acts=document.getElementById('media-detail-actions');if(acts)acts.style.display='none';
+    document.getElementById('media-detail-none').style.display='none';
+    if(multi){multi.style.display='flex';}
+    if(cnt){const s=cnt.querySelector('span');if(s)s.textContent=`${_mediaMultiSel.size} selected`;}
+    if(ins)ins.disabled=true;
   }else{
-    bar.classList.remove('show');
+    if(multi)multi.style.display='none';
   }
 }
 function clearMediaMultiSel(){
@@ -3986,7 +4016,6 @@ function imgEdApplyCrop(){
 }
 async function imgEdSaveAsCopy(){
   if(!_iedOffscreen){toast('No image loaded','error');return;}
-  // Apply any pending rotation to get final canvas
   const finalCanvas=document.getElementById('ied-canvas');
   const fmtOverride=document.getElementById('ied-fmt')?.value||'';
   const mimeType=(fmtOverride||(_iedItem?.mimeType||'image/jpeg')).replace('image/jpg','image/jpeg');
@@ -3994,23 +4023,48 @@ async function imgEdSaveAsCopy(){
   const quality=['image/jpeg','image/webp'].includes(mimeType)?qualPct/100:undefined;
   const baseName=(_iedItem?.name||'image').replace(/\.[^.]+$/,'');
   const ext=mimeType==='image/png'?'png':mimeType==='image/webp'?'webp':'jpg';
-  const fileName=`${baseName}-edited.${ext}`;
+  const suggested=`${baseName}-edited.${ext}`;
+  // Prompt for filename
+  const input=prompt('Save as:',suggested);
+  if(!input||!input.trim())return;
+  let fileName=input.trim();
+  // Ensure correct extension
+  if(!/\.[a-zA-Z]{2,4}$/.test(fileName))fileName+='.'+ext;
+  const folder=document.getElementById('media-upload-folder')?.value||'';
+  const fd=new FormData();fd.append('images',finalCanvas.toBlob?null:null,''); // placeholder — blob set in callback
   finalCanvas.toBlob(async(blob)=>{
     if(!blob){toast('Could not generate image','error');return;}
-    const scope=document.getElementById('media-upload-scope')?.value||'form';
-    const folder=document.getElementById('media-upload-folder')?.value||'';
-    const fd=new FormData();fd.append('images',blob,fileName);
-    fd.append('shared',scope==='shared'?'1':'0');fd.append('folder',folder);
+    const fd2=new FormData();fd2.append('images',blob,fileName);
+    fd2.append('shared','1');fd2.append('folder',folder);
+    const uploadSlug=currentFormSlug||'_shared';
     try{
-      const j=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload-multi`,{method:'POST',body:fd}).then(r=>r.json());
+      const j=await adminFetch(`/api/admin/forms/${uploadSlug}/upload-multi`,{method:'POST',body:fd2}).then(r=>r.json());
       if(j.results?.[0]?.ok){
         closeImgEditor();await loadMediaLibrary();
         const newest=_mediaItems.find(i=>i.name===fileName)||_mediaItems[0];
         if(newest)selectMediaItem(newest.id);
-        toast('Saved as copy: '+fileName,'success');
+        toast('Saved: '+fileName,'success');
       }else{toast('Save failed','error');}
     }catch(e){toast('Upload error: '+e.message,'error');}
   },mimeType,quality);
+}
+async function renameMediaItem(item){
+  if(!item)return;
+  const cur=item.name||'';
+  const name=prompt('Rename file:',cur);
+  if(!name||!name.trim()||name.trim()===cur)return;
+  const newName=name.trim();
+  try{
+    const slug=currentFormSlug||'_shared';
+    await adminFetch(`/api/admin/forms/${slug}/media/${item.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName})});
+    // Update local caches
+    [_mediaItems,_mediaFiltered].forEach(arr=>{const m=arr.find(i=>i.id===item.id);if(m)m.name=newName;});
+    item.name=newName;
+    if(_mediaSelected?.id===item.id)_mediaSelected.name=newName;
+    _showDetailPanel(item);
+    renderMediaGrid(_mediaFiltered);
+    toast('Renamed to '+newName,'success');
+  }catch(e){toast('Rename failed','error');}
 }
 
 // Helper: apply picker-selected URL to the container item image editor
