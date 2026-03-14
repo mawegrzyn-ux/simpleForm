@@ -4017,7 +4017,7 @@ function renderFormsList(){
         ${(a.errors||0)>0?`<span class="analytics-stat errors" title="Submit errors"><span class="material-icons-round mi">error_outline</span> ${fmtNum(a.errors)}</span>`:''}
         <button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:0.7rem;padding:1px 6px" onclick="event.stopPropagation();resetAnalytics('${f.slug}')" title="Reset analytics">reset</button>
       </div>`:'';
-    return`<div class="form-card${isSelected?' selected':''}" onclick="selectFormPreview('${f.slug}')">
+    return`<div class="form-card${isSelected?' selected':''}" onclick="openFormEditor('${f.slug}')">
       <div class="form-card-top">
         <div class="form-card-info">
           <div class="form-card-name">${escHtml(f.name)}</div>
@@ -4029,7 +4029,6 @@ function renderFormsList(){
           </div>
         </div>
         <div class="form-card-acts">
-          <button class="tbtn tbtn-ghost" style="padding:4px 8px;font-size:0.75rem;gap:3px" onclick="event.stopPropagation();openFormEditor('${f.slug}')" title="Open editor"><span class="material-icons-round mi" style="font-size:14px">edit</span> Edit</button>
           <button class="tbtn" style="padding:4px 6px;color:var(--danger)" onclick="event.stopPropagation();deleteForm('${f.slug}','${escHtml(f.name)}')" title="Delete form"><span class="material-icons-round mi" style="font-size:14px">delete</span></button>
         </div>
       </div>

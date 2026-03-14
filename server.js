@@ -1839,6 +1839,8 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   try { cfg = await readFormConfig(slug); }
   catch(e) { return res.status(404).json({ error: 'Form not found' }); }
   const body = req.body;
+  // Top-level safety net — ensures a response is always sent even on unexpected errors
+  try {
 
   // ── Anti-bot layers ──────────────────────────────────────────────────────────
   const ipHash = hashIp(req.ip);
@@ -1974,19 +1976,34 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
     );
     record.id = existing.id;
   } else {
-    await pool.query(
-      `INSERT INTO subscribers
-       (id, form_slug, email, status, subscribed_at, unsubscribed_at,
-        unsubscribe_token, consent_given, consent_timestamp, ip_address, custom_fields)
-       VALUES($1,$2,$3,'active',NOW(),NULL,$4,TRUE,$5,$6,$7)`,
-      [id, slug, email, token, now, req.ip, customFields]
-    );
+    try {
+      await pool.query(
+        `INSERT INTO subscribers
+         (id, form_slug, email, status, subscribed_at, unsubscribed_at,
+          unsubscribe_token, consent_given, consent_timestamp, ip_address, custom_fields)
+         VALUES($1,$2,$3,'active',NOW(),NULL,$4,TRUE,$5,$6,$7)`,
+        [id, slug, email, token, now, req.ip, customFields]
+      );
+    } catch(insertErr) {
+      if (insertErr.code === '23505') {
+        // Race condition: another request inserted the same email between our SELECT and INSERT
+        bumpAnalytic(slug, 'errors');
+        return res.status(409).json({ error: 'This email is already subscribed.' });
+      }
+      throw insertErr; // Re-throw unexpected errors to be caught by top-level handler
+    }
   }
 
   bumpAnalytic(slug, 'submits');
   // Fire-and-forget welcome email (never blocks the response)
   sendWelcomeEmail(cfg, record).catch(e => console.error('[email]', e.message));
   res.json({ success: true });
+  } catch(routeErr) {
+    console.error('[subscribe]', routeErr.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    }
+  }
 });
 
 // ════════════════════════════════════════
