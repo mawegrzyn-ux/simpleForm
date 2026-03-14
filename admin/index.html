@@ -4277,13 +4277,14 @@ function renderFormsList(){
     const hasPayload=f.embedPageSize!=null||f.embedJsSize!=null||f.mediaSize!=null;
     const payloadBreakdown=`Embed page: ${fmtBytes(f.embedPageSize)}\nEmbed JS:   ${fmtBytes(f.embedJsSize)}\nMedia:      ${fmtBytes(f.mediaSize)}`;
     const isSelected=_formsPreviewSlug===f.slug;
-    const analyticsRow=hasAnalytics?`
+    const analyticsRow=`
       <div class="form-card-analytics">
-        <span class="analytics-stat visits" title="Page visits"><span class="material-icons-round mi">visibility</span> ${fmtNum(a.visits)}</span>
-        <span class="analytics-stat submits" title="Successful signups"><span class="material-icons-round mi">how_to_reg</span> ${fmtNum(a.submits)}</span>
-        ${(a.errors||0)>0?`<span class="analytics-stat errors" title="Submit errors"><span class="material-icons-round mi">error_outline</span> ${fmtNum(a.errors)}</span>`:''}
+        <span class="analytics-stat visits" title="Page visits"><span class="material-icons-round mi">visibility</span> ${hasAnalytics?fmtNum(a.visits):0}</span>
+        ${f.subscriberCount!=null?`<span class="analytics-stat" style="color:var(--green,#10b981)" title="Active subscribers"><span class="material-icons-round mi">people</span> ${f.subscriberCount}</span>`:''}
+        <span class="analytics-stat submits" title="Successful signups"><span class="material-icons-round mi">task_alt</span> ${hasAnalytics?fmtNum(a.submits):0}</span>
+        ${hasAnalytics&&(a.errors||0)>0?`<span class="analytics-stat errors" title="Submit errors"><span class="material-icons-round mi">error_outline</span> ${fmtNum(a.errors)}</span>`:''}
         <button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:0.7rem;padding:1px 6px" onclick="event.stopPropagation();resetAnalytics('${f.slug}')" title="Reset analytics">reset</button>
-      </div>`:'';
+      </div>`;
     return`<div class="form-card${isSelected?' selected':''}" onclick="openFormEditor('${f.slug}')">
       <div class="form-card-top">
         <div class="form-card-info">
@@ -4291,7 +4292,6 @@ function renderFormsList(){
           ${f.description?`<div class="form-card-desc">${escHtml(f.description)}</div>`:''}
           <div class="form-card-meta">
             <span class="slug-pill">/${f.slug}</span>
-            ${f.subscriberCount!=null?`<span title="Active subscribers"><span class="material-icons-round mi" style="font-size:11px;vertical-align:-2px;color:var(--green,#10b981)">how_to_reg</span> ${f.subscriberCount} active</span>`:''}
             ${hasPayload?`<span class="size-pill" title="${payloadBreakdown}"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">data_usage</span> ${fmtBytes(totalPayload)}</span>`:''}
           </div>
         </div>
