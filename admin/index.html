@@ -1967,6 +1967,156 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
     </div>
 
+    <!-- INSTANCE SETUP TUTORIAL -->
+    <div class="help-group" data-tags="setup install tutorial instance server aws lightsail ubuntu node nginx certbot pm2 postgres s3 auth0 deploy environment variables first run">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">rocket_launch</span> Instance Setup — Step-by-Step Tutorial
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <p>This tutorial walks through a complete fresh install of SignFlow on a new AWS Lightsail server from scratch. Estimated time: 60–90 minutes.</p>
+
+        <h3>Prerequisites — accounts &amp; services to set up first</h3>
+        <table class="help-table">
+          <tr><th>Service</th><th>What you need</th><th>URL</th></tr>
+          <tr><td><strong>AWS account</strong></td><td>To create Lightsail instance, managed DB, and S3 bucket</td><td>aws.amazon.com</td></tr>
+          <tr><td><strong>Auth0 account</strong></td><td>Free tier is sufficient; used for admin login</td><td>auth0.com</td></tr>
+          <tr><td><strong>Domain name</strong></td><td>Point an A record at your server IP before Step 9</td><td>Any registrar</td></tr>
+          <tr><td><strong>SMTP provider</strong></td><td>For welcome emails — Fastmail, SendGrid, Mailgun, SES, Gmail SMTP etc.</td><td>—</td></tr>
+          <tr><td><strong>GitHub access</strong></td><td>To clone the SignFlow repository</td><td>github.com</td></tr>
+        </table>
+
+        <h3>Step 1 — Create the Lightsail instance</h3>
+        <ol>
+          <li>In the AWS Console, go to <strong>Lightsail → Instances → Create instance</strong>.</li>
+          <li>Region: choose the one closest to your audience (e.g. <code>eu-west-3</code> Paris).</li>
+          <li>Platform: <strong>Linux/Unix</strong>. Blueprint: <strong>Ubuntu 24.04 LTS</strong>.</li>
+          <li>Instance plan: <strong>$5/mo</strong> (1 GB RAM) is sufficient to start; $10/mo for higher traffic.</li>
+          <li>Give the instance a name (e.g. <code>signflow-prod</code>) and click <strong>Create</strong>.</li>
+          <li>Wait ~2 minutes for the instance to start, then note the <strong>Public IP</strong>.</li>
+          <li>Go to <strong>Networking → Static IP</strong> and attach a static IP to the instance so it doesn't change on reboot.</li>
+          <li>Open firewall ports: in the instance's <strong>Networking</strong> tab, add rules for <strong>HTTP (80)</strong> and <strong>HTTPS (443)</strong> if not already present.</li>
+        </ol>
+
+        <h3>Step 2 — Create the managed PostgreSQL database</h3>
+        <ol>
+          <li>Lightsail → <strong>Databases → Create database</strong>.</li>
+          <li>Engine: <strong>PostgreSQL 16</strong>. Same region as your instance.</li>
+          <li>Plan: <strong>$15/mo</strong> (1 GB RAM, 40 GB SSD) is the smallest managed option.</li>
+          <li>Set a <strong>Master username</strong> and <strong>Master password</strong> — save these.</li>
+          <li>Database name: <code>signflow</code>.</li>
+          <li>After creation, go to <strong>Databases → your DB → Networking</strong> and enable <strong>Public mode</strong> temporarily so you can connect from your local machine for setup. Disable it again after Step 8.</li>
+          <li>Copy the <strong>Endpoint</strong> — it will look like <code>ls-XXXX.REGION.rds.amazonaws.com</code>.</li>
+          <li>The full <code>DATABASE_URL</code> is: <code>postgresql://USERNAME:PASSWORD@ENDPOINT:5432/signflow</code></li>
+        </ol>
+
+        <h3>Step 3 — Create the S3 bucket</h3>
+        <ol>
+          <li>AWS Console → <strong>S3 → Create bucket</strong>.</li>
+          <li>Bucket name: something like <code>yoursite-media</code>. Same region as your Lightsail instance.</li>
+          <li>Uncheck <strong>"Block all public access"</strong> — SignFlow serves media via public S3 URLs.</li>
+          <li>After creation, go to <strong>Permissions → Bucket policy</strong> and paste:
+            <div class="info-box"><code>{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::YOUR-BUCKET-NAME/*"}]}</code></div>
+          </li>
+          <li>Create an <strong>IAM user</strong> (AWS Console → IAM → Users → Create user) with programmatic access. Attach the <code>AmazonS3FullAccess</code> policy (or a scoped policy limiting to your bucket). Save the <strong>Access Key ID</strong> and <strong>Secret Access Key</strong>.</li>
+        </ol>
+
+        <h3>Step 4 — Set up Auth0</h3>
+        <ol>
+          <li>Auth0 Dashboard → <strong>Applications → Create application</strong>. Type: <strong>Regular Web Application</strong>.</li>
+          <li>Name it <code>SignFlow Admin</code>. Click <strong>Create</strong>.</li>
+          <li>In Settings, note <strong>Domain</strong>, <strong>Client ID</strong>, and <strong>Client Secret</strong>.</li>
+          <li>Set <strong>Allowed Callback URLs</strong>: <code>https://yourdomain.com/auth/callback</code></li>
+          <li>Set <strong>Allowed Logout URLs</strong>: <code>https://yourdomain.com</code></li>
+          <li>Save changes.</li>
+          <li>Go to <strong>Actions → Flows → Login</strong>. Click <strong>+</strong> → <strong>Build custom action</strong>. Name it <code>Add roles claim</code>. Paste:
+            <div class="info-box"><code>exports.onExecutePostLogin = async (event, api) => {<br>&nbsp;&nbsp;const ns = 'https://signflow/roles';<br>&nbsp;&nbsp;const roles = event.authorization?.roles || [];<br>&nbsp;&nbsp;api.idToken.setCustomClaim(ns, roles);<br>&nbsp;&nbsp;api.accessToken.setCustomClaim(ns, roles);<br>};</code></div>
+          </li>
+          <li>Deploy the action and drag it into the Login flow.</li>
+          <li>Go to <strong>User Management → Roles → Create role</strong>. Name: <code>signflow-admin</code>. Assign it to your admin user(s).</li>
+        </ol>
+
+        <h3>Step 5 — Connect to the server &amp; install dependencies</h3>
+        <div class="info-box"><code># SSH into your Lightsail instance<br>ssh -i ~/.ssh/your-key.pem ubuntu@YOUR-STATIC-IP<br><br># Update packages<br>sudo apt update &amp;&amp; sudo apt upgrade -y<br><br># Install Node.js 20 LTS<br>curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -<br>sudo apt install -y nodejs<br>node -v  # should print v20.x.x<br><br># Install PM2, git, nginx, certbot<br>sudo npm install -g pm2<br>sudo apt install -y nginx python3-certbot-nginx git</code></div>
+
+        <h3>Step 6 — Clone the repository &amp; install packages</h3>
+        <div class="info-box"><code># Clone into home directory<br>cd ~<br>git clone https://github.com/YOUR-ORG/signflow.git signflow<br>cd signflow<br><br># Install production dependencies<br>npm install --production</code></div>
+
+        <h3>Step 7 — Create the .env file</h3>
+        <div class="info-box"><code>nano ~/signflow/.env</code></div>
+        <p>Paste and fill in all values:</p>
+        <div class="info-box"><code>PORT=3000<br>SESSION_SECRET=&lt;random-64-char-hex — run: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"&gt;<br><br># Auth0<br>AUTH0_DOMAIN=your-tenant.eu.auth0.com<br>AUTH0_CLIENT_ID=your-client-id<br>AUTH0_CLIENT_SECRET=your-client-secret<br>AUTH0_CALLBACK_URL=https://yourdomain.com/auth/callback<br><br># PostgreSQL<br>DATABASE_URL=postgresql://USERNAME:PASSWORD@ENDPOINT:5432/signflow<br><br># Amazon S3<br>AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE<br>AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY<br>AWS_REGION=eu-west-3<br>S3_BUCKET=yoursite-media<br><br># SMTP (welcome email)<br>SMTP_HOST=smtp.fastmail.com<br>SMTP_PORT=465<br>SMTP_SECURE=true<br>SMTP_USER=you@yourdomain.com<br>SMTP_PASS=your-app-password<br>SMTP_FROM="Your Name &lt;you@yourdomain.com&gt;"</code></div>
+        <div class="info-box" style="margin-top:8px">⚠️ <code>.env</code> is already in <code>.gitignore</code>. Never commit it.</div>
+
+        <h3>Step 8 — Start the app &amp; initialise the database</h3>
+        <div class="info-box"><code>cd ~/signflow<br><br># First run — creates all PostgreSQL tables automatically<br>node server.js<br><br># You should see: "SignFlow running on port 3000" and "DB ready"<br># Press Ctrl+C once confirmed, then hand off to PM2<br><br>pm2 start server.js --name signflow<br>pm2 save<br>pm2 startup  # follow the printed sudo command to enable auto-start on reboot</code></div>
+        <p>At this point you can test on <code>http://YOUR-IP:3000</code> if you temporarily allow port 3000 in the Lightsail firewall. Remove that rule after confirming it works.</p>
+
+        <h3>Step 9 — Point your domain &amp; configure Nginx</h3>
+        <p>Add an <strong>A record</strong> in your DNS pointing <code>yourdomain.com</code> (and optionally <code>www.yourdomain.com</code>) to your static IP. DNS propagation can take up to 24 hours but is usually a few minutes.</p>
+        <div class="info-box"><code>sudo nano /etc/nginx/sites-available/signflow</code></div>
+        <p>Paste this config:</p>
+        <div class="info-box"><code>server {<br>&nbsp;&nbsp;listen 80;<br>&nbsp;&nbsp;server_name yourdomain.com www.yourdomain.com;<br><br>&nbsp;&nbsp;client_max_body_size 50M;<br><br>&nbsp;&nbsp;location / {<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_pass http://localhost:3000;<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_http_version 1.1;<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header Upgrade $http_upgrade;<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header Connection 'upgrade';<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header Host $host;<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header X-Real-IP $remote_addr;<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header X-Forwarded-Proto $scheme;<br>&nbsp;&nbsp;&nbsp;&nbsp;proxy_cache_bypass $http_upgrade;<br>&nbsp;&nbsp;}<br>}</code></div>
+        <div class="info-box"><code>sudo ln -s /etc/nginx/sites-available/signflow /etc/nginx/sites-enabled/<br>sudo nginx -t  # should print "test is successful"<br>sudo systemctl reload nginx</code></div>
+
+        <h3>Step 10 — Install SSL certificate</h3>
+        <div class="info-box"><code>sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com<br><br># Follow the prompts — Certbot will auto-edit your Nginx config<br># Choose option 2 (redirect HTTP to HTTPS) when asked<br><br># Verify auto-renewal works<br>sudo certbot renew --dry-run</code></div>
+        <p>Certbot installs a systemd timer that auto-renews certificates before they expire. No manual action needed.</p>
+
+        <h3>Step 11 — Also raise the upload limit in nginx.conf</h3>
+        <div class="info-box"><code>sudo nano /etc/nginx/nginx.conf</code></div>
+        <p>Inside the <code>http { }</code> block (not inside a server block), add or update:</p>
+        <div class="info-box"><code>client_max_body_size 50M;</code></div>
+        <div class="info-box"><code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code></div>
+
+        <h3>Step 12 — Verify the full installation</h3>
+        <table class="help-table">
+          <tr><th>Check</th><th>How to verify</th></tr>
+          <tr><td>App is running</td><td><code>pm2 status</code> — shows <code>signflow</code> as <strong>online</strong></td></tr>
+          <tr><td>HTTPS works</td><td>Visit <code>https://yourdomain.com</code> — padlock in browser, redirected from HTTP</td></tr>
+          <tr><td>Admin login</td><td>Visit <code>https://yourdomain.com/admin</code> — redirects to Auth0 login</td></tr>
+          <tr><td>Auth0 role works</td><td>After login you land on the admin dashboard (not a 403)</td></tr>
+          <tr><td>Media upload</td><td>Open Media Library, upload a test image — it appears and the URL contains your S3 bucket domain</td></tr>
+          <tr><td>Database persists</td><td>Create a form, save it, restart PM2 (<code>pm2 restart signflow</code>) — form still exists</td></tr>
+          <tr><td>Email sending</td><td>Configure SMTP in Settings, submit a test signup — welcome email arrives</td></tr>
+        </table>
+
+        <h3>Step 13 — Disable public DB access</h3>
+        <p>Now that everything is running, go to <strong>Lightsail → Databases → your DB → Networking</strong> and <strong>disable Public mode</strong>. The server connects via the private network endpoint — it will still work. No external connections will be possible.</p>
+
+        <h3>Deployment workflow — pushing updates</h3>
+        <div class="info-box"><code>cd ~/signflow<br>git pull<br>npm install --production  # only needed if package.json changed<br>pm2 restart signflow<br><br># Verify<br>pm2 logs signflow --lines 20</code></div>
+        <p>No build step, no downtime beyond the ~1 second PM2 restart. PM2 will buffer incoming requests during the restart.</p>
+
+        <h3>Useful day-to-day commands</h3>
+        <table class="help-table">
+          <tr><th>Command</th><th>What it does</th></tr>
+          <tr><td><code>pm2 status</code></td><td>Show all running processes and their status</td></tr>
+          <tr><td><code>pm2 logs signflow</code></td><td>Tail live application logs</td></tr>
+          <tr><td><code>pm2 logs signflow --lines 100</code></td><td>Show last 100 log lines</td></tr>
+          <tr><td><code>pm2 restart signflow</code></td><td>Restart the app after a deploy</td></tr>
+          <tr><td><code>pm2 stop signflow</code></td><td>Stop the app (no auto-restart)</td></tr>
+          <tr><td><code>sudo systemctl status nginx</code></td><td>Check Nginx is running</td></tr>
+          <tr><td><code>sudo nginx -t</code></td><td>Test Nginx config before reload</td></tr>
+          <tr><td><code>sudo certbot renew --dry-run</code></td><td>Test SSL cert renewal</td></tr>
+          <tr><td><code>psql $DATABASE_URL</code></td><td>Connect to the database directly</td></tr>
+        </table>
+
+        <h3>Troubleshooting</h3>
+        <table class="help-table">
+          <tr><th>Symptom</th><th>Likely cause &amp; fix</th></tr>
+          <tr><td>502 Bad Gateway</td><td>App is not running — check <code>pm2 status</code> and <code>pm2 logs signflow</code></td></tr>
+          <tr><td>413 Request Entity Too Large</td><td>Upload limit not set — add <code>client_max_body_size 50M;</code> to both <code>nginx.conf</code> (http block) and the site config, then reload Nginx</td></tr>
+          <tr><td>403 after Auth0 login</td><td>Role not assigned — check user has <code>signflow-admin</code> role in Auth0 User Management</td></tr>
+          <tr><td>Media uploads fail</td><td>Check S3 credentials in <code>.env</code>, bucket policy allows public read, IAM user has S3 write access</td></tr>
+          <tr><td>DB connection error at startup</td><td>Check <code>DATABASE_URL</code> format and that the managed DB is in the <em>Available</em> state in Lightsail</td></tr>
+          <tr><td>Welcome email not sent</td><td>Verify SMTP settings; check <code>pm2 logs</code> for Nodemailer errors; confirm SMTP provider allows the From address</td></tr>
+          <tr><td>Embed shows blank</td><td>Known bug fixed — embed.js now uses correct slug in iframe src. Ensure you are on the latest commit.</td></tr>
+        </table>
+
+      </div>
+    </div>
+
     </div><!-- /system-sections -->
 </div><!-- /docs-panel-system -->
 
@@ -2157,6 +2307,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <button class="docs-tab active" id="docs-tab-help-btn" onclick="switchInnerTab('help',this)"><span class="material-icons-round mi" style="font-size:14px">help_outline</span> Help</button>
       <button class="docs-tab" id="docs-tab-system-btn" onclick="switchInnerTab('system',this)"><span class="material-icons-round mi" style="font-size:14px">dns</span> System</button>
       <button class="docs-tab" id="docs-tab-notes-btn" onclick="switchInnerTab('notes',this)"><span class="material-icons-round mi" style="font-size:14px">sticky_note_2</span> Notes</button>
+      <button class="docs-tab" style="margin-left:auto;color:var(--ink3)" onclick="printCurrentDocsPanel()" title="Print current tab"><span class="material-icons-round mi" style="font-size:14px">print</span> Print</button>
     </div>
     <div id="docs-panel-help" class="docs-panel active">
     <div class="page-head">
@@ -6538,6 +6689,41 @@ function switchInnerTab(name,btn){
   if(panel)panel.classList.add('active');
   if(name==='help')_initHelp();
   if(name==='notes')renderUserNotes();
+}
+function printCurrentDocsPanel(){
+  const active=document.querySelector('#tab-help .docs-panel.active');
+  if(!active)return;
+  // Expand all collapsed help groups so everything prints
+  active.querySelectorAll('.help-group-body').forEach(b=>{b.style.display='block';});
+  const title=active.querySelector('h2')?.textContent||'SignFlow Docs';
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:13px;color:#111;line-height:1.65;max-width:820px;margin:32px auto 64px;padding:0 24px;}
+h2{font-size:1.5rem;font-weight:300;margin-bottom:6px;letter-spacing:-0.3px;}
+h3{font-size:0.88rem;font-weight:700;margin:18px 0 6px;text-transform:uppercase;letter-spacing:0.05em;color:#444;}
+p{margin:6px 0;}
+ul,ol{padding-left:20px;margin:6px 0;}
+li{margin:3px 0;}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:0.8rem;}
+th{background:#f4f4f4;font-weight:600;text-align:left;padding:5px 8px;border:1px solid #ddd;}
+td{padding:5px 8px;border:1px solid #ddd;vertical-align:top;}
+code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:0.82em;font-family:ui-monospace,monospace;}
+.info-box{background:#f6f8fa;border:1px solid #ddd;border-radius:5px;padding:10px 12px;font-family:ui-monospace,monospace;font-size:0.78rem;line-height:1.7;margin:8px 0;white-space:pre-wrap;word-break:break-all;}
+.help-group{margin-bottom:20px;border:1px solid #e4e4e4;border-radius:6px;overflow:hidden;page-break-inside:avoid;}
+.help-group-head{background:#f9f9f9;padding:10px 14px;font-weight:600;font-size:0.88rem;border-bottom:1px solid #e4e4e4;}
+.help-group-body{padding:14px;display:block!important;}
+.help-group-body>*:first-child{margin-top:0;}
+.help-chevron,.mi,.page-head p,input[type=search],.btn,.docs-tab,.page-head button,.gdpr-dot{display:none!important;}
+.gdpr-list{margin:8px 0;}
+.gdpr-item{display:flex;gap:8px;padding:3px 0;font-size:0.82rem;}
+pre{background:#f0f0f0;border-radius:4px;padding:10px;font-size:0.75rem;overflow-x:auto;margin:8px 0;white-space:pre-wrap;}
+kbd{background:#eee;border:1px solid #bbb;border-radius:3px;padding:1px 5px;font-size:0.8em;}
+@media print{body{margin:0;padding:16px;}@page{margin:1.5cm;}}
+</style></head><body>${active.innerHTML}</body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>{w.print();},350);
 }
 
 // ── Tabs ──
