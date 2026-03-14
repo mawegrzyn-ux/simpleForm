@@ -3674,11 +3674,11 @@ function _hideCatPopup(){
   const p=document.getElementById('media-cat-popup');if(p)p.classList.remove('open');
   _catPopupCallback=null;
 }
-function _pickCat(cat){_hideCatPopup();if(_catPopupCallback)_catPopupCallback(cat);}
+function _pickCat(cat){const cb=_catPopupCallback;_hideCatPopup();if(cb)cb(cat);}
 async function _pickCatNew(){
-  _hideCatPopup();
+  const cb=_catPopupCallback;_hideCatPopup();
   const name=prompt('New category name:','');if(!name||!name.trim())return;
-  if(_catPopupCallback)_catPopupCallback(name.trim());
+  if(cb)cb(name.trim());
 }
 function bulkMoveToCategory(e){
   if(!_mediaMultiSel.size)return;
@@ -3716,8 +3716,24 @@ async function createMediaCategory(){
     const o=document.createElement('option');o.value=cat;o.textContent=cat;usel.appendChild(o);
     usel.value=cat;
   }
+  // Add a temporary sidebar entry (will be populated from DB once items are added)
+  const list=document.getElementById('media-folder-list');
+  if(list&&!list.querySelector(`[data-folder="${CSS.escape(cat)}"]`)){
+    const div=document.createElement('div');
+    div.className='mf-item';div.dataset.scope='folder';div.dataset.folder=cat;
+    div.innerHTML=`<span class="material-icons-round" style="font-size:14px">label</span> ${escHtml(cat)}`;
+    div.onclick=()=>setMediaScope('folder',cat);
+    div.addEventListener('dragover',e=>{e.preventDefault();div.classList.add('cat-drop-over');});
+    div.addEventListener('dragleave',()=>div.classList.remove('cat-drop-over'));
+    div.addEventListener('drop',async e=>{
+      e.preventDefault();div.classList.remove('cat-drop-over');
+      const ids=_mediaMultiSel.size?[..._mediaMultiSel]:[e.dataTransfer.getData('media-id')].filter(Boolean);
+      if(ids.length)await _moveItemsToCategory(cat,ids);
+    });
+    list.appendChild(div);
+  }
   setMediaScope('folder',cat);
-  toast(`Category "${cat}" created — upload images or drag items onto it`,'success');
+  toast(`Category "${cat}" created — upload or drag images into it`,'success');
 }
 // Alias kept for any callers that still reference old name
 function createMediaFolder(){createMediaCategory();}
