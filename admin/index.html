@@ -1411,30 +1411,104 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <h3>Key server functions</h3>
         <table class="help-table">
           <tr><th>Function</th><th>Description</th></tr>
-          <tr><td><code>initDb()</code></td><td>On startup: <code>CREATE TABLE IF NOT EXISTS</code> for all 6 PostgreSQL tables</td></tr>
-          <tr><td><code>renderPublicPage(cfg, sharedFonts, templates)</code></td><td>Returns full HTML for the public-facing signup page</td></tr>
-          <tr><td><code>renderEmbedPage(cfg, sharedFonts, templates)</code></td><td>Returns HTML for the iframe embed version</td></tr>
-          <tr><td><code>renderBlockElement(el, cfg)</code></td><td>Renders a single top-level section block</td></tr>
-          <tr><td><code>renderCntItem(item, cfg, d)</code></td><td>Renders an item inside a container column</td></tr>
-          <tr><td><code>sendWelcomeEmail(cfg, sub)</code></td><td>Sends HTML welcome email via Nodemailer</td></tr>
-          <tr><td><code>customFontFaceCSS(cfg, sharedFonts)</code></td><td>Generates <code>@font-face</code> CSS from pre-fetched fonts array</td></tr>
-          <tr><td><code>googleFontTag(cfg, d, sharedFonts)</code></td><td>Generates Google Fonts <code>&lt;link&gt;</code>, skipping custom font names</td></tr>
-          <tr><td><code>bumpAnalytic(slug, key)</code></td><td>Fire-and-forget analytics upsert (no <code>await</code>)</td></tr>
-          <tr><td><code>adminAuth</code></td><td>Middleware: verifies Auth0 session + <code>signflow-admin</code> role</td></tr>
-          <tr><td><code>submitLimiter</code></td><td>Rate limiter: 10 subs / 15 min / IP</td></tr>
+          <tr><td><code>initDb()</code></td><td>On startup: <code>CREATE TABLE IF NOT EXISTS</code> for all 8 PostgreSQL tables</td></tr>
+          <tr><td><code>renderPublicPage(cfg, sharedFonts, templates)</code></td><td>Returns full HTML for the public-facing signup page (with cookie consent, anti-bot fields, GA4/Pixel, Google Fonts)</td></tr>
+          <tr><td><code>renderEmbedPage(cfg, sharedFonts, templates)</code></td><td>Returns HTML for the iframe embed version (no cookie banner, no tracking scripts)</td></tr>
+          <tr><td><code>renderEmbedScript(origin, cfg)</code></td><td>Returns the JS widget that injects a self-resizing iframe</td></tr>
+          <tr><td><code>renderUnsubscribePage(cfg, data, sharedFonts)</code></td><td>Branded unsubscribe page listing all active subscriptions; single / all-forms / delete-data actions</td></tr>
+          <tr><td><code>renderPreferencePage(cfg, data, sharedFonts)</code></td><td>Subscriber preference centre — update fields, resubscribe, unsubscribe</td></tr>
+          <tr><td><code>renderPrivacyPage(cfg, sharedFonts)</code></td><td>Admin-authored privacy policy page</td></tr>
+          <tr><td><code>renderBlockElement(el, cfg)</code></td><td>Renders a single top-level section block (heading, paragraph, image, divider, spacer, video, wysiwyg)</td></tr>
+          <tr><td><code>renderSectionBlock(section, cfg, formSection, formFields)</code></td><td>Renders a form section (hero, form, container, content, divider, video, spinwheel, confirmation)</td></tr>
+          <tr><td><code>renderFormField(f, cfg)</code></td><td>Renders a single form field by type (text, email, phone, number, textarea, select, checkbox, date, year, yearmonth, yearmonthday, age, slider, iconselect)</td></tr>
+          <tr><td><code>sendWelcomeEmail(cfg, sub)</code></td><td>Builds HTML email from template, replaces merge tags, sends via Nodemailer; auto-appends unsubscribe footer if <code>{{unsubscribeUrl}}</code> not found in body</td></tr>
+          <tr><td><code>replaceMergeTags(text, cfg, sub, unsubUrl)</code></td><td>Replaces <code>{{email}}</code>, <code>{{firstName}}</code>, <code>{{formName}}</code>, <code>{{unsubscribeUrl}}</code>, <code>{{preferencesUrl}}</code></td></tr>
+          <tr><td><code>sliderPickerCSS(accent)</code></td><td>Generates injected CSS for drum picker, range slider, and icon/tile selector</td></tr>
+          <tr><td><code>sliderPickerJS()</code></td><td>Generates injected JS for drum scroll, slider interaction, and icon-select tile click logic</td></tr>
+          <tr><td><code>googleFontTag(cfg, d, sharedFonts)</code></td><td>Generates Google Fonts <code>&lt;link&gt;</code>, skipping custom-uploaded font names</td></tr>
+          <tr><td><code>customFontFaceCSS(cfg, sharedFonts)</code></td><td>Generates <code>@font-face</code> CSS for uploaded custom fonts</td></tr>
+          <tr><td><code>bumpAnalytic(slug, key)</code></td><td>Fire-and-forget <code>visits</code> / <code>submits</code> / <code>errors</code> counter upsert (no <code>await</code>)</td></tr>
+          <tr><td><code>adminAuth</code></td><td>Express middleware: verifies Auth0 session + <code>signflow-admin</code> role; returns 401 JSON for API calls, redirects to login for browser requests</td></tr>
+          <tr><td><code>hashIp(ip)</code></td><td>HMAC-SHA256(ip, secret+salt).slice(0,40) — GDPR-safe IP fingerprint</td></tr>
+          <tr><td><code>getIpFlagLevel(ipHash)</code></td><td>Query <code>ip_flags</code>; return level 0–3 (0 = clean)</td></tr>
+          <tr><td><code>flagIp(ipHash, reason)</code></td><td>Increment strike count; upsert flag level + expiry</td></tr>
+          <tr><td><code>genChallenge()</code></td><td>Generate arithmetic question + HMAC-signed answer token (10-min window)</td></tr>
+          <tr><td><code>verifyChallenge(token, answer)</code></td><td>Validate answer against current + previous time window</td></tr>
+          <tr><td><code>genTimingToken()</code></td><td>Create timestamp + HMAC signature embedded in page</td></tr>
+          <tr><td><code>verifyTimingToken(val)</code></td><td>Reject if &lt; 2.5s or &gt; 1h old, or signature invalid</td></tr>
+          <tr><td><code>sanitizeWysiwyg(html)</code></td><td>sanitize-html with tag/attribute allowlist — applied to all WYSIWYG fields before rendering</td></tr>
+          <tr><td><code>escapeHtml(s)</code></td><td>Escape <code>&amp; &lt; &gt; " '</code> — applied to all admin-authored text in page renderers</td></tr>
         </table>
         <h3>Public routes</h3>
         <table class="help-table">
           <tr><th>Method + Path</th><th>Handler</th></tr>
           <tr><td><code>GET /</code></td><td>Redirect to first form slug</td></tr>
-          <tr><td><code>GET /:slug</code></td><td>Render public form page</td></tr>
-          <tr><td><code>POST /:slug/subscribe</code></td><td>Validate → save → send email</td></tr>
-          <tr><td><code>GET /:slug/embed</code></td><td>Embeddable iframe page</td></tr>
-          <tr><td><code>GET /:slug/embed.js</code></td><td>Self-resizing embed script</td></tr>
-          <tr><td><code>GET /unsubscribe</code></td><td>Token-based unsubscribe</td></tr>
-          <tr><td><code>GET /delete-data</code></td><td>GDPR hard delete by token</td></tr>
-          <tr><td><code>GET /preferences/:token</code></td><td>Subscriber preference centre</td></tr>
-          <tr><td><code>GET /privacy</code></td><td>Auto-generated privacy policy</td></tr>
+          <tr><td><code>GET /:slug</code></td><td>Render public form page (visits counter bumped)</td></tr>
+          <tr><td><code>GET /:slug/embed</code></td><td>Embeddable iframe page (no cookie banner)</td></tr>
+          <tr><td><code>GET /:slug/embed.js</code></td><td>JS widget — injects self-resizing iframe, listens for postMessage success to fire GA4/Pixel/signflow:success</td></tr>
+          <tr><td><code>GET /:slug/challenge</code></td><td>Returns current IP flag level + timing token + optional math challenge for flagged IPs</td></tr>
+          <tr><td><code>POST /:slug/subscribe</code></td><td>5-layer anti-bot check → Joi validation → dedup → DB insert → welcome email → bump analytics</td></tr>
+          <tr><td><code>GET /:slug/unsubscribe/:token</code></td><td>Show branded unsubscribe page for subscriber's token</td></tr>
+          <tr><td><code>POST /:slug/unsubscribe/:token</code></td><td>Process unsubscribe (single / all / delete action)</td></tr>
+          <tr><td><code>GET /:slug/confirmation-preview</code></td><td>Admin-only preview of the confirmation section (requires <code>adminAuth</code>)</td></tr>
+          <tr><td><code>GET /preferences/:token</code></td><td>Subscriber preference centre (update fields, resubscribe, unsubscribe)</td></tr>
+          <tr><td><code>POST /preferences/:token</code></td><td>Save preference centre changes</td></tr>
+          <tr><td><code>GET /privacy</code></td><td>Built-in privacy policy page (admin-authored WYSIWYG)</td></tr>
+          <tr><td><code>GET /delete-data</code></td><td>GDPR complete data deletion page (token-based)</td></tr>
+        </table>
+        <h3>Auth routes</h3>
+        <table class="help-table">
+          <tr><th>Method + Path</th><th>Handler</th></tr>
+          <tr><td><code>GET /auth/login</code></td><td>Initiate Auth0 OIDC flow (rate-limited: 20/15min)</td></tr>
+          <tr><td><code>GET /auth/callback</code></td><td>Auth0 callback; verify OIDC code; set session; CSRF token generated (rate-limited: 20/15min)</td></tr>
+          <tr><td><code>GET /auth/logout</code></td><td>Destroy session; redirect to Auth0 logout</td></tr>
+          <tr><td><code>GET /auth/me</code></td><td>Return current user info JSON (name, picture, authenticated)</td></tr>
+        </table>
+        <h3>Admin API routes (all require <code>adminAuth</code> + CSRF token)</h3>
+        <table class="help-table">
+          <tr><th>Method + Path</th><th>Description</th></tr>
+          <tr><td><code>GET /api/admin/csrf-token</code></td><td>Returns CSRF token for current session; lazy-creates if missing</td></tr>
+          <tr><td><code>GET /api/admin/forms</code></td><td>List all forms (slug, name, subscriber count, analytics, sizes)</td></tr>
+          <tr><td><code>POST /api/admin/forms</code></td><td>Create new form (Joi-validated name + slug)</td></tr>
+          <tr><td><code>GET /api/admin/forms/:slug</code></td><td>Get full form config JSONB</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug</code></td><td>Save full form config JSONB</td></tr>
+          <tr><td><code>PATCH /api/admin/forms/:slug/meta</code></td><td>Rename form or change slug</td></tr>
+          <tr><td><code>DELETE /api/admin/forms/:slug</code></td><td>Delete form + all subscribers + all media + all analytics (cascade, irreversible)</td></tr>
+          <tr><td><code>GET /api/admin/forms/:slug/subscribers</code></td><td>Paginated subscriber list with search, status filter, sort</td></tr>
+          <tr><td><code>DELETE /api/admin/forms/:slug/subscribers/:id</code></td><td>GDPR hard delete subscriber</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/subscribers/:id/unsubscribe</code></td><td>Admin-side unsubscribe (set status = unsubscribed)</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/subscribers/:id/reactivate</code></td><td>Restore subscriber to active status</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/subscribers/:id/clear-export</code></td><td>Clear export flag for one subscriber</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/subscribers/clear-all-exports</code></td><td>Clear export flag for all subscribers in a form</td></tr>
+          <tr><td><code>GET /api/admin/forms/:slug/export</code></td><td>Download CSV or JSON export; sets exported flag on all included rows</td></tr>
+          <tr><td><code>GET /api/admin/forms/:slug/analytics</code></td><td>Get analytics counters for a form</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/analytics/reset</code></td><td>Zero out all analytics counters for a form</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/upload</code></td><td>Upload single image (multer-s3)</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/upload-multi</code></td><td>Batch upload up to 20 images; returns array of new media objects</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/upload-font</code></td><td>Upload custom font file</td></tr>
+          <tr><td><code>GET /api/admin/forms/:slug/media</code></td><td>List media for a form</td></tr>
+          <tr><td><code>DELETE /api/admin/forms/:slug/media</code></td><td>Delete one media item (S3 + DB)</td></tr>
+          <tr><td><code>PATCH /api/admin/forms/:slug/media/:id</code></td><td>Rename or change category of one media item</td></tr>
+          <tr><td><code>GET /api/admin/media</code></td><td>List all shared media (global library)</td></tr>
+          <tr><td><code>POST /api/admin/media/upload</code></td><td>Upload to shared library (no form scope)</td></tr>
+          <tr><td><code>GET /api/admin/media/check-dup</code></td><td>Check if filename already exists in DB (pre-upload dedup)</td></tr>
+          <tr><td><code>GET /api/admin/media/img-proxy</code></td><td>Proxy S3 image server-side (CORS workaround for canvas editor)</td></tr>
+          <tr><td><code>POST /api/admin/media/bulk-delete</code></td><td>Delete multiple media items by ID array</td></tr>
+          <tr><td><code>PATCH /api/admin/media/bulk-move-category</code></td><td>Move multiple media items to a category</td></tr>
+          <tr><td><code>GET /api/admin/fonts</code></td><td>List all shared fonts</td></tr>
+          <tr><td><code>DELETE /api/admin/fonts/:id</code></td><td>Delete a font (S3 + DB)</td></tr>
+          <tr><td><code>GET /api/admin/design-templates</code></td><td>List all design templates</td></tr>
+          <tr><td><code>POST /api/admin/design-templates</code></td><td>Create or update design template</td></tr>
+          <tr><td><code>PUT /api/admin/design-templates/:id</code></td><td>Replace template config</td></tr>
+          <tr><td><code>PATCH /api/admin/design-templates/:id</code></td><td>Rename template</td></tr>
+          <tr><td><code>DELETE /api/admin/design-templates/:id</code></td><td>Delete template</td></tr>
+          <tr><td><code>GET /api/admin/isel-presets</code></td><td>List saved icon/tile selector presets</td></tr>
+          <tr><td><code>POST /api/admin/isel-presets</code></td><td>Save or upsert preset by name</td></tr>
+          <tr><td><code>DELETE /api/admin/isel-presets/:id</code></td><td>Delete a preset</td></tr>
+          <tr><td><code>GET /api/admin/ip-flags</code></td><td>List all currently active IP flags</td></tr>
+          <tr><td><code>DELETE /api/admin/ip-flags/:ipHash</code></td><td>Clear a single IP flag</td></tr>
+          <tr><td><code>DELETE /api/admin/ip-flags</code></td><td>Clear all active IP flags</td></tr>
+          <tr><td><code>GET /branding-preview</code></td><td>Render a standalone branding preview iframe (uses generic demo content)</td></tr>
         </table>
       </div>
     </div>
@@ -1454,8 +1528,22 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>media</code></td><td><code>id</code> UUID</td><td>Uploaded images; <code>form_slug</code> NULL = shared; S3 key + public URL stored</td></tr>
           <tr><td><code>fonts</code></td><td><code>id</code> UUID</td><td>Custom fonts; <code>name</code> UNIQUE; S3 key + public URL stored</td></tr>
           <tr><td><code>design_templates</code></td><td><code>id</code> UUID</td><td>Saved design presets; <code>design</code> JSONB</td></tr>
-          <tr><td><code>analytics</code></td><td><code>(form_slug, key)</code></td><td>Event counters; upserted via <code>ON CONFLICT DO UPDATE</code></td></tr>
+          <tr><td><code>analytics</code></td><td><code>(form_slug, key)</code></td><td>Event counters (<code>visits</code>, <code>submits</code>, <code>errors</code>); upserted via <code>ON CONFLICT DO UPDATE</code></td></tr>
+          <tr><td><code>isel_presets</code></td><td><code>id</code> UUID</td><td>Saved icon/tile selector presets; <code>name</code> UNIQUE; <code>items</code> JSONB tile array</td></tr>
+          <tr><td><code>ip_flags</code></td><td><code>ip_hash</code> text</td><td>Bot IP flags; <code>ip_hash</code> = HMAC-SHA256(ip, salt); <code>level</code> 1–3; <code>strike_count</code>; <code>expires_at</code> timestamptz; auto-indexed</td></tr>
           <tr><td><code>session</code></td><td><code>sid</code></td><td>Auto-created by <code>connect-pg-simple</code>; stores Express sessions</td></tr>
+        </table>
+        <h3>Form config JSONB structure (key paths)</h3>
+        <table class="help-table">
+          <tr><th>Path</th><th>Type</th><th>Description</th></tr>
+          <tr><td><code>config.slug</code></td><td>string</td><td>Form URL slug (mirrors the <code>slug</code> PK)</td></tr>
+          <tr><td><code>config.name</code></td><td>string</td><td>Display name</td></tr>
+          <tr><td><code>config.sections[]</code></td><td>array</td><td>Ordered array of section objects (hero, form, container, content, etc.)</td></tr>
+          <tr><td><code>config.fields[]</code></td><td>array</td><td>Form field definitions (type, label, required, options, conditions…)</td></tr>
+          <tr><td><code>config.design</code></td><td>object</td><td>All visual settings (colours, fonts, spacing, custom fonts array)</td></tr>
+          <tr><td><code>config.site</code></td><td>object</td><td>Site settings (title, slug, SMTP, hCaptcha, GA4 ID, pixel ID, disclaimerCheckbox, embedAllowedDomains…)</td></tr>
+          <tr><td><code>config.confirmation[]</code></td><td>array</td><td>Confirmation section blocks shown after submission</td></tr>
+          <tr><td><code>config.designTemplateId</code></td><td>UUID|null</td><td>Linked branding template; if set, form uses that template's design at render time</td></tr>
         </table>
         <h3>S3 key structure</h3>
         <table class="help-table">
@@ -1585,10 +1673,30 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         </table>
         <p>Form creation (<code>POST /api/admin/forms</code>) is also validated: <code>name</code> (1–100 chars) and <code>slug</code> (1–60 chars, <code>/^[a-z0-9-]+$/</code> pattern). Invalid requests return <code>400</code> with Joi's human-readable error message.</p>
 
+        <h3>Anti-bot security — Plan H: layered bot detection</h3>
+        <p>Five layers are applied at the top of <code>POST /:slug/subscribe</code> before any business logic runs:</p>
+        <table class="help-table">
+          <tr><th>Layer</th><th>Mechanism</th><th>On fail</th></tr>
+          <tr><td>1 — Honeypot</td><td>Hidden <code>&lt;input name="_hp"&gt;</code>; CSS-positioned off-screen; bots fill it, humans don't</td><td>Flag IP, reject 400</td></tr>
+          <tr><td>2 — Timing token</td><td>HMAC-signed timestamp injected at page load; reject if age &lt; 2.5 s or &gt; 1 h</td><td>Reject 400 (too_fast / expired)</td></tr>
+          <tr><td>3 — IP flag gate</td><td>Query <code>ip_flags</code> table; level 3 = hard block</td><td>Reject 429</td></tr>
+          <tr><td>4 — Proof of Work (level 1+)</td><td>SHA-256 PoW solved in background via <code>crypto.subtle</code>; hash must start with <code>000</code></td><td>Flag IP, reject 400</td></tr>
+          <tr><td>5 — Math challenge (level 2+)</td><td>Visible arithmetic question; answer verified via HMAC time-windowed token (10-min windows, accepts prev window)</td><td>Flag IP, reject 400</td></tr>
+        </table>
+        <p>All layers fail-open: if the <code>/challenge</code> endpoint is unreachable, the form still submits normally.</p>
+        <h3>IP flag data model</h3>
+        <table class="help-table">
+          <tr><th>Column</th><th>Detail</th></tr>
+          <tr><td><code>ip_hash</code></td><td><code>HMAC-SHA256(ip, SESSION_SECRET + 'sf-ip-salt').slice(0,40)</code> — raw IP never stored</td></tr>
+          <tr><td><code>level</code></td><td>1 (PoW), 2 (math), 3 (blocked)</td></tr>
+          <tr><td><code>strike_count</code></td><td>Cumulative; 1–2 → level 1; 3–5 → level 2; 6+ → level 3</td></tr>
+          <tr><td><code>expires_at</code></td><td>Level 1: 1h · Level 2: 24h · Level 3: 7d; checked on every lookup</td></tr>
+          <tr><td><code>reason</code></td><td>String tag of which layer triggered the flag (<code>honeypot</code>, <code>too_fast</code>, <code>pow_fail</code>, <code>chal_fail</code>)</td></tr>
+        </table>
         <h3>Remaining known gaps</h3>
         <table class="help-table">
-          <tr><th>Threat</th><th>Gap</th></tr>
-          <tr><td>Brute-force signup</td><td>Rate-limited but no CAPTCHA (hCaptcha planned)</td></tr>
+          <tr><th>Threat</th><th>Status</th></tr>
+          <tr><td>Brute-force signup</td><td>Rate-limited (10/15min/IP/form) + IP flagging escalation</td></tr>
           <tr><td>Upload path traversal</td><td>Filenames are UUID-based (safe); MIME type allowlist enforced by multer-s3</td></tr>
           <tr><td>Data breach</td><td>PostgreSQL on Lightsail managed DB — encryption at rest enabled by default; private network only</td></tr>
           <tr><td>Dependency vulns</td><td>No automated scanning (Dependabot planned)</td></tr>
@@ -1739,6 +1847,13 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-14 — Documentation overhaul + Forms tab redesign + Platform Settings</h3>
+        <ul>
+          <li>✅ <strong>Forms tab redesigned</strong> — two-panel layout: form list on left (380px), live preview iframe on right with Desktop / Tablet / Mobile size buttons; click a form card to preview; Edit/Delete buttons stop propagation; first form auto-selected on load</li>
+          <li>✅ <strong>Platform Settings panel</strong> — ⚙ cogwheel icon added to top-right nav; opens global <code>tab-global-settings</code> page; IP Flagging card moved here; designed for future global tools (audit log, API keys, webhooks)</li>
+          <li>✅ <strong>Architecture diagram</strong> — inline SVG diagram added to System → Architecture &amp; Routes section; shows 5-layer stack: Clients → Nginx → Node.js → PostgreSQL / S3 / Auth0 / SMTP with annotated connections</li>
+          <li>✅ <strong>Full help documentation audit</strong> — all Help and System tab sections reviewed against server.js codebase; gaps filled, outdated content corrected, new sections added: Anti-Bot Protection, Analytics, Platform Settings; merge tags corrected; all routes documented; Data Model updated with ip_flags and isel_presets tables; Security section updated with anti-bot layer details</li>
+        </ul>
         <h3>2026-03-14 — Media library full redesign + tiles modal cleanup</h3>
         <ul>
           <li>✅ <strong>Nginx upload limit raised</strong> — <code>client_max_body_size 50M</code> set globally in <code>/etc/nginx/nginx.conf</code>; multer raised from 5 MB → 25 MB per file</li>
@@ -2510,13 +2625,18 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li>Click <strong>Save</strong> and visit your live URL (<code>/your-form-slug</code>).</li>
         </ol>
         <h3>Form URL structure</h3>
-        <ul>
-          <li><code>/your-slug</code> — public signup page</li>
-          <li><code>/your-slug/embed</code> — embeddable iframe page</li>
-          <li><code>/your-slug/embed.js</code> — JS widget script</li>
-          <li><code>/your-slug/unsubscribe/:token</code> — self-service unsubscribe</li>
-          <li><code>/preferences/:token</code> — subscriber preference centre</li>
-        </ul>
+        <table class="help-table">
+          <tr><th>URL</th><th>What it does</th></tr>
+          <tr><td><code>/your-slug</code></td><td>Public signup page (with cookie consent, GA4/Pixel)</td></tr>
+          <tr><td><code>/your-slug/embed</code></td><td>Embed-only page — no cookie banner, no tracking scripts, no outer chrome</td></tr>
+          <tr><td><code>/your-slug/embed.js</code></td><td>JS widget script — auto-injects a self-resizing iframe</td></tr>
+          <tr><td><code>/your-slug/unsubscribe/:token</code></td><td>Subscriber self-service unsubscribe (branded, lists all active subscriptions)</td></tr>
+          <tr><td><code>/preferences/:token</code></td><td>Subscriber preference centre — update fields, resubscribe, or unsubscribe</td></tr>
+          <tr><td><code>/privacy</code></td><td>Built-in privacy policy page (editable in Settings → Privacy Page)</td></tr>
+          <tr><td><code>/delete-data</code></td><td>Subscriber self-service data deletion request page</td></tr>
+        </table>
+        <h3>Navigation overview</h3>
+        <p>The admin panel is a single-page app at <code>/admin</code>. Top-level nav items — <strong>Forms</strong>, <strong>Branding</strong>, <strong>Media</strong> — are global. The per-form sub-nav (<strong>Build</strong>, <strong>Subscribers</strong>, <strong>Embed</strong>, <strong>Settings</strong>) appears once a form is selected. The <strong>⚙ Platform Settings</strong> icon (top-right) opens global tools such as IP flagging.</p>
       </div>
     </div>
 
@@ -2555,6 +2675,18 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li><strong>Year, Year+Month</strong> — scroll-drum partial-date pickers; configurable drum height (80–320 px)</li>
         </ul>
         <p>All non-system fields support: label, placeholder, required toggle, and conditional visibility (show/hide based on another field's value).</p>
+        <h3>Conditional field visibility</h3>
+        <p>Any field can be shown or hidden based on the value of another field. In the field editor modal, add a <strong>Condition</strong>:</p>
+        <ul>
+          <li>Choose the <strong>trigger field</strong> (any other field in the same form)</li>
+          <li>Choose an <strong>operator</strong>: <em>equals</em>, <em>not equals</em>, <em>contains</em>, <em>starts with</em>, <em>is empty</em>, <em>is not empty</em></li>
+          <li>Enter the <strong>match value</strong> (the text or selection option to compare against)</li>
+        </ul>
+        <p>The field is hidden by default and revealed when the condition is met. Multiple conditions can be added — by default all must pass (AND logic).</p>
+        <h3>Submit button</h3>
+        <p>The submit button appears at the bottom of the <strong>Form</strong> section and is not listed as a draggable field. Edit it by clicking the <strong>pencil icon</strong> on the "Submit button" row at the bottom of the Fields panel. You can change: button label, background colour, text colour, border radius, border width/style/colour.</p>
+        <h3>Confirmation section</h3>
+        <p>After a successful submission the page replaces the form with the <strong>Confirmation</strong> section content — no page reload. Build confirmation content exactly like any other section: add heading blocks, paragraphs, images, buttons. The confirmation section is previewed via <code>/your-slug/confirmation-preview</code> (admin-only).</p>
         <h3>Container items</h3>
         <p>Inside a Container block you can drag-and-drop items. Click any item's <strong>edit pencil</strong> to open the item editor modal and customise appearance — colour overrides, font, size, alignment. The <strong>Submit</strong> item inside a container respects custom button background and text colour.</p>
         <h3>Section colours</h3>
@@ -2639,17 +2771,39 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
       <div class="help-group-body">
         <h3>Viewing subscribers</h3>
-        <p>Open the <strong>Subscribers</strong> tab for the current form. The table is paginated (50 per page). Use the status filter to view <em>All / Active / Unsubscribed</em>.</p>
-        <h3>Exporting</h3>
-        <p>Click <strong>Export CSV</strong> or <strong>Export JSON</strong> to download all subscribers for the current form. The export includes email, name (if collected), custom field values, consent timestamp, IP address and status.</p>
+        <p>Open the <strong>Subscribers</strong> tab for the current form. The table is paginated (50 per page). Use the status filter to view <em>All / Active / Unsubscribed</em>. Use the search box to filter by email or any custom field value.</p>
         <h3>Sorting</h3>
-        <p>Click any column header (<strong>Email</strong>, <strong>Status</strong>, <strong>Subscribed</strong>) to sort the table by that column. Click again to toggle between ascending and descending. The active sort column shows a directional arrow.</p>
-        <h3>GDPR deletion</h3>
-        <p>Each row has a <strong>Delete</strong> button. This permanently removes the subscriber record from the database — it cannot be undone. Use this to honour right-to-erasure requests under GDPR / UK GDPR.</p>
+        <p>Click any column header (<strong>Email</strong>, <strong>Status</strong>, <strong>Subscribed</strong>) to sort the table. Click again to toggle ascending / descending. The active sort column shows a directional arrow.</p>
+        <h3>Exporting</h3>
+        <p>Click <strong>Export CSV</strong> or <strong>Export JSON</strong> to download all subscribers for the current form. Each exported subscriber is marked with an <em>export flag</em> and an export timestamp. The <strong>Exported</strong> column in the table shows which rows have been exported and when.</p>
+        <ul>
+          <li><strong>Clear export flag</strong> — removes the export marker from a single subscriber (per-row button)</li>
+          <li><strong>Clear all export flags</strong> — resets all export markers so all subscribers appear as "not yet exported" (bulk button, only visible when exported rows exist)</li>
+        </ul>
+        <p>Use the export flag workflow to track which subscribers were included in your last send, without deleting them.</p>
+        <h3>Admin actions per subscriber</h3>
+        <table class="help-table">
+          <tr><th>Action</th><th>What it does</th></tr>
+          <tr><td><strong>Unsubscribe</strong></td><td>Sets subscriber status to <em>unsubscribed</em> immediately — equivalent to the subscriber clicking their unsubscribe link</td></tr>
+          <tr><td><strong>Reactivate</strong></td><td>Restores an unsubscribed subscriber to <em>active</em> status — use when a subscriber asks to rejoin</td></tr>
+          <tr><td><strong>Delete (GDPR)</strong></td><td>Permanently removes the subscriber record from the database. Cannot be undone. Use to honour right-to-erasure requests under GDPR / UK GDPR.</td></tr>
+        </table>
         <h3>Unsubscribe flow</h3>
-        <p>Each subscriber receives a unique token. The welcome email (if configured) includes an unsubscribe link. Visiting <code>/your-slug/unsubscribe/:token</code> shows the subscriber a branded page listing all their active subscriptions. They can unsubscribe from individual forms, all forms at once, or request complete deletion of all their data.</p>
+        <p>Each subscriber has a unique UUID token. The welcome email includes an unsubscribe link automatically. Visiting <code>/your-slug/unsubscribe/:token</code> shows a branded page listing all the subscriber's active subscriptions across all forms. They can:</p>
+        <ul>
+          <li>Unsubscribe from a <strong>single form</strong></li>
+          <li>Unsubscribe from <strong>all forms at once</strong></li>
+          <li>Request <strong>complete deletion</strong> of all their data (redirects to <code>/delete-data</code>)</li>
+        </ul>
+        <p>The unsubscribe page uses the form's brand colours, fonts and button styles.</p>
         <h3>Preference centre</h3>
-        <p>Subscribers can update their data at <code>/preferences/:token</code>. The preference page is a separate, lightly styled form that lets subscribers update their name, custom fields and resubscribe or unsubscribe.</p>
+        <p>Subscribers visit <code>/preferences/:token</code> to self-manage their subscription. On this page they can:</p>
+        <ul>
+          <li>Update any custom fields the form collected (name, preferences etc.)</li>
+          <li>Resubscribe to a form they previously unsubscribed from</li>
+          <li>Unsubscribe from individual forms</li>
+        </ul>
+        <p>The preference centre is token-gated (no login required) and each subscriber's link is unique. Include <code>{{preferencesUrl}}</code> in the welcome email template to link subscribers to their preference centre.</p>
       </div>
     </div>
 
@@ -2670,7 +2824,20 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <h3>Embed page styling</h3>
         <p>The embed page (<code>/slug/embed</code>) renders without the outer page chrome (no background, no cookie banner). It uses the same design settings as the main form but with slightly smaller typography and tighter padding for compact integration.</p>
         <h3>Auto-resize</h3>
-        <p>The JS widget communicates iframe height via <code>postMessage</code>, so the host page never shows a scrollbar inside the embed — the iframe grows to fit its content.</p>
+        <p>The JS widget communicates iframe height to the host page via <code>postMessage</code> on every content change — the iframe grows to fit without ever showing an internal scrollbar. This works without any configuration; the host page does not need to do anything special.</p>
+        <h3>Conversion events on submission</h3>
+        <p>When a visitor successfully submits an embedded form, the embed script fires these events on the <em>host page</em> (not inside the iframe):</p>
+        <ul>
+          <li><strong>GA4</strong> — <code>gtag('event', 'generate_lead')</code> — fires into the host page's existing GA4 instance if <code>window.gtag</code> is present</li>
+          <li><strong>Meta Pixel</strong> — <code>fbq('track', 'Lead')</code> — fires into the host page's existing Pixel if <code>window.fbq</code> is present</li>
+          <li><strong>DOM event</strong> — <code>signflow:success</code> dispatched on <code>window</code> for custom integrations:</li>
+        </ul>
+        <pre style="background:var(--bg2);border-radius:6px;padding:10px;font-size:0.8rem;overflow-x:auto">window.addEventListener('signflow:success', e =&gt; {
+  console.log(e.detail.slug); // form slug that was submitted
+});</pre>
+        <p>No GA4 or Pixel IDs need to be configured in SignFlow Settings for embeds — the events run through whatever the host page has already set up.</p>
+        <h3>Allowed embed domains</h3>
+        <p>By default, your form can be embedded on any website. To restrict embedding to specific domains, go to <strong>Embed → Allowed embed domains</strong> and enter a comma-separated list of hostnames (e.g. <code>mysite.com, app.example.org</code>). The server will return a 403 if the embed request comes from an unlisted origin, and the <code>frame-ancestors</code> Content Security Policy will be set accordingly.</p>
       </div>
     </div>
 
@@ -2682,20 +2849,25 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
       <div class="help-group-body">
         <h3>Welcome email</h3>
-        <p>Configure a transactional welcome email sent immediately after a successful signup. The email template editor is accessible from the <strong>Build → Response</strong> panel tab.</p>
+        <p>Configure a transactional welcome email sent immediately after a successful signup. Enable it and edit the template from the <strong>Build → Email</strong> panel tab (the envelope icon in the panel tab bar).</p>
         <h3>Template editor</h3>
-        <p>The rich email template editor provides a visual canvas with drag-and-drop blocks: heading, paragraph, image, button, divider, spacer. The template is stored as HTML and sent via your configured SMTP server.</p>
+        <p>The rich email template editor provides a visual canvas: heading, paragraph, image, button, divider, spacer blocks. Use the <strong>Template Style</strong> card to set email-specific design (background colour, card background, text colour, heading colour, max-width, padding, border-radius). Colours are picked from your brand palette.</p>
         <h3>SMTP configuration</h3>
-        <p>Enter your SMTP credentials on the <strong>System</strong> tab (<em>SMTP host, port, username, password, from address</em>). SignFlow uses Nodemailer and is compatible with any SMTP provider (SendGrid, Mailgun, Amazon SES, Gmail, Fastmail, etc.).</p>
-        <h3>Placeholder variables</h3>
-        <p>Use these in email templates and the submit disclaimer:</p>
-        <ul>
-          <li><code>{firstName}</code>, <code>{lastName}</code>, <code>{email}</code> — subscriber fields</li>
-          <li><code>{unsubscribeUrl}</code> — one-click unsubscribe link</li>
-          <li><code>{preferencesUrl}</code> — preference centre link</li>
-          <li><code>{privacyUrl}</code> — privacy policy URL from Site Settings</li>
-          <li><code>{formName}</code> — name of the signup form</li>
-        </ul>
+        <p>Enter your SMTP credentials in the <strong>Build → Email</strong> panel under <em>SMTP settings</em>. Required fields: <strong>Host</strong>, <strong>Port</strong>, <strong>Username</strong>, <strong>Password</strong>, <strong>From address</strong>, and an optional <strong>From name</strong> and <strong>Reply-to</strong> address. SignFlow uses Nodemailer and works with any SMTP provider: SendGrid, Mailgun, Amazon SES, Gmail, Fastmail, etc.</p>
+        <h3>Merge tags</h3>
+        <p>Insert dynamic values into the email body using double-brace tags:</p>
+        <table class="help-table">
+          <tr><th>Tag</th><th>Replaced with</th></tr>
+          <tr><td><code>{{email}}</code></td><td>Subscriber's email address</td></tr>
+          <tr><td><code>{{firstName}}</code></td><td>First name field value (if collected)</td></tr>
+          <tr><td><code>{{formName}}</code></td><td>The form's display name</td></tr>
+          <tr><td><code>{{unsubscribeUrl}}</code></td><td>Personalised one-click unsubscribe link</td></tr>
+          <tr><td><code>{{preferencesUrl}}</code></td><td>Personalised preference centre link</td></tr>
+        </table>
+        <h3>Automatic unsubscribe footer</h3>
+        <p>If <code>{{unsubscribeUrl}}</code> is not found anywhere in the email body, SignFlow appends a plain-text unsubscribe footer automatically: <em>"To unsubscribe, visit: [link]"</em>. This ensures every email is legally compliant without any extra effort.</p>
+        <h3>Email subject line</h3>
+        <p>Set the subject line in the template editor. Merge tags work in the subject too — e.g. <code>Welcome, {{firstName}}!</code></p>
       </div>
     </div>
 
@@ -2723,8 +2895,16 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li><strong>Withdraw anytime</strong> — a <em>Cookie settings</em> link appears at the bottom-right of the page after first consent, allowing visitors to reopen the manager and change or withdraw their choices.</li>
           <li><strong>Embeds excluded</strong> — the consent banner does not appear inside embedded iframes. Analytics events for embeds are handled via the host page's existing GA4/Pixel via <code>postMessage</code>.</li>
         </ul>
+        <h3>Submit disclaimer (GDPR consent)</h3>
+        <p>The GDPR/consent text is shown below the submit button on the public form. Configure it in the <strong>Build → Form</strong> panel. Two modes are available:</p>
+        <ul>
+          <li><strong>Plain notice</strong> (default) — the GDPR text is displayed as a non-interactive paragraph. Submitting the form implies consent.</li>
+          <li><strong>Require checkbox tick</strong> — enable this in Settings to replace the notice with a required checkbox. The form cannot be submitted unless the box is ticked. Use when explicit, affirmative consent is required by your jurisdiction.</li>
+        </ul>
+        <h3>Deleting a form</h3>
+        <p>Deleting a form from the Forms tab is <strong>irreversible</strong>. It permanently removes: the form configuration, all subscribers, all analytics, and all media that was uploaded exclusively for that form. Export your subscriber list before deleting if you need the data.</p>
         <h3>hCaptcha</h3>
-        <p>Enable bot protection per-form. Enter your <strong>hCaptcha site key</strong> and <strong>secret key</strong> (from hcaptcha.com). When enabled, a CAPTCHA challenge appears above the submit button.</p>
+        <p>Enable bot protection per-form. Enter your <strong>hCaptcha site key</strong> and <strong>secret key</strong> (from hcaptcha.com). When enabled, a CAPTCHA challenge appears above the submit button. Note: SignFlow also runs invisible anti-bot layers (honeypot, timing check, proof-of-work) on every form automatically, regardless of hCaptcha settings — see the <strong>Anti-Bot Protection</strong> section.</p>
         <h3>Analytics &amp; Tracking (GA4 + Meta Pixel)</h3>
         <p>Two tracking methods are supported:</p>
         <ul>
@@ -2740,6 +2920,86 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li><strong>Unique key fields</strong> — tick which fields together form the uniqueness check (e.g. <em>Email + First name</em>). A submission is blocked only when every ticked field matches an existing active subscriber exactly.</li>
         </ul>
         <p>Example: with <em>Email + First name</em> as the key, <code>alice@example.com / Alice</code> and <code>alice@example.com / Bob</code> are treated as two distinct subscribers.</p>
+      </div>
+    </div>
+
+    <!-- ANTI-BOT -->
+    <div class="help-group" data-tags="bot spam captcha honeypot timing proof of work pow math challenge ip flag rate limit security">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">gpp_bad</span> Anti-Bot Protection
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <p>SignFlow runs five layered bot-detection mechanisms on every form submission — automatically, with no configuration required. These layers operate silently for legitimate visitors and only activate for suspicious traffic.</p>
+        <h3>Layer 1 — Honeypot field</h3>
+        <p>A hidden <code>&lt;input&gt;</code> field is injected into the form and hidden from real users using CSS. Bots that fill in all visible form fields will fill this field too. Any submission with a non-empty honeypot value is rejected instantly and the submitting IP is flagged (Level 1).</p>
+        <h3>Layer 2 — Timing check</h3>
+        <p>A signed timestamp token is embedded in the form when the page loads. Submissions that arrive in under <strong>2.5 seconds</strong> (too fast to be a human typing) or over <strong>1 hour</strong> (stale page) are rejected. This catches automated submission bots without any visible friction to real users.</p>
+        <h3>Layer 3 — IP flag gate</h3>
+        <p>Every IP address is checked against the <strong>ip_flags</strong> table before a submission is processed. IPs at Level 3 (6+ strikes) are hard-blocked for up to 7 days. Levels 1 and 2 trigger additional challenges (see below).</p>
+        <h3>Layer 4 — Proof of Work (Level 1+)</h3>
+        <p>For flagged IPs at Level 1 or above, the page invisibly asks the visitor's browser to compute a small <strong>SHA-256 Proof of Work</strong> in the background (find a nonce so the hash of <code>challenge + nonce</code> starts with <code>000</code> — around 4,000 iterations on average). This runs asynchronously via <code>crypto.subtle</code> and completes in under a second on modern hardware. Bots attempting to replay submissions without solving the PoW are rejected.</p>
+        <h3>Layer 5 — Math challenge (Level 2+)</h3>
+        <p>For IPs at Level 2 (3–5 strikes), a <strong>visible math question</strong> is displayed above the submit button (e.g. "What is 14 + 7?"). The correct answer is verified server-side using a time-windowed HMAC signature — no database state is needed. The challenge is valid for 20 minutes across two overlapping 10-minute windows.</p>
+        <h3>IP flag levels</h3>
+        <table class="help-table">
+          <tr><th>Level</th><th>Strikes</th><th>Effect</th><th>Expires</th></tr>
+          <tr><td><strong>1</strong></td><td>1–2</td><td>Invisible Proof of Work required</td><td>1 hour</td></tr>
+          <tr><td><strong>2</strong></td><td>3–5</td><td>Visible math challenge required</td><td>24 hours</td></tr>
+          <tr><td><strong>3</strong></td><td>6+</td><td>Hard blocked — all submissions rejected</td><td>7 days</td></tr>
+        </table>
+        <h3>Managing flagged IPs</h3>
+        <p>View and manage active flags in <strong>Platform Settings</strong> (⚙ icon, top-right). The IP Flagging card shows all currently active flags — IP hash (truncated), flag level, strike count, reason, and time until expiry. You can clear individual flags or clear all flags at once. Clearing a flag immediately allows that IP to submit without challenges again.</p>
+        <p>IP addresses are never stored in plain text — only an HMAC-SHA256 hash is recorded (privacy-by-design, GDPR-compliant).</p>
+        <h3>Rate limiting</h3>
+        <p>In addition to IP flagging, a <strong>rate limiter</strong> caps submissions at <strong>10 per 15 minutes per IP per form</strong>. Login and auth routes are separately limited to <strong>20 requests per 15 minutes</strong>.</p>
+        <h3>Fail-open design</h3>
+        <p>All anti-bot checks fail open — if a network error prevents the challenge endpoint from loading, legitimate visitors can still submit the form normally. Security is layered so that any one layer failing does not block real users.</p>
+      </div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div class="help-group" data-tags="analytics stats visits signups errors ga4 pixel tracking reset">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">bar_chart</span> Analytics
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>Built-in metrics</h3>
+        <p>SignFlow tracks three lightweight counters per form, visible on the Forms tab home screen:</p>
+        <table class="help-table">
+          <tr><th>Metric</th><th>What it counts</th></tr>
+          <tr><td><strong>Visits</strong> 👁</td><td>Public page loads (direct-load only, not embeds, not admin previews)</td></tr>
+          <tr><td><strong>Signups</strong> ✓</td><td>Successful subscribe submissions</td></tr>
+          <tr><td><strong>Errors</strong> ⚠</td><td>Failed submissions (validation, honeypot, rate-limit, bot rejection)</td></tr>
+        </table>
+        <p>Counters are updated fire-and-forget (no added latency to the user's request) and stored in the <code>analytics</code> PostgreSQL table.</p>
+        <h3>Resetting counters</h3>
+        <p>Click the small <strong>reset</strong> button in the analytics row of any form card (on the Forms tab) to zero out all three counters for that form.</p>
+        <h3>Third-party analytics</h3>
+        <p>For deeper analytics, configure <strong>GA4</strong> and/or <strong>Meta Pixel</strong> in Form Settings → Analytics &amp; Tracking. See the <strong>Embed &amp; Share</strong> section for how embedded form events reach your analytics without extra configuration.</p>
+      </div>
+    </div>
+
+    <!-- PLATFORM SETTINGS -->
+    <div class="help-group" data-tags="platform global settings cogwheel gear ip flags branding templates fonts">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">settings</span> Platform Settings
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <p>The <strong>Platform Settings</strong> panel (⚙ icon, top-right of the navigation bar) contains global configuration that applies across all forms. Click the cogwheel at any time — you do not need to have a form selected.</p>
+        <h3>Currently available</h3>
+        <ul>
+          <li><strong>IP Flagging</strong> — view and clear active bot flags (see Anti-Bot Protection section)</li>
+        </ul>
+        <h3>Planned additions</h3>
+        <ul>
+          <li>Global rate limit configuration</li>
+          <li>Admin audit log</li>
+          <li>API key management</li>
+          <li>Webhook endpoints</li>
+        </ul>
       </div>
     </div>
 
@@ -2785,8 +3045,9 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <tr><th>Shortcut</th><th>Action</th></tr>
           <tr><td><kbd>Ctrl / ⌘ + S</kbd></td><td>Save current form config</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>Close any open modal or picker</td></tr>
+          <tr><td><kbd>Click form card</kbd></td><td>Preview form on the right panel (Forms tab)</td></tr>
+          <tr><td><kbd>Click Edit button</kbd></td><td>Open form editor (Build tab)</td></tr>
         </table>
-        <p style="margin-top:10px;font-size:0.8rem;color:var(--ink3)">More shortcuts can be added via <code>~/.claude/keybindings.json</code> if you are using the Claude Code assistant.</p>
       </div>
     </div>
 
