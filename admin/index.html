@@ -333,6 +333,10 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .help-group.open .help-chevron{transform:rotate(180deg);}
 .help-group-body{display:none;padding:0 18px 18px;font-size:0.86rem;line-height:1.75;color:var(--ink2);}
 .help-group.open .help-group-body{display:block;}
+.help-print-btn{display:none;align-items:center;justify-content:center;width:24px;height:24px;border:none;background:none;cursor:pointer;border-radius:4px;color:var(--ink3);padding:0;flex-shrink:0;margin-left:4px;}
+.help-print-btn:hover{background:var(--bg2);color:var(--ink);}
+.help-print-btn .material-icons-round{font-size:16px!important;}
+.help-group-head:hover .help-print-btn{display:flex;}
 .help-group-body h3{font-size:0.82rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink3);margin:16px 0 6px;}
 .help-group-body h3:first-child{margin-top:14px;}
 .help-group-body p,.help-group-body li{color:var(--ink2);}
@@ -6680,10 +6684,12 @@ function filterSystem(q){
     g.classList.toggle('help-hidden',!tags.includes(term)&&!text.includes(term));
   });
 }
-// Open the first section by default when the help tab is visited
+// Open the first section by default when the help tab is visited; inject print buttons
 function _initHelp(){
   const first=document.querySelector('#help-sections .help-group');
   if(first&&!first.classList.contains('open'))first.classList.add('open');
+  _injectHelpPrintBtns('#help-sections');
+  _injectHelpPrintBtns('#system-sections');
 }
 
 // Move system panel into the help tab on first load
@@ -6714,15 +6720,8 @@ function switchInnerTab(name,btn){
   if(name==='help')_initHelp();
   if(name==='notes')renderUserNotes();
 }
-function printCurrentDocsPanel(){
-  const active=document.querySelector('#tab-help .docs-panel.active');
-  if(!active)return;
-  // Expand all collapsed help groups so everything prints
-  active.querySelectorAll('.help-group-body').forEach(b=>{b.style.display='block';});
-  const title=active.querySelector('h2')?.textContent||'SignFlow Docs';
-  const w=window.open('','_blank','width=900,height=700');
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
-*{box-sizing:border-box;margin:0;padding:0;}
+// ── Shared print CSS used by both whole-panel and per-section print ──
+const _PRINT_CSS=`*{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:13px;color:#111;line-height:1.65;max-width:820px;margin:32px auto 64px;padding:0 24px;}
 h2{font-size:1.5rem;font-weight:300;margin-bottom:6px;letter-spacing:-0.3px;}
 h3{font-size:0.88rem;font-weight:700;margin:18px 0 6px;text-transform:uppercase;letter-spacing:0.05em;color:#444;}
@@ -6738,16 +6737,50 @@ code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:0.82em;font-
 .help-group-head{background:#f9f9f9;padding:10px 14px;font-weight:600;font-size:0.88rem;border-bottom:1px solid #e4e4e4;}
 .help-group-body{padding:14px;display:block!important;}
 .help-group-body>*:first-child{margin-top:0;}
-.help-chevron,.mi,.page-head p,input[type=search],.btn,.docs-tab,.page-head button,.gdpr-dot{display:none!important;}
+.help-chevron,.mi,.help-print-btn,.page-head p,input[type=search],.btn,.docs-tab,.page-head button,.gdpr-dot{display:none!important;}
 .gdpr-list{margin:8px 0;}
 .gdpr-item{display:flex;gap:8px;padding:3px 0;font-size:0.82rem;}
 pre{background:#f0f0f0;border-radius:4px;padding:10px;font-size:0.75rem;overflow-x:auto;margin:8px 0;white-space:pre-wrap;}
 kbd{background:#eee;border:1px solid #bbb;border-radius:3px;padding:1px 5px;font-size:0.8em;}
-@media print{body{margin:0;padding:16px;}@page{margin:1.5cm;}}
-</style></head><body>${active.innerHTML}</body></html>`);
-  w.document.close();
-  w.focus();
+@media print{body{margin:0;padding:16px;}@page{margin:1.5cm;}}`;
+
+function _openPrintWindow(title,bodyHtml){
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>${_PRINT_CSS}</style></head><body>${bodyHtml}</body></html>`);
+  w.document.close();w.focus();
   setTimeout(()=>{w.print();},350);
+}
+// Print the whole active docs panel — clones DOM so live sections stay intact
+function printCurrentDocsPanel(){
+  const active=document.querySelector('#tab-help .docs-panel.active');
+  if(!active)return;
+  const clone=active.cloneNode(true);
+  clone.querySelectorAll('.help-group-body').forEach(b=>{b.style.display='block';});
+  clone.querySelectorAll('.help-group[style*="display:none"]').forEach(g=>g.remove());
+  const title=clone.querySelector('h2')?.textContent?.trim()||'SignFlow Docs';
+  _openPrintWindow(title,clone.innerHTML);
+}
+// Print a single help section — triggered by the per-section print button
+function printHelpSection(btn,e){
+  if(e){e.stopPropagation();}
+  const g=btn.closest('.help-group');if(!g)return;
+  const clone=g.cloneNode(true);
+  clone.querySelectorAll('.help-group-body').forEach(b=>{b.style.display='block';});
+  const headText=clone.querySelector('.help-group-head')?.textContent?.trim().replace(/\s+/g,' ').replace(/print$/i,'').trim()||'Section';
+  _openPrintWindow(headText,`<div class="help-group">${clone.innerHTML}</div>`);
+}
+// Inject per-section print buttons into all help-group-head elements in a container
+function _injectHelpPrintBtns(containerSel){
+  document.querySelectorAll(`${containerSel} .help-group-head`).forEach(head=>{
+    if(head.querySelector('.help-print-btn'))return; // already injected
+    const btn=document.createElement('button');
+    btn.className='help-print-btn';btn.title='Print this section';
+    btn.setAttribute('onclick','printHelpSection(this,event)');
+    btn.innerHTML='<span class="material-icons-round">print</span>';
+    // Insert after the chevron so it sits at the far right alongside it
+    const chevron=head.querySelector('.help-chevron');
+    if(chevron)chevron.after(btn);else head.appendChild(btn);
+  });
 }
 
 // ── Tabs ──
