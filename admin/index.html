@@ -5476,7 +5476,30 @@ function renderBuildPanel(){
   scroll.appendChild(addWrap);
 }
 
+// Ensures every prizedraw field has a locked container in cfg.confirmation.
+// Called each time the Response panel renders — idempotent.
+function ensurePrizedrawContainers(){
+  const pdFields=(cfg.fields||[]).filter(f=>f.type==='prizedraw');
+  if(!pdFields.length)return;
+  if(!cfg.confirmation)cfg.confirmation=[];
+  pdFields.forEach(f=>{
+    const placed=(cfg.confirmation).some(sec=>
+      sec.type==='container'&&(sec.items||[]).some(it=>it.type==='field'&&it.fieldId===f.id)
+    );
+    if(!placed){
+      cfg.confirmation.push({
+        id:'pd-cnt-'+f.id,
+        type:'container',
+        name:'Prize Draw',
+        prizedrawLocked:true,
+        items:[{id:'pd-item-'+f.id,type:'field',fieldId:f.id,prizedrawLocked:true}]
+      });
+    }
+  });
+}
+
 function renderResponsePanel(){
+  ensurePrizedrawContainers();
   const scroll=document.getElementById('response-scroll');scroll.innerHTML='';
   const info=document.createElement('p');
   info.style.cssText='font-size:0.75rem;color:var(--ink3);margin-bottom:8px;line-height:1.5;padding:0 2px';
@@ -5495,7 +5518,7 @@ function renderResponsePanel(){
 }
 
 function makeBkCard(s,isConfirmation){
-  const fixed=isConfirmation?false:isBkFixed(s),deletable=isConfirmation?true:isBkDeletable(s);
+  const fixed=isConfirmation?false:isBkFixed(s),deletable=s.prizedrawLocked?false:(isConfirmation?true:isBkDeletable(s));
   const cols=s.columns||1;
   const showCols=s.type==='container';
   const card=document.createElement('div');
@@ -6313,7 +6336,7 @@ function containerBkBody(b){
       <span class="material-icons-round" style="font-size:14px!important;color:var(--ink3)">${icon}</span>
       <span style="flex:1;font-size:0.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}${preview}</span>
       <button class="ibtn" onclick="editCntItem('${b.id}',${i})" title="Edit"><span class="material-icons-round mi">edit</span></button>
-      <button class="ibtn danger" onclick="deleteCntItem('${b.id}',${i})"><span class="material-icons-round mi">delete</span></button>
+      ${item.prizedrawLocked?'':`<button class="ibtn danger" onclick="deleteCntItem('${b.id}',${i})"><span class="material-icons-round mi">delete</span></button>`}
     </div>`;
   }).join('');
   return `
@@ -6421,6 +6444,7 @@ function addContainerItem(type,fieldId){
 
 function deleteCntItem(blockId,idx){
   const found=_blockArray(blockId);if(!found||!found.block.items)return;
+  const item=found.block.items[idx];if(!item||item.prizedrawLocked)return;
   found.block.items.splice(idx,1);updateCntBody(blockId);schedulePreview();
 }
 
