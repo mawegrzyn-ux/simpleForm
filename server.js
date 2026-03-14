@@ -1101,6 +1101,41 @@ app.post('/api/admin/forms/:slug/media/:id/move', adminAuth, async (req, res) =>
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// All media (no form scope) — used by media library when no form is active
+app.get('/api/admin/media', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, form_slug, s3_key, url, original_name, mime_type, size, folder, uploaded_at
+       FROM media ORDER BY uploaded_at DESC`
+    );
+    res.json(rows.map(r => ({ ...rowToMedia(r), _shared: r.form_slug === null, formSlug: r.form_slug })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Bulk delete media items (S3 + DB)
+app.post('/api/admin/media/bulk-delete', adminAuth, async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No IDs' });
+  try {
+    const { rows } = await pool.query('SELECT s3_key FROM media WHERE id = ANY($1::uuid[])', [ids]);
+    for (const r of rows) {
+      try { await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: r.s3_key })); } catch(_) {}
+    }
+    await pool.query('DELETE FROM media WHERE id = ANY($1::uuid[])', [ids]);
+    res.json({ deleted: ids.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Bulk move media items to a category (folder field)
+app.patch('/api/admin/media/bulk-move-category', adminAuth, async (req, res) => {
+  const { ids, category } = req.body;
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'No IDs' });
+  try {
+    await pool.query('UPDATE media SET folder=$1 WHERE id = ANY($2::uuid[])', [category || null, ids]);
+    res.json({ updated: ids.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Get subscribers for a form (paginated)
 app.get('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
   try {

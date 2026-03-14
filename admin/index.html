@@ -559,6 +559,23 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #media-picker-foot{display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;justify-content:flex-end;}
 #media-empty{text-align:center;padding:48px 24px;color:var(--ink3);font-size:0.88rem;display:none;}
 .media-upload-opts{display:flex;align-items:center;gap:6px;}
+/* Multi-select checkbox on media items */
+.media-item .mi-check{display:flex!important;opacity:0;transition:opacity 100ms;background:rgba(0,0,0,.3);}
+.media-item:hover .mi-check{opacity:.7;}
+.media-item.selected .mi-check{opacity:1;background:var(--accent);}
+/* Bulk action bar */
+#media-bulk-bar{display:none;align-items:center;gap:6px;flex:1;padding:4px 8px;background:var(--accent-bg);border-radius:var(--r);border:1px solid rgba(201,75,57,.2);}
+#media-bulk-bar.show{display:flex;}
+/* Category popup */
+#media-cat-popup{display:none;position:fixed;z-index:3200;background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);padding:5px;box-shadow:var(--shadow);min-width:170px;max-height:230px;overflow-y:auto;}
+#media-cat-popup.open{display:block;}
+.mcat-item{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:0.8rem;white-space:nowrap;}
+.mcat-item:hover{background:var(--bg);}
+/* Sidebar category drag-over highlight */
+.mf-item.cat-drop-over{background:var(--accent-bg)!important;color:var(--accent);outline:2px dashed var(--accent);outline-offset:-2px;}
+/* No form selected notice */
+#media-no-form-notice{display:none;text-align:center;padding:40px 20px;color:var(--ink3);font-size:0.87rem;}
+#media-no-form-notice .material-icons-round{font-size:44px;display:block;margin-bottom:8px;color:var(--ink3);}
 .media-upload-opts select{padding:4px 6px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.78rem;font-family:var(--font);background:var(--panel);color:var(--ink);}
 </style>
 </head>
@@ -2971,15 +2988,18 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
     <div id="media-picker-toolbar">
       <input id="media-search" type="search" placeholder="Search…" oninput="filterMedia(this.value)">
-      <div class="media-upload-opts">
-        <select id="media-upload-scope" title="Upload destination">
-          <option value="form">This form</option>
-          <option value="shared">Shared (all forms)</option>
+      <div id="media-bulk-bar">
+        <span class="material-icons-round mi" style="font-size:14px;color:var(--accent)">check_box</span>
+        <span id="media-bulk-count" style="font-size:0.8rem;font-weight:600;color:var(--accent)"></span>
+        <button class="ibtn" onclick="bulkMoveToCategory(event)" style="font-size:0.75rem;padding:3px 8px"><span class="material-icons-round mi" style="font-size:13px">drive_file_move</span> Move to category</button>
+        <button class="ibtn danger" onclick="bulkDeleteMedia()" style="font-size:0.75rem;padding:3px 8px"><span class="material-icons-round mi" style="font-size:13px">delete</span> Delete</button>
+        <button class="ibtn" onclick="clearMediaMultiSel()" style="font-size:0.75rem;padding:3px 8px;margin-left:auto"><span class="material-icons-round mi" style="font-size:13px">close</span></button>
+      </div>
+      <div class="media-upload-opts" style="margin-left:auto">
+        <select id="media-upload-folder" style="max-width:130px" title="Upload to category">
+          <option value="">No category</option>
         </select>
-        <select id="media-upload-folder" style="max-width:120px" title="Upload to folder">
-          <option value="">No folder</option>
-        </select>
-        <label class="tbtn tbtn-ghost" style="cursor:pointer" title="Select one or more images">
+        <label class="tbtn tbtn-ghost" style="cursor:pointer" title="Upload images">
           <span class="material-icons-round mi">upload</span> Upload
           <input type="file" id="media-upload-input" accept="image/*" multiple style="display:none" onchange="handleMediaPickerUpload(this)">
         </label>
@@ -2990,22 +3010,26 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <div class="mf-item active" data-scope="all" data-folder="" onclick="setMediaScope('all','')">
           <span class="material-icons-round">photo_library</span> All media
         </div>
-        <div class="mf-item" data-scope="shared" data-folder="" onclick="setMediaScope('shared','')">
-          <span class="material-icons-round">public</span> Shared
-        </div>
-        <div class="mf-item" data-scope="form" data-folder="" onclick="setMediaScope('form','')">
-          <span class="material-icons-round">folder_special</span> This form
-        </div>
         <div class="mf-item" data-scope="nofolder" data-folder="" onclick="setMediaScope('nofolder','')">
-          <span class="material-icons-round">folder_off</span> No folder
+          <span class="material-icons-round">label_off</span> No category
         </div>
         <div id="media-folder-list" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"></div>
-        <div class="mf-new" onclick="createMediaFolder()">
-          <span class="material-icons-round" style="font-size:14px">create_new_folder</span> New folder
+        <div style="border-top:1px solid var(--border);margin-top:4px;padding:6px 8px 2px">
+          <div style="font-size:0.64rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">Filter by form</div>
+          <select id="media-form-filter" style="width:100%;font-size:0.75rem;padding:3px 5px;border:1px solid var(--border);border-radius:var(--r)" onchange="setMediaFormFilter(this.value)">
+            <option value="">All forms</option>
+          </select>
+        </div>
+        <div class="mf-new" onclick="createMediaCategory()">
+          <span class="material-icons-round" style="font-size:14px">new_label</span> New category
         </div>
       </div>
       <div id="media-grid-wrap">
         <div id="media-upload-chips"></div>
+        <div id="media-no-form-notice">
+          <span class="material-icons-round">photo_library</span>
+          No form selected — showing all shared media.
+        </div>
         <div id="media-grid"></div>
         <div id="media-empty">No media here — upload an image to get started.</div>
       </div>
@@ -3014,15 +3038,12 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <img id="media-detail-img" src="" alt="">
         <div id="media-detail-info"></div>
         <div id="media-detail-actions" style="display:none;flex-direction:column;gap:6px;margin-top:auto">
-          <div style="font-size:0.7rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em">Folder</div>
-          <select id="media-folder-sel" style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.8rem;font-family:var(--font)" onchange="moveMediaToFolder(this.value)">
-            <option value="">No folder</option>
-          </select>
+          <button class="up-btn" onclick="moveSingleToCategory(event)" style="font-size:0.78rem">
+            <span class="material-icons-round mi" style="font-size:14px">drive_file_move</span>
+            <span id="media-cat-lbl">Category: none</span>
+          </button>
           <button class="up-btn" id="media-edit-btn" onclick="openImgEditor(_mediaSelected)" style="font-size:0.78rem" title="Edit image (rotate, resize, crop — saves as new copy)">
             <span class="material-icons-round mi" style="font-size:14px">edit</span> Edit image
-          </button>
-          <button class="up-btn" id="media-share-btn" onclick="toggleMediaShared()" style="font-size:0.78rem">
-            <span class="material-icons-round mi" style="font-size:14px">public</span> <span id="media-share-btn-lbl">Move to shared</span>
           </button>
           <button class="up-btn del" id="media-del-btn" onclick="deleteSelectedMedia()" style="font-size:0.78rem">
             <span class="material-icons-round mi" style="font-size:14px">delete</span> Delete
@@ -3038,6 +3059,8 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
   </div>
 </div>
+<!-- Category popup (shared between bulk bar and detail panel) -->
+<div id="media-cat-popup"></div>
 
 <!-- ── Submit Button Modal ──────────────────────────────────────────────── -->
 <div id="submit-btn-modal" class="modal-overlay" style="z-index:2050">
@@ -3429,14 +3452,17 @@ document.addEventListener('DOMContentLoaded',function(){
     if(files.length)await _uploadMediaFiles(files);
   });
 });
+// ── Media state ──────────────────────────────────────────────────────────────
+let _mediaMultiSel=new Set(); // IDs currently selected in multi-select mode
+let _mediaFormFilter=''; // filter to show media by form slug
 async function openMediaPicker(callbackOrType){
   _mediaCallback=typeof callbackOrType==='function'?callbackOrType:null;
   _mediaType=typeof callbackOrType==='string'?callbackOrType:null;
   const insertBtn=document.getElementById('media-insert-btn');
   if(insertBtn)insertBtn.style.display=(_mediaCallback||(_mediaType&&_mediaType!=='manage'))?'':'none';
-  _mediaSelected=null;_mediaScope='all';_mediaFolder='';
+  _mediaSelected=null;_mediaMultiSel=new Set();_mediaScope='all';_mediaFolder='';_mediaFormFilter='';
   document.getElementById('media-search').value='';
-  _clearMediaDetail();
+  _clearMediaDetail();_updateBulkBar();
   document.getElementById('media-picker-overlay').classList.add('open');
   await loadMediaLibrary();
 }
@@ -3451,36 +3477,65 @@ function closeMediaPicker(){
   document.getElementById('media-picker-overlay').classList.remove('open');
   document.getElementById('media-picker-box').classList.remove('fs');
   const ic=document.querySelector('#media-fs-btn .material-icons-round');if(ic)ic.textContent='fullscreen';
-  _mediaCallback=null;_mediaType=null;
+  _mediaCallback=null;_mediaType=null;_hideCatPopup();
 }
 async function loadMediaLibrary(){
-  if(!currentFormSlug)return;
   try{
-    _mediaItems=await adminFetch(`/api/admin/forms/${currentFormSlug}/media`).then(r=>r.json());
-    _rebuildFolderSidebar();
+    // Use global endpoint when no form selected, otherwise form-scoped (includes shared)
+    const url=currentFormSlug?`/api/admin/forms/${currentFormSlug}/media`:'/api/admin/media';
+    _mediaItems=await adminFetch(url).then(r=>r.json());
+    // Show notice if no form open
+    const notice=document.getElementById('media-no-form-notice');
+    if(notice)notice.style.display=currentFormSlug?'none':'block';
+    _rebuildCategorySidebar();
+    _populateFormFilter();
     _applyMediaFilter();
   }catch(e){_mediaItems=[];renderMediaGrid([]);}
 }
-function _rebuildFolderSidebar(){
-  const folders=[...new Set(_mediaItems.map(i=>i.folder||'').filter(f=>f))].sort();
-  // update upload folder selects
-  ['media-upload-folder','media-folder-sel'].forEach(selId=>{
-    const sel=document.getElementById(selId);if(!sel)return;
-    const cur=sel.value;
-    sel.innerHTML='<option value="">No folder</option>'+folders.map(f=>`<option value="${escHtml(f)}">${escHtml(f)}</option>`).join('');
-    if(folders.includes(cur))sel.value=cur;
-  });
-  // rebuild folder list in sidebar
+function _populateFormFilter(){
+  const sel=document.getElementById('media-form-filter');if(!sel)return;
+  // Collect unique form slugs from items that have a formSlug (non-shared)
+  const slugs=[...new Set(_mediaItems.filter(i=>i.formSlug).map(i=>i.formSlug))].sort();
+  sel.innerHTML='<option value="">All forms</option>'+slugs.map(s=>`<option value="${escHtml(s)}"${s===_mediaFormFilter?' selected':''}>${escHtml(s)}</option>`).join('');
+}
+function setMediaFormFilter(slug){
+  _mediaFormFilter=slug;_applyMediaFilter();
+}
+function _rebuildCategorySidebar(){
+  const cats=[...new Set(_mediaItems.map(i=>i.folder||'').filter(f=>f))].sort();
+  // Update upload category select
+  const usel=document.getElementById('media-upload-folder');
+  if(usel){
+    const cur=usel.value;
+    usel.innerHTML='<option value="">No category</option>'+cats.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+    if(cats.includes(cur))usel.value=cur;
+  }
+  // Rebuild sidebar category list with drag-drop support
   const list=document.getElementById('media-folder-list');if(!list)return;
-  list.innerHTML=folders.map(f=>`<div class="mf-item${_mediaFolder===f&&_mediaScope==='folder'?' active':''}" data-scope="folder" data-folder="${escHtml(f)}" onclick="setMediaScope('folder','${f.replace(/'/g,"\\'")}')"><span class="material-icons-round">folder</span> ${escHtml(f)}</div>`).join('');
+  list.innerHTML=cats.map(c=>`
+    <div class="mf-item${_mediaFolder===c&&_mediaScope==='folder'?' active':''}" data-scope="folder" data-folder="${escHtml(c)}"
+         onclick="setMediaScope('folder','${c.replace(/'/g,"\\'")}')">
+      <span class="material-icons-round" style="font-size:14px">label</span> ${escHtml(c)}
+    </div>`).join('');
+  // Add drag-drop handlers to each category item
+  list.querySelectorAll('.mf-item').forEach(el=>{
+    const cat=el.dataset.folder;
+    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('cat-drop-over');});
+    el.addEventListener('dragleave',()=>el.classList.remove('cat-drop-over'));
+    el.addEventListener('drop',async e=>{
+      e.preventDefault();el.classList.remove('cat-drop-over');
+      const ids=_mediaMultiSel.size?[..._mediaMultiSel]:[e.dataTransfer.getData('media-id')].filter(Boolean);
+      if(!ids.length)return;
+      await _moveItemsToCategory(cat,ids);
+    });
+  });
 }
 function _applyMediaFilter(){
   const q=(document.getElementById('media-search').value||'').toLowerCase().trim();
   let items=_mediaItems;
-  if(_mediaScope==='shared')items=items.filter(i=>i._shared);
-  else if(_mediaScope==='form')items=items.filter(i=>!i._shared);
-  else if(_mediaScope==='folder')items=items.filter(i=>(i.folder||'')===_mediaFolder);
+  if(_mediaScope==='folder')items=items.filter(i=>(i.folder||'')===_mediaFolder);
   else if(_mediaScope==='nofolder')items=items.filter(i=>!(i.folder||''));
+  if(_mediaFormFilter)items=items.filter(i=>i.formSlug===_mediaFormFilter);
   if(q)items=items.filter(i=>(i.name||'').toLowerCase().includes(q));
   _mediaFiltered=[...items];
   renderMediaGrid(_mediaFiltered);
@@ -3506,40 +3561,70 @@ function renderMediaGrid(items){
   if(!items.length){grid.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   grid.innerHTML=items.map(item=>{
-    const sel=_mediaSelected&&_mediaSelected.id===item.id?' selected':'';
+    const sel=_mediaMultiSel.has(item.id)?' selected':'';
     const nm=(item.name||item.url.split('/').pop()).replace(/</g,'&lt;');
-    const sharedBadge=item._shared?'<span class="mi-shared">shared</span>':'';
-    const folderBadge=item.folder?`<span class="mi-shared" style="top:auto;bottom:22px;background:rgba(0,0,0,.4)">${escHtml(item.folder)}</span>`:'';
-    return `<div class="media-item${sel}" data-id="${item.id}" onclick="selectMediaItem('${item.id}')">${sharedBadge}${folderBadge}<img src="${item.url}" alt="${nm}" loading="lazy"><div class="mi-name">${nm}</div><span class="material-icons-round mi-check">check</span></div>`;
+    const catBadge=item.folder?`<span class="mi-shared" style="top:auto;bottom:22px;background:rgba(0,0,0,.5);font-size:0.55rem">${escHtml(item.folder)}</span>`:'';
+    return `<div class="media-item${sel}" data-id="${item.id}" draggable="true"
+      onclick="selectMediaItem('${item.id}')"
+      ondragstart="event.dataTransfer.setData('media-id','${item.id}');if(!_mediaMultiSel.has('${item.id}')){_mediaMultiSel.add('${item.id}');_updateBulkBar();this.classList.add('selected');}"
+    >${catBadge}<img src="${item.url}" alt="${nm}" loading="lazy"><div class="mi-name">${nm}</div><span class="material-icons-round mi-check">check</span></div>`;
   }).join('');
 }
 function selectMediaItem(id){
-  _mediaSelected=_mediaFiltered.find(i=>i.id===id)||null;
-  document.querySelectorAll('#media-grid .media-item').forEach(el=>el.classList.toggle('selected',el.dataset.id===id));
-  const dImg=document.getElementById('media-detail-img');const dNone=document.getElementById('media-detail-none');
-  const dInfo=document.getElementById('media-detail-info');
-  const acts=document.getElementById('media-detail-actions');
-  const ins=document.getElementById('media-insert-btn');
-  if(_mediaSelected){
-    dImg.src=_mediaSelected.url;dImg.style.display='block';dNone.style.display='none';
-    const sz=_mediaSelected.size?fmtBytes(_mediaSelected.size):'—';
-    const d=_mediaSelected.uploadedAt?new Date(_mediaSelected.uploadedAt).toLocaleDateString():'—';
-    const scopeLabel=_mediaSelected._shared?'<span style="color:#0c5460;background:#d1ecf1;padding:1px 6px;border-radius:3px;font-size:0.72rem;font-weight:600">SHARED</span>':'<span style="color:var(--ink3);font-size:0.72rem">This form</span>';
-    dInfo.innerHTML=`<div class="md-row"><strong>File</strong>${(_mediaSelected.name||'').replace(/</g,'&lt;')}</div><div class="md-row"><strong>Type</strong>${_mediaSelected.mimeType||'image'}</div><div class="md-row"><strong>Size</strong>${sz}</div><div class="md-row"><strong>Uploaded</strong>${d}</div><div class="md-row"><strong>Scope</strong>${scopeLabel}</div>`;
-    // populate folder select
-    const fsel=document.getElementById('media-folder-sel');if(fsel)fsel.value=_mediaSelected.folder||'';
-    // update share button label
-    const lbl=document.getElementById('media-share-btn-lbl');if(lbl)lbl.textContent=_mediaSelected._shared?'Move to this form':'Move to shared';
-    if(acts)acts.style.display='flex';ins.disabled=false;
+  // Toggle in multi-select set
+  if(_mediaMultiSel.has(id))_mediaMultiSel.delete(id);
+  else _mediaMultiSel.add(id);
+  _updateBulkBar();
+  // Update grid selection state
+  document.querySelectorAll('#media-grid .media-item').forEach(el=>{
+    el.classList.toggle('selected',_mediaMultiSel.has(el.dataset.id));
+  });
+  // Show detail panel for single selection, hide for 0 or multi
+  if(_mediaMultiSel.size===1){
+    _mediaSelected=_mediaFiltered.find(i=>i.id===id)||null;
+    _showDetailPanel(_mediaSelected);
+  }else if(_mediaMultiSel.size===0){
+    _mediaSelected=null;_clearMediaDetail();
   }else{
-    _clearMediaDetail();
+    _mediaSelected=null;_clearMediaDetail();
+  }
+  const ins=document.getElementById('media-insert-btn');
+  if(ins)ins.disabled=_mediaMultiSel.size!==1;
+}
+function _showDetailPanel(item){
+  if(!item){_clearMediaDetail();return;}
+  const dImg=document.getElementById('media-detail-img');const dNone=document.getElementById('media-detail-none');
+  const dInfo=document.getElementById('media-detail-info');const acts=document.getElementById('media-detail-actions');
+  dImg.src=item.url;dImg.style.display='block';dNone.style.display='none';
+  const sz=item.size?fmtBytes(item.size):'—';
+  const d=item.uploadedAt?new Date(item.uploadedAt).toLocaleDateString():'—';
+  dInfo.innerHTML=`<div class="md-row"><strong>File</strong>${(item.name||'').replace(/</g,'&lt;')}</div><div class="md-row"><strong>Type</strong>${item.mimeType||'image'}</div><div class="md-row"><strong>Size</strong>${sz}</div><div class="md-row"><strong>Uploaded</strong>${d}</div>`;
+  // Update category button label
+  const catLbl=document.getElementById('media-cat-lbl');
+  if(catLbl)catLbl.textContent=item.folder?`Category: ${item.folder}`:'Category: none';
+  if(acts)acts.style.display='flex';
+}
+function _updateBulkBar(){
+  const bar=document.getElementById('media-bulk-bar');const cnt=document.getElementById('media-bulk-count');
+  if(!bar)return;
+  if(_mediaMultiSel.size>0){
+    bar.classList.add('show');
+    if(cnt)cnt.textContent=`${_mediaMultiSel.size} selected`;
+  }else{
+    bar.classList.remove('show');
   }
 }
+function clearMediaMultiSel(){
+  _mediaMultiSel.clear();_mediaSelected=null;
+  document.querySelectorAll('#media-grid .media-item').forEach(el=>el.classList.remove('selected'));
+  _clearMediaDetail();_updateBulkBar();
+}
 function insertSelectedMedia(){
-  if(!_mediaSelected)return;
-  const url=_mediaSelected.url;
-  if(_mediaCallback)_mediaCallback(url);
-  else if(_mediaType)applyMediaSelection(_mediaType,url);
+  if(!_mediaSelected&&_mediaMultiSel.size!==1)return;
+  const id=_mediaSelected?_mediaSelected.id:[..._mediaMultiSel][0];
+  const item=_mediaFiltered.find(i=>i.id===id);if(!item)return;
+  if(_mediaCallback)_mediaCallback(item.url);
+  else if(_mediaType)applyMediaSelection(_mediaType,item.url);
   closeMediaPicker();
 }
 function applyMediaSelection(type,url){
@@ -3552,56 +3637,93 @@ async function deleteSelectedMedia(){
   if(!_mediaSelected)return;
   if(!confirm(`Delete "${(_mediaSelected.name||_mediaSelected.url.split('/').pop())}"?\nThis permanently removes the file.`))return;
   try{
-    await adminFetch(`/api/admin/forms/${currentFormSlug}/media`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_mediaSelected.id,_shared:_mediaSelected._shared||false})});
-    _mediaSelected=null;_clearMediaDetail();
+    await adminFetch(`/api/admin/forms/${currentFormSlug||'_'}/media`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_mediaSelected.id})});
+    _mediaMultiSel.delete(_mediaSelected.id);_mediaSelected=null;_clearMediaDetail();_updateBulkBar();
     await loadMediaLibrary();toast('Deleted','success');
   }catch(e){toast('Delete failed','error');}
 }
-async function moveMediaToFolder(folder){
-  if(!_mediaSelected)return;
-  const id=_mediaSelected.id,shared=_mediaSelected._shared||false;
+async function bulkDeleteMedia(){
+  const ids=[..._mediaMultiSel];if(!ids.length)return;
+  if(!confirm(`Permanently delete ${ids.length} image${ids.length>1?'s':''}?`))return;
   try{
-    await adminFetch(`/api/admin/forms/${currentFormSlug}/media/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder,_shared:shared})});
-    await loadMediaLibrary();
-    const upd=_mediaItems.find(i=>i.id===id);_mediaSelected=null;if(upd)selectMediaItem(upd.id);
-    toast('Folder updated','success');
-  }catch(e){toast('Failed','error');}
+    await adminFetch('/api/admin/media/bulk-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});
+    _mediaMultiSel.clear();_mediaSelected=null;_clearMediaDetail();_updateBulkBar();
+    await loadMediaLibrary();toast(`${ids.length} item${ids.length>1?'s':''} deleted`,'success');
+  }catch(e){toast('Bulk delete failed','error');}
 }
-async function toggleMediaShared(){
-  if(!_mediaSelected)return;
-  const toShared=!_mediaSelected._shared;
-  try{
-    await adminFetch(`/api/admin/forms/${currentFormSlug}/media/${_mediaSelected.id}/move`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toShared})});
-    await loadMediaLibrary();
-    // re-select the item after reload
-    const updated=_mediaItems.find(i=>i.id===_mediaSelected.id);
-    _mediaSelected=null;
-    if(updated){selectMediaItem(updated.id);}
-    toast(toShared?'Moved to shared library':'Moved to this form','success');
-  }catch(e){toast('Failed','error');}
+// Category popup logic
+let _catPopupCallback=null;
+function _showCatPopup(anchorEl, onSelect){
+  _catPopupCallback=onSelect;
+  const popup=document.getElementById('media-cat-popup');if(!popup)return;
+  const cats=[...new Set(_mediaItems.map(i=>i.folder||'').filter(f=>f))].sort();
+  popup.innerHTML=
+    `<div class="mcat-item" onclick="_pickCat('')"><span class="material-icons-round" style="font-size:14px">label_off</span> No category</div>`+
+    cats.map(c=>`<div class="mcat-item" onclick="_pickCat('${c.replace(/'/g,"\\'")}')"><span class="material-icons-round" style="font-size:14px">label</span> ${escHtml(c)}</div>`).join('')+
+    `<div class="mcat-item" style="border-top:1px solid var(--border);margin-top:4px;padding-top:6px;color:var(--accent)" onclick="_pickCatNew()"><span class="material-icons-round" style="font-size:14px">add</span> New category…</div>`;
+  const r=anchorEl.getBoundingClientRect();
+  popup.style.top=(r.bottom+4)+'px';popup.style.left=r.left+'px';
+  popup.classList.add('open');
+  // close on outside click
+  setTimeout(()=>document.addEventListener('click',_hideCatPopupOnClick,{once:true}),0);
 }
-async function createMediaFolder(){
-  const name=prompt('Folder name:','');
-  if(!name||!name.trim())return;
-  const folder=name.trim();
-  // Add folder to selects immediately (it becomes real when an item is moved into it)
-  ['media-upload-folder','media-folder-sel'].forEach(selId=>{
-    const sel=document.getElementById(selId);if(!sel)return;
-    if(!Array.from(sel.options).some(o=>o.value===folder)){
-      const o=document.createElement('option');o.value=folder;o.textContent=folder;sel.appendChild(o);
-    }
-    sel.value=folder;
+function _hideCatPopupOnClick(e){
+  if(!e.target.closest('#media-cat-popup'))_hideCatPopup();
+}
+function _hideCatPopup(){
+  const p=document.getElementById('media-cat-popup');if(p)p.classList.remove('open');
+  _catPopupCallback=null;
+}
+function _pickCat(cat){_hideCatPopup();if(_catPopupCallback)_catPopupCallback(cat);}
+async function _pickCatNew(){
+  _hideCatPopup();
+  const name=prompt('New category name:','');if(!name||!name.trim())return;
+  if(_catPopupCallback)_catPopupCallback(name.trim());
+}
+function bulkMoveToCategory(e){
+  if(!_mediaMultiSel.size)return;
+  _showCatPopup(e.currentTarget,async cat=>{
+    await _moveItemsToCategory(cat,[..._mediaMultiSel]);
   });
-  // Add to sidebar
-  const list=document.getElementById('media-folder-list');
-  if(list&&!list.querySelector(`[data-folder="${escHtml(folder)}"]`)){
-    const div=document.createElement('div');div.className='mf-item';div.dataset.scope='folder';div.dataset.folder=folder;
-    div.innerHTML=`<span class="material-icons-round">folder</span> ${escHtml(folder)}`;
-    div.onclick=()=>setMediaScope('folder',folder);
-    list.appendChild(div);
+}
+function moveSingleToCategory(e){
+  if(!_mediaSelected)return;
+  _showCatPopup(e.currentTarget,async cat=>{
+    await _moveItemsToCategory(cat,[_mediaSelected.id]);
+  });
+}
+async function _moveItemsToCategory(cat,ids){
+  if(!ids.length)return;
+  try{
+    await adminFetch('/api/admin/media/bulk-move-category',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,category:cat||null})});
+    await loadMediaLibrary();
+    toast(cat?`Moved to "${cat}"`:'Removed from category','success');
+    // Re-show detail if single item selected
+    if(_mediaMultiSel.size===1){
+      const id=[..._mediaMultiSel][0];
+      const upd=_mediaItems.find(i=>i.id===id);
+      _mediaSelected=upd||null;if(_mediaSelected)_showDetailPanel(_mediaSelected);
+    }
+  }catch(e){toast('Move failed','error');}
+}
+async function createMediaCategory(){
+  const name=prompt('Category name:','');
+  if(!name||!name.trim())return;
+  const cat=name.trim();
+  // Add to upload select immediately
+  const usel=document.getElementById('media-upload-folder');
+  if(usel&&!Array.from(usel.options).some(o=>o.value===cat)){
+    const o=document.createElement('option');o.value=cat;o.textContent=cat;usel.appendChild(o);
+    usel.value=cat;
   }
-  setMediaScope('folder',folder);
-  toast(`Folder "${folder}" created — upload images or drag items into it`,'success');
+  setMediaScope('folder',cat);
+  toast(`Category "${cat}" created — upload images or drag items onto it`,'success');
+}
+// Alias kept for any callers that still reference old name
+function createMediaFolder(){createMediaCategory();}
+function moveMediaToFolder(folder){
+  if(!_mediaSelected)return;
+  _moveItemsToCategory(folder,[_mediaSelected.id]);
 }
 // Multi-file upload handler (file input or drag-drop)
 async function handleMediaPickerUpload(input){
@@ -3610,10 +3732,8 @@ async function handleMediaPickerUpload(input){
   await _uploadMediaFiles(files);
 }
 async function _uploadMediaFiles(files){
-  if(!currentFormSlug){toast('No form selected','error');return;}
-  const scope=document.getElementById('media-upload-scope')?.value||'form';
   const folder=document.getElementById('media-upload-folder')?.value||'';
-  const shared=scope==='shared';
+  const shared=true; // all uploads are shared by default
   // Show chips area
   const chipsEl=document.getElementById('media-upload-chips');
   if(chipsEl){chipsEl.style.display='flex';chipsEl.innerHTML='';}
@@ -3625,7 +3745,7 @@ async function _uploadMediaFiles(files){
     if(chipsEl)chipsEl.appendChild(chip);
     // Duplicate check
     try{
-      const dup=await adminFetch(`/api/admin/media/check-dup?name=${encodeURIComponent(file.name)}&scope=${scope}&slug=${currentFormSlug}`).then(r=>r.json());
+      const dup=await adminFetch(`/api/admin/media/check-dup?name=${encodeURIComponent(file.name)}&scope=shared&slug=${currentFormSlug||''}`).then(r=>r.json());
       if(dup.exists){
         const use=confirm(`"${file.name}" already exists in your library.\n\nClick OK to use the existing file, Cancel to upload a new copy.`);
         if(use){
@@ -3645,10 +3765,12 @@ async function _uploadMediaFiles(files){
   // Upload all via multi-upload route
   const fd=new FormData();
   toUpload.forEach(({file})=>fd.append('images',file));
-  fd.append('shared',shared?'1':'0');
+  fd.append('shared','1'); // always upload as shared
   fd.append('folder',folder);
   try{
-    const resp=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload-multi`,{method:'POST',body:fd});
+    // Use _shared route when no form active; any valid slug works for the multi-upload endpoint
+    const uploadSlug=currentFormSlug||'_shared';
+    const resp=await adminFetch(`/api/admin/forms/${uploadSlug}/upload-multi`,{method:'POST',body:fd});
     if(!resp.ok){
       const text=await resp.text();
       let msg='Upload failed';try{msg=JSON.parse(text).error||msg;}catch(_){}
