@@ -737,8 +737,27 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       </div>
     </div>
 
+    <!-- Anti-Bot Protection -->
+    <div class="card" style="padding:16px" id="antibot-card">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">security</span> Anti-Bot Protection</div>
+      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:12px">SignFlow always runs invisible bot-detection on every form (honeypot, timing token, proof-of-work, math challenge, IP flagging). Optionally layer in hCaptcha as a visible external challenge.</p>
+      <div class="cg">
+        <label class="cl">CAPTCHA mode</label>
+        <select id="gs-captcha-mode" onchange="gsOnCaptchaModeChange(this.value)">
+          <option value="builtin">Built-in only (honeypot + PoW + math challenge)</option>
+          <option value="hcaptcha">hCaptcha — add a visible external CAPTCHA widget</option>
+        </select>
+      </div>
+      <div id="gs-hcaptcha-fields" style="display:none;margin-top:10px">
+        <div class="cg"><label class="cl">hCaptcha site key <span style="font-weight:400;color:var(--ink3)">(public)</span></label><input type="text" id="gs-hcaptcha-site-key" placeholder="10000000-ffff-ffff-ffff-000000000001"></div>
+        <div class="cg"><label class="cl">hCaptcha secret key <span style="font-weight:400;color:var(--ink3)">(private — stored encrypted)</span></label><input type="password" id="gs-hcaptcha-secret-key" placeholder="0x0000000000000000000000000000000000000000"></div>
+        <p class="card-desc" style="font-size:0.71rem;color:var(--ink3);margin-top:4px">Get your keys at <a href="https://dashboard.hcaptcha.com" target="_blank" style="color:var(--accent)">dashboard.hcaptcha.com</a>. The secret key can also be set via the <code>SF_HCAPTCHA_SECRET</code> environment variable (env takes lowest priority; DB value wins).</p>
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="saveGlobalSettings()"><span class="material-icons-round mi">save</span> Save</button>
+    </div>
+
     <!-- Placeholder for future global tools -->
-    <!-- e.g. global rate limits, audit log, API keys, webhook endpoints -->
+    <!-- e.g. audit log, API keys, webhook endpoints, global rate limit overrides -->
 
   </div>
 </div>
@@ -1531,6 +1550,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>analytics</code></td><td><code>(form_slug, key)</code></td><td>Event counters (<code>visits</code>, <code>submits</code>, <code>errors</code>); upserted via <code>ON CONFLICT DO UPDATE</code></td></tr>
           <tr><td><code>isel_presets</code></td><td><code>id</code> UUID</td><td>Saved icon/tile selector presets; <code>name</code> UNIQUE; <code>items</code> JSONB tile array</td></tr>
           <tr><td><code>ip_flags</code></td><td><code>ip_hash</code> text</td><td>Bot IP flags; <code>ip_hash</code> = HMAC-SHA256(ip, salt); <code>level</code> 1–3; <code>strike_count</code>; <code>expires_at</code> timestamptz; auto-indexed</td></tr>
+          <tr><td><code>global_settings</code></td><td><code>id</code> int (always 1)</td><td>Single-row platform config; <code>value</code> JSONB holds <code>captchaMode</code>, <code>hcaptchaSiteKey</code>, <code>hcaptchaSecretKey</code></td></tr>
           <tr><td><code>session</code></td><td><code>sid</code></td><td>Auto-created by <code>connect-pg-simple</code>; stores Express sessions</td></tr>
         </table>
         <h3>Form config JSONB structure (key paths)</h3>
@@ -1541,7 +1561,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>config.sections[]</code></td><td>array</td><td>Ordered array of section objects (hero, form, container, content, etc.)</td></tr>
           <tr><td><code>config.fields[]</code></td><td>array</td><td>Form field definitions (type, label, required, options, conditions…)</td></tr>
           <tr><td><code>config.design</code></td><td>object</td><td>All visual settings (colours, fonts, spacing, custom fonts array)</td></tr>
-          <tr><td><code>config.site</code></td><td>object</td><td>Site settings (title, slug, SMTP, hCaptcha, GA4 ID, pixel ID, disclaimerCheckbox, embedAllowedDomains…)</td></tr>
+          <tr><td><code>config.site</code></td><td>object</td><td>Site settings (title, slug, SMTP, GA4 ID, pixel ID, disclaimerCheckbox, embedAllowedDomains…). CAPTCHA config is now in <code>global_settings</code>, not per-form.</td></tr>
           <tr><td><code>config.confirmation[]</code></td><td>array</td><td>Confirmation section blocks shown after submission</td></tr>
           <tr><td><code>config.designTemplateId</code></td><td>UUID|null</td><td>Linked branding template; if set, form uses that template's design at render time</td></tr>
         </table>
@@ -1847,6 +1867,13 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-14 — CAPTCHA mode moved to Platform Settings (global)</h3>
+        <ul>
+          <li>✅ <strong>hCaptcha is now optional platform-wide setting</strong> — removed per-form hCaptcha card; CAPTCHA mode (Built-in / hCaptcha) now lives in Platform Settings → Anti-Bot Protection; keys stored in new <code>global_settings</code> PostgreSQL table (single-row JSONB); loaded at startup, refreshed on save</li>
+          <li>✅ <strong>New <code>global_settings</code> table</strong> — stores <code>captchaMode</code>, <code>hcaptchaSiteKey</code>, <code>hcaptchaSecretKey</code>; secret key masked in GET response (full value never returned); <code>SF_HCAPTCHA_SECRET</code> env var remains as deploy-time fallback</li>
+          <li>✅ <strong>Anti-Bot card in Platform Settings</strong> — dropdown: Built-in only (default) or hCaptcha; hCaptcha fields appear when mode is selected; Save calls <code>POST /api/admin/global-settings</code></li>
+          <li>✅ <strong>Print icon position fixed</strong> — help section print button now inserts before the expand/collapse arrow so the arrow no longer shifts on hover</li>
+        </ul>
         <h3>2026-03-14 — Documentation overhaul + Forms tab redesign + Platform Settings</h3>
         <ul>
           <li>✅ <strong>Forms tab redesigned</strong> — two-panel layout: form list on left (380px), live preview iframe on right with Desktop / Tablet / Mobile size buttons; click a form card to preview; Edit/Delete buttons stop propagation; first form auto-selected on load</li>
@@ -2516,17 +2543,9 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <button class="tbtn tbtn-ghost" onclick="openPrivacyWysiwyg()"><span class="material-icons-round mi" style="font-size:15px">edit</span> Edit privacy page</button>
       </div>
     </div>
-    <div class="card" style="padding:16px">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">smart_toy</span> hCaptcha</div>
-      <div class="setting-row" style="padding-top:0">
-        <div class="setting-info"><div class="setting-title">Enable CAPTCHA on signup</div></div>
-        <label class="tgl"><input type="checkbox" id="captcha-enabled" onchange="cfg.site.captchaEnabled=this.checked;toggleCaptchaFields()"><span class="tgl-s"></span></label>
-      </div>
-      <div id="captcha-fields" style="display:none;margin-top:10px">
-        <div class="cg"><label class="cl">Site key (public)</label><input type="text" id="hcaptcha-site-key" placeholder="10000000-ffff-…" oninput="cfg.site.hcaptchaSiteKey=this.value"></div>
-        <div class="cg"><label class="cl">Secret key (private)</label><input type="password" id="hcaptcha-secret-key" placeholder="0x000…" oninput="cfg.site.hcaptchaSecretKey=this.value"></div>
-      </div>
-      <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="saveCaptchaSettings()">Save CAPTCHA settings</button>
+    <div class="card" style="padding:16px;background:var(--bg2)">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">security</span> Anti-Bot &amp; CAPTCHA</div>
+      <p class="card-desc" style="font-size:0.78rem;color:var(--ink3)">Bot protection (honeypot, timing, proof-of-work, math challenge, IP flagging) runs automatically on every form. To configure hCaptcha, go to <button class="tbtn tbtn-ghost" style="padding:0 4px;font-size:0.78rem;display:inline-flex;height:auto;line-height:1.4;vertical-align:middle" onclick="switchTab('global-settings',null)"><span class="material-icons-round mi" style="font-size:13px!important">settings</span>&nbsp;Platform Settings</button>.</p>
     </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">bar_chart</span> Analytics &amp; Tracking</div>
@@ -2903,8 +2922,8 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         </ul>
         <h3>Deleting a form</h3>
         <p>Deleting a form from the Forms tab is <strong>irreversible</strong>. It permanently removes: the form configuration, all subscribers, all analytics, and all media that was uploaded exclusively for that form. Export your subscriber list before deleting if you need the data.</p>
-        <h3>hCaptcha</h3>
-        <p>Enable bot protection per-form. Enter your <strong>hCaptcha site key</strong> and <strong>secret key</strong> (from hcaptcha.com). When enabled, a CAPTCHA challenge appears above the submit button. Note: SignFlow also runs invisible anti-bot layers (honeypot, timing check, proof-of-work) on every form automatically, regardless of hCaptcha settings — see the <strong>Anti-Bot Protection</strong> section.</p>
+        <h3>Anti-Bot &amp; CAPTCHA</h3>
+        <p>SignFlow's built-in bot protection (honeypot, timing check, proof-of-work, math challenge, IP flagging) runs automatically on every form — no configuration needed. Optionally layer in <strong>hCaptcha</strong> as a visible external challenge. CAPTCHA mode is a <strong>platform-wide</strong> setting configured in <strong>Platform Settings → Anti-Bot Protection</strong> (⚙ icon, top-right) rather than per-form. See the <strong>Anti-Bot Protection</strong> section for full details.</p>
         <h3>Analytics &amp; Tracking (GA4 + Meta Pixel)</h3>
         <p>Two tracking methods are supported:</p>
         <ul>
@@ -2951,6 +2970,14 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <h3>Managing flagged IPs</h3>
         <p>View and manage active flags in <strong>Platform Settings</strong> (⚙ icon, top-right). The IP Flagging card shows all currently active flags — IP hash (truncated), flag level, strike count, reason, and time until expiry. You can clear individual flags or clear all flags at once. Clearing a flag immediately allows that IP to submit without challenges again.</p>
         <p>IP addresses are never stored in plain text — only an HMAC-SHA256 hash is recorded (privacy-by-design, GDPR-compliant).</p>
+        <h3>Optional Layer 6 — hCaptcha (external visible CAPTCHA)</h3>
+        <p>For environments requiring a third-party CAPTCHA (e.g. compliance or SECOPS policy), SignFlow supports <strong>hCaptcha</strong> as an optional sixth layer. When enabled, a visible CAPTCHA widget appears above the submit button and the token is verified server-side before any form data is processed.</p>
+        <p>Configure in <strong>Platform Settings → Anti-Bot Protection</strong> (⚙ icon, top-right). Set the mode to <em>hCaptcha</em> and enter your site key and secret key from <a href="https://dashboard.hcaptcha.com" target="_blank">dashboard.hcaptcha.com</a>. The secret key can alternatively be set via the <code>SF_HCAPTCHA_SECRET</code> environment variable (the DB value takes precedence).</p>
+        <table class="help-table">
+          <tr><th>Mode</th><th>What runs</th></tr>
+          <tr><td><strong>Built-in only</strong> (default)</td><td>Layers 1–5 (honeypot, timing, IP gate, PoW, math challenge) — invisible to legitimate users</td></tr>
+          <tr><td><strong>hCaptcha</strong></td><td>All 5 built-in layers <em>plus</em> hCaptcha widget visible on every form</td></tr>
+        </table>
         <h3>Rate limiting</h3>
         <p>In addition to IP flagging, a <strong>rate limiter</strong> caps submissions at <strong>10 per 15 minutes per IP per form</strong>. Login and auth routes are separately limited to <strong>20 requests per 15 minutes</strong>.</p>
         <h3>Fail-open design</h3>
@@ -2991,7 +3018,8 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <p>The <strong>Platform Settings</strong> panel (⚙ icon, top-right of the navigation bar) contains global configuration that applies across all forms. Click the cogwheel at any time — you do not need to have a form selected.</p>
         <h3>Currently available</h3>
         <ul>
-          <li><strong>IP Flagging</strong> — view and clear active bot flags (see Anti-Bot Protection section)</li>
+          <li><strong>Anti-Bot Protection</strong> — choose CAPTCHA mode (Built-in only or hCaptcha) and enter hCaptcha API keys if using external CAPTCHA (see Anti-Bot Protection section)</li>
+          <li><strong>IP Flagging</strong> — view and clear active bot flags; see flag level, strike count, reason, and time until expiry</li>
         </ul>
         <h3>Planned additions</h3>
         <ul>
@@ -4045,11 +4073,8 @@ function populateControls(){
   if(privStatus)privStatus.textContent=cfg.site.privacyContent?'Content saved ✓':'No content set';
   // Brand colours
   renderBrandColorList();
-  const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
-  sv('hcaptcha-site-key',cfg.site.hcaptchaSiteKey||'');sv('hcaptcha-secret-key',cfg.site.hcaptchaSecretKey||'');
   sv('pf-ga4-id',cfg.site.ga4MeasurementId||'');sv('pf-pixel-id',cfg.site.metaPixelId||'');
   sv('embed-allowed-domains',(cfg.site.embedAllowedDomains||[]).join(', '));
-  toggleCaptchaFields();
   // Welcome email — populated lazily when Email tab is opened
   // Unsubscribe/preferences page text
   const unsubPrev=document.getElementById('unsub-page-preview');
@@ -7294,7 +7319,7 @@ function switchTab(tab,btn){
   if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help'){switchInnerTab('help');renderUserNotes();}
-  if(tab==='global-settings'){loadIpFlags();}
+  if(tab==='global-settings'){loadIpFlags();loadGlobalSettings();}
   if(tab==='design'){
     // Clicking Branding always exits template editing back to list
     if(_editingTpl)exitTplEdit();
@@ -7430,7 +7455,10 @@ async function copyEmbedCode(elId){
 }
 
 // ── Captcha ──
-function toggleCaptchaFields(){const e=document.getElementById('captcha-enabled');const f=document.getElementById('captcha-fields');if(f)f.style.display=e?.checked?'block':'none';}
+function gsOnCaptchaModeChange(val){
+  const f=document.getElementById('gs-hcaptcha-fields');
+  if(f)f.style.display=val==='hcaptcha'?'block':'none';
+}
 function toggleEmailFields(){const e=document.getElementById('email-enabled');const f=document.getElementById('email-fields');if(f)f.style.display=e?.checked?'block':'none';}
 // kept for backwards compat (may be called from elsewhere)
 function openEmailBodyWysiwyg(){ openEmailTemplateModal(); }
@@ -7573,11 +7601,31 @@ function etplInsertUnsubBlock(){
   document.getElementById('etpl-wysi')?.focus();
   document.execCommand('insertHTML',false,html);
 }
-async function saveCaptchaSettings(){
-  cfg.site.captchaEnabled=document.getElementById('captcha-enabled').checked;
-  cfg.site.hcaptchaSiteKey=document.getElementById('hcaptcha-site-key').value.trim();
-  cfg.site.hcaptchaSecretKey=document.getElementById('hcaptcha-secret-key').value.trim();
-  await saveConfig();
+// ── Global Settings (platform-wide) ──
+async function loadGlobalSettings(){
+  try{
+    const r=await adminFetch('/api/admin/global-settings');
+    if(!r.ok)return;
+    const gs=await r.json();
+    const mode=gs.captchaMode||'builtin';
+    const modeEl=document.getElementById('gs-captcha-mode');
+    if(modeEl)modeEl.value=mode;
+    sv('gs-hcaptcha-site-key',gs.hcaptchaSiteKey||'');
+    // Secret shown as masked placeholder if set
+    const skEl=document.getElementById('gs-hcaptcha-secret-key');
+    if(skEl)skEl.value=gs.hcaptchaSecretKeySet?'••••••••':'';
+    gsOnCaptchaModeChange(mode);
+  }catch(e){console.warn('loadGlobalSettings:',e);}
+}
+async function saveGlobalSettings(){
+  const payload={
+    captchaMode: document.getElementById('gs-captcha-mode')?.value||'builtin',
+    hcaptchaSiteKey: document.getElementById('gs-hcaptcha-site-key')?.value.trim()||'',
+    hcaptchaSecretKey: document.getElementById('gs-hcaptcha-secret-key')?.value.trim()||'',
+  };
+  const r=await adminFetch('/api/admin/global-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(r.ok)showToast('Platform settings saved');
+  else showToast('Save failed','error');
 }
 
 // ── IP Flags ──

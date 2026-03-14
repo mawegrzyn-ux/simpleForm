@@ -380,9 +380,7 @@ async function readFormsIndex() {
 async function readFormConfig(slug) {
   const { rows } = await pool.query('SELECT config FROM forms WHERE slug=$1', [slug]);
   if (!rows.length) throw new Error(`Form not found: ${slug}`);
-  const cfg = rows[0].config;
-  if (ENV_HCAPTCHA_SECRET) cfg.site.hcaptchaSecretKey = ENV_HCAPTCHA_SECRET;
-  return cfg;
+  return rows[0].config;
 }
 
 async function writeFormConfig(slug, cfg) {
@@ -444,7 +442,7 @@ function defaultFormConfig(slug, name) {
             cookieBannerText: 'We use <strong>necessary cookies</strong> to keep this site running. With your consent, analytics and marketing cookies help us improve our service.',
             privacyPolicyUrl: '/privacy',
             gdprText: 'By subscribing you agree to our <a href="{privacyUrl}" target="_blank">Privacy Policy</a>. We store your data securely and you can unsubscribe or request deletion at any time.',
-            unsubscribeEnabled: true, captchaEnabled: false, hcaptchaSiteKey: '', hcaptchaSecretKey: '',
+            unsubscribeEnabled: true,
             emailEnabled: false, emailFromName: '', emailReplyTo: '', emailSubject: '', emailBodyHtml: '',
             emailDesign: { bgColor: '#f4f4f4', cardBg: '#ffffff', textColor: '#333333', headingColor: '#1a1a2e',
               bodyFont: 'Lato', headingFont: 'Playfair Display', maxWidth: '600px', padding: '40px', borderRadius: '8px' },
@@ -591,8 +589,28 @@ async function initDb() {
       expires_at   TIMESTAMPTZ NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ip_flags_expires ON ip_flags(expires_at);
+
+    CREATE TABLE IF NOT EXISTS global_settings (
+      id    INTEGER PRIMARY KEY DEFAULT 1,
+      value JSONB   NOT NULL DEFAULT '{}'
+    );
+    INSERT INTO global_settings (id, value) VALUES (1, '{}') ON CONFLICT DO NOTHING;
   `);
   console.log('✔ Database tables ready');
+}
+
+// ── Global settings (platform-wide, not per-form) ─────────────────────────────
+let globalSettings = { captchaMode: 'builtin', hcaptchaSiteKey: '', hcaptchaSecretKey: '' };
+
+async function loadGlobalSettings() {
+  const { rows } = await pool.query('SELECT value FROM global_settings WHERE id=1');
+  const raw = rows[0]?.value || {};
+  globalSettings = {
+    captchaMode:      raw.captchaMode      || 'builtin',
+    hcaptchaSiteKey:  raw.hcaptchaSiteKey  || '',
+    // ENV var is a deploy-time fallback; DB value takes precedence when set
+    hcaptchaSecretKey: raw.hcaptchaSecretKey || ENV_HCAPTCHA_SECRET || '',
+  };
 }
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
@@ -1471,6 +1489,38 @@ app.delete('/api/admin/ip-flags', adminAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Global settings API ───────────────────────────────────────────────────────
+app.get('/api/admin/global-settings', adminAuth, async (req, res) => {
+  // Return current in-memory cache (no secret key exposed — return masked placeholder)
+  res.json({
+    captchaMode:      globalSettings.captchaMode,
+    hcaptchaSiteKey:  globalSettings.hcaptchaSiteKey,
+    hcaptchaSecretKey: globalSettings.hcaptchaSecretKey ? '••••••••' : '',
+    hcaptchaSecretKeySet: !!globalSettings.hcaptchaSecretKey,
+  });
+});
+
+app.post('/api/admin/global-settings', adminAuth, async (req, res) => {
+  try {
+    const { captchaMode, hcaptchaSiteKey, hcaptchaSecretKey } = req.body;
+    // If secret key is the masked placeholder, keep existing value
+    const secretToSave = (hcaptchaSecretKey && hcaptchaSecretKey !== '••••••••')
+      ? hcaptchaSecretKey
+      : globalSettings.hcaptchaSecretKey;
+    const value = {
+      captchaMode:      captchaMode      || 'builtin',
+      hcaptchaSiteKey:  hcaptchaSiteKey  || '',
+      hcaptchaSecretKey: secretToSave    || '',
+    };
+    await pool.query(
+      'INSERT INTO global_settings (id, value) VALUES (1,$1) ON CONFLICT (id) DO UPDATE SET value=$1',
+      [value]
+    );
+    await loadGlobalSettings();
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Branding tab preview — standalone dummy form, no form slug required
 // Uses GENERIC_PREVIEW_SECTIONS/FIELDS with selected form's design (or defaults).
 app.get('/branding-preview', adminAuth, async (req, res) => {
@@ -1736,11 +1786,11 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
     }
   }
 
-  if (cfg.site.captchaEnabled && cfg.site.hcaptchaSecretKey) {
+  if (globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSecretKey) {
     const captchaToken = body['h-captcha-response'] || '';
     if (!captchaToken) { bumpAnalytic(slug, 'errors'); return res.status(400).json({ error: 'Please complete the CAPTCHA.' }); }
     try {
-      const vp = new URLSearchParams({ secret: cfg.site.hcaptchaSecretKey, response: captchaToken, remoteip: req.ip });
+      const vp = new URLSearchParams({ secret: globalSettings.hcaptchaSecretKey, response: captchaToken, remoteip: req.ip });
       const vr = await fetch('https://api.hcaptcha.com/siteverify', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: vp.toString() });
       const vj = await vr.json();
       if (!vj.success) { bumpAnalytic(slug, 'errors'); return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.' }); }
@@ -2520,7 +2570,7 @@ function renderBlockElement(el, cfg) {
     const btnStyle = (btnBg||btnTc!=='#fff') ? ` style="background:${btnBg||'var(--btn-bg)'};color:${btnTc}"` : '';
     const btnLabel = el.buttonText || d2.buttonText || 'Subscribe';
     return `<div class="sf-gdpr">${gdprHtml(s2)}</div>
-    ${s2.captchaEnabled && s2.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s2.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
+    ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${globalSettings.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
     <button type="submit" class="sf-btn"${btnStyle}>${escapeHtml(btnLabel)}</button>
     <div id="sf-msg" class="sf-msg"></div>`;
   }
@@ -2600,7 +2650,7 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
     return `
     ${formFields}
     <div class="sf-gdpr">${gdprHtml(s)}</div>
-    ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
+    ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${globalSettings.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
     <button type="submit" class="sf-btn">${escapeHtml(d.buttonText)}</button>
     <div id="sf-msg" class="sf-msg"></div>`;
   }
@@ -2716,7 +2766,7 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
         const btnTc = item.btnTextColor || d.btnTextColor || '#fff';
         const btnSty = (item.btnBg || item.btnTextColor) ? ` style="background:${btnBg||'var(--btn-bg)'};color:${btnTc}"` : '';
         return `<div class="sf-gdpr">${gdprHtml(s)}</div>
-        ${s.captchaEnabled && s.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${s.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
+        ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? `<div class="sf-captcha"><div class="h-captcha" data-sitekey="${globalSettings.hcaptchaSiteKey}" data-theme="light"></div></div>` : ''}
         <button type="submit" class="sf-btn"${btnSty}>${escapeHtml(btnLabel)}</button>
         <div id="sf-msg" class="sf-msg"></div>`;
       }
@@ -2875,7 +2925,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   @media(max-width:500px){ .sf-card { padding: 32px 20px; } }
   ${sliderPickerCSS(d.accentColor)}
 </style>
-${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
+${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 </head>
 <body>
 <div class="sf-card">
@@ -3420,7 +3470,7 @@ ${googleFontTag(cfg, d, sharedFonts)}
 ${customFontFaceCSS(cfg, sharedFonts)}
 ${(cfg.fields||[]).some(f=>f.type==='iconselect'&&(f.iselItems||[]).some(i=>i.iconType==='material')) ? '<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">' : ''}
 ${[...new Set((cfg.fields||[]).filter(f=>f.type==='iconselect').flatMap(f=>(f.iselItems||[]).filter(i=>i.iconType==='text'&&i.iconFont&&!i.iconFont.startsWith('custom:')).map(i=>i.iconFont)))].map(font=>`<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(font)}&display=swap" rel="stylesheet">`).join('\n')}
-${s.captchaEnabled && s.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
+${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -3640,6 +3690,7 @@ process.on('uncaughtException', (err) => {
 // ── Start ──
 (async () => {
   await initDb();
+  await loadGlobalSettings();
   await initAuth0();
   app.listen(PORT, () => {
     console.log(`\n✅ SignFlow running at http://localhost:${PORT}`);
