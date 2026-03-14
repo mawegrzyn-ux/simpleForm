@@ -2122,7 +2122,7 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
     let r = Math.random() * total, cum = 0, winIdx = prizes.length - 1;
     for (let i = 0; i < prizes.length; i++) { cum += +(prizes[i].probability || 1); if (r <= cum) { winIdx = i; break; } }
     const winner = prizes[winIdx];
-    prizeResult = { fieldId: prizedrawField.id, index: winIdx, label: winner.label || '', icon: winner.icon || '' };
+    prizeResult = { fieldId: prizedrawField.id, index: winIdx, label: winner.label || '', value: winner.value || '', image: winner.image || winner.icon || '' };
     customFields[prizedrawField.id] = JSON.stringify(prizeResult);
   }
 
@@ -3214,7 +3214,8 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
   const labels  = JSON.stringify(prizes.map(r => r.label || ''));
   const colors  = JSON.stringify(prizes.map(r => r.color || '#e94560'));
   const probs   = JSON.stringify(prizes.map(r => +(r.probability || 1)));
-  const images  = JSON.stringify(prizes.map(r => r.icon  || ''));
+  const images  = JSON.stringify(prizes.map(r => r.image || r.icon || ''));
+  const values  = JSON.stringify(prizes.map(r => r.value || ''));
   const accent  = (cfg.design && cfg.design.accentColor) || '#e94560';
   const btnText = escapeHtml(field.buttonText || 'Spin!');
   const fid     = field.id;
@@ -3231,10 +3232,15 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
 </div>
 <script>
 (function(){
-  var labels=${labels},colors=${colors},probs=${probs},images_=${images};
+  var labels=${labels},colors=${colors},probs=${probs},images_=${images},values_=${values};
   var sz=${sz},ctr=${ctr},rad=${rad},fid='${fid}',auto=${auto},presetIdx=${presetIdx};
   var rotation=0,spinning=false,n=labels.length;
-  var imgs=images_.map(function(src){if(!src)return null;var img=new Image();img.crossOrigin='anonymous';img.src=src;return img;});
+  var imgs=images_.map(function(src){
+    if(!src)return null;
+    var img=new Image();img.crossOrigin='anonymous';
+    img.onload=function(){if(!spinning)draw(rotation);};
+    img.src=src;return img;
+  });
   function draw(rot){
     var cvs=document.getElementById('sf-pd-canvas-'+fid);if(!cvs)return;
     var ctx=cvs.getContext('2d'),arc=2*Math.PI/n;
@@ -3263,12 +3269,20 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
     var targetAngle=-Math.PI/2-(target*arc+arc/2);
     var extra=5+Math.floor(Math.random()*3);
     var endAngle=rotation+extra*2*Math.PI+((targetAngle-rotation)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
-    var duration=3500,start_=null;
-    function ease(t){return 1-Math.pow(1-t,3);}
+    var startAngle=rotation,duration=3500,start_=null;
+    // 3-phase ease: 1s accel → 0.5s full speed → 2s decel (total 3.5s)
+    // Phase boundaries (as fraction of total): t1=2/7≈0.286, t2=3/7≈0.429
+    // Position boundaries: p1=0.25, p2=0.50 — velocity is continuous at joints
+    function ease(t){
+      var t1=2/7,t2=3/7;
+      if(t<t1){var s=t/t1;return 0.25*s*s;}
+      if(t<t2){return 0.25+0.25*(t-t1)/(t2-t1);}
+      var s=(t-t2)/(1-t2);return 0.5+0.5*(1-Math.pow(1-s,2));
+    }
     function frame(ts){
       if(!start_)start_=ts;
       var p=Math.min((ts-start_)/duration,1);
-      rotation=rotation+(endAngle-rotation)*ease(p);
+      rotation=startAngle+(endAngle-startAngle)*ease(p);
       draw(rotation);
       if(p<1){requestAnimationFrame(frame);}
       else{rotation=endAngle;draw(rotation);spinning=false;showResult(target);}
@@ -3277,8 +3291,8 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
   }
   function showResult(idx){
     var el=document.getElementById('sf-pd-result-'+fid);if(!el)return;
-    var im=images_[idx]?'<img src="'+images_[idx]+'" style="height:48px;width:48px;object-fit:cover;border-radius:50%;vertical-align:middle;margin-right:8px">':'';
-    el.innerHTML='🎉 '+im+'<span>'+labels[idx]+'</span>';
+    var val=values_[idx]||labels[idx]||'';
+    el.innerHTML='🎉 <span>'+val+'</span>';
   }
   draw(0);
   window['sfPdSpinTo_'+fid]=function(idx){spin(idx>=0?idx:-1);};

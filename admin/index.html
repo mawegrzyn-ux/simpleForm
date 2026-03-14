@@ -4290,7 +4290,7 @@ function renderFormsList(){
           ${f.description?`<div class="form-card-desc">${escHtml(f.description)}</div>`:''}
           <div class="form-card-meta">
             <span class="slug-pill">/${f.slug}</span>
-            ${f.subscriberCount!=null?`<span><span class="material-icons-round mi" style="font-size:11px;vertical-align:-2px">people</span> ${f.subscriberCount}</span>`:''}
+            ${f.subscriberCount!=null?`<span title="Active subscribers"><span class="material-icons-round mi" style="font-size:11px;vertical-align:-2px;color:var(--green,#10b981)">how_to_reg</span> ${f.subscriberCount} active</span>`:''}
             ${hasPayload?`<span class="size-pill" title="${payloadBreakdown}"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">data_usage</span> ${fmtBytes(totalPayload)}</span>`:''}
           </div>
         </div>
@@ -7144,7 +7144,7 @@ function saveField(){
     field.iselShowArrows=document.getElementById('modal-isel-arrows').checked;
   }
   if(type==='prizedraw'){
-    field.prizes=_prizeItems.map(p=>({...p,label:p.label||'',color:p.color||'#e94560',probability:+(p.probability||1),icon:p.icon||''}));
+    field.prizes=_prizeItems.map(p=>({...p,label:p.label||'',value:p.value||'',color:p.color||'#e94560',probability:+(p.probability||1),icon:p.icon||''}));
     field.drawMethod=document.getElementById('modal-pd-method').value;
     field.canvasSize=parseInt(document.getElementById('modal-pd-size').value)||280;
     field.buttonText=document.getElementById('modal-pd-btntext').value||'Spin!';
@@ -7168,8 +7168,9 @@ function prizeRenderRows(){
   el.innerHTML=_prizeItems.map((p,i)=>`
     <div class="cr" style="gap:4px;padding:4px 2px;border-bottom:1px solid var(--brd);align-items:center;flex-wrap:nowrap">
       <input type="color" value="${p.color||'#e94560'}" title="Segment colour" style="width:24px;height:24px;border:none;padding:0;cursor:pointer;border-radius:4px;flex-shrink:0" oninput="prizeUpdate(${i},'color',this.value)">
-      <input type="text" value="${escHtml(p.label||'')}" placeholder="Prize label" style="flex:1;min-width:60px;font-size:0.8rem" oninput="prizeUpdate(${i},'label',this.value)">
-      <input type="number" value="${p.probability||1}" min="0.1" max="10" step="0.1" title="Probability weight" style="width:60px;font-size:0.8rem" oninput="prizeUpdate(${i},'probability',+this.value)">
+      <input type="text" value="${escHtml(p.label||'')}" placeholder="Label (on wheel)" style="flex:1;min-width:60px;font-size:0.8rem" oninput="prizeUpdate(${i},'label',this.value)">
+      <input type="text" value="${escHtml(p.value||'')}" placeholder="Value (stored)" title="Stored prize value e.g. coupon code, prize name" style="flex:1;min-width:60px;font-size:0.8rem" oninput="prizeUpdate(${i},'value',this.value)">
+      <input type="number" value="${p.probability||1}" min="0.1" max="10" step="0.1" title="Probability weight" style="width:52px;font-size:0.8rem" oninput="prizeUpdate(${i},'probability',+this.value)">
       ${p.icon
         ? `<img src="${escHtml(p.icon)}" style="height:28px;width:28px;object-fit:cover;border-radius:4px;border:1px solid var(--brd);cursor:pointer;flex-shrink:0" onclick="pickPrizeImage(${i})" title="Change image">
            <button class="ibtn" title="Remove image" onclick="clearPrizeImage(${i})" style="flex-shrink:0"><span class="material-icons-round mi" style="font-size:13px">hide_image</span></button>`
@@ -7180,7 +7181,7 @@ function prizeRenderRows(){
     </div>`).join('');
 }
 function prizeAddItem(){
-  _prizeItems.push({label:'Prize '+(+_prizeItems.length+1),color:['#e94560','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316'][_prizeItems.length%8],probability:1,icon:''});
+  _prizeItems.push({label:'Prize '+(+_prizeItems.length+1),value:'',color:['#e94560','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316'][_prizeItems.length%8],probability:1,icon:''});
   prizeRenderRows();
 }
 function prizeRemoveItem(i){_prizeItems.splice(i,1);prizeRenderRows();}
