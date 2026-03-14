@@ -2568,8 +2568,9 @@ function renderFormField(f, cfg) {
     <input type="email" id="sf_${f.id}" name="${f.id}" placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="email" maxlength="254" ${f.required ? 'required' : ''}></div>`;
   }
 
-  // ── prizedraw — rendered separately in confirmation section ──
-  if (f.type === 'prizedraw') return ''; // rendered in confirmation section — not in the main form
+  // ── prizedraw — renders in confirmation container at the position the admin placed it;
+  //    CSS (#sf-form .sf-prizedraw) hides it inside the main form ──
+  if (f.type === 'prizedraw') return renderPrizeDrawWidget(f, cfg);
 
   // ── default (text, number, textarea handled above, etc.) ──
   return `<div class="sf-field"${condAttr}>
@@ -2581,6 +2582,8 @@ function renderFormField(f, cfg) {
 // ── Slider + picker CSS (injected into page <style>) ─────────────────────────
 function sliderPickerCSS(accent) {
   return `
+  /* Prize draw — hidden inside the main form, visible in confirmation */
+  #sf-form .sf-prizedraw{display:none!important;}
   /* Picker (year / yearmonth / yearmonthday) */
   .sf-field--picker .sf-picker-wrap{position:relative;height:var(--sf-picker-h,120px);overflow:hidden;border:2px solid #e0e0e0;border-radius:8px;background:#fafafa;user-select:none;}
   .sf-picker-dual,.sf-picker-triple{display:flex;}
@@ -3299,8 +3302,14 @@ function renderPublicPage(cfg, sharedFonts = [], templates = []) {
     : `background: ${d.backgroundColor};`;
 
   const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '')).join('\n  ');
+  // Find prizedraw fields already placed inside a confirmation container so we don't double-render them
+  const _pdPlaced = new Set();
+  (cfg.confirmation || []).forEach(sec => {
+    if (sec.type === 'container') (sec.items || []).forEach(it => { if (it.type === 'field') _pdPlaced.add(it.fieldId); });
+  });
   const prizedrawFields = (cfg.fields || []).filter(f => f.type === 'prizedraw');
-  const prizedrawWidgets = prizedrawFields.map(f => renderPrizeDrawWidget(f, cfg)).join('\n');
+  // Only append widgets that aren't already placed in a container
+  const prizedrawWidgets = prizedrawFields.filter(f => !_pdPlaced.has(f.id)).map(f => renderPrizeDrawWidget(f, cfg)).join('\n');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -3930,8 +3939,12 @@ function renderEmbedPage(cfg, sharedFonts = [], templates = []) {
 
   const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
   const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '')).join('\n  ');
+  const _pdPlaced = new Set();
+  (cfg.confirmation || []).forEach(sec => {
+    if (sec.type === 'container') (sec.items || []).forEach(it => { if (it.type === 'field') _pdPlaced.add(it.fieldId); });
+  });
   const prizedrawFields = (cfg.fields || []).filter(f => f.type === 'prizedraw');
-  const prizedrawWidgets = prizedrawFields.map(f => renderPrizeDrawWidget(f, cfg)).join('\n');
+  const prizedrawWidgets = prizedrawFields.filter(f => !_pdPlaced.has(f.id)).map(f => renderPrizeDrawWidget(f, cfg)).join('\n');
 
   return `<!DOCTYPE html>
 <html lang="en">

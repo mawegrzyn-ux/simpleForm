@@ -6430,6 +6430,12 @@ function editCntItem(blockId,idx){
   const item=found.block.items[idx];if(!item)return;
   _editCntBlock=blockId;_editCntIdx=idx;
   if(item.type==='wysiwyg'){openWysiwygModal(item.html||'');}
+  else if(item.type==='field'){
+    // prizedraw fields open their own config modal, not the generic appearance modal
+    const fld=(cfg.fields||[]).find(f=>f.id===item.fieldId);
+    if(fld&&fld.type==='prizedraw'){openFieldModal(item.fieldId);}
+    else{openItemEdit(blockId,idx);}
+  }
   else{openItemEdit(blockId,idx);}
 }
 
