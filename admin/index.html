@@ -2444,42 +2444,56 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
 <!-- SUBSCRIBERS TAB -->
 <div id="tab-subscribers" class="page">
   <div class="page-body">
-    <div class="page-head"><h2>Subscribers</h2><p>Manage your mailing list and export data.</p>
-      <button class="btn btn-outline btn-sm" id="email-log-toggle-btn" onclick="toggleEmailLog()" style="margin-left:auto"><span class="material-icons-round mi">mail_outline</span> Email Log</button>
-    </div>
+    <div class="page-head"><h2>Subscribers</h2><p>Manage your mailing list and export data.</p></div>
+
+    <!-- Stats row -->
     <div class="stats-row" id="sub-stats">
       <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-lbl">Total</div></div>
       <div class="stat-card"><div class="stat-num" id="stat-active">—</div><div class="stat-lbl">Active</div></div>
       <div class="stat-card"><div class="stat-num" id="stat-unsub">—</div><div class="stat-lbl">Unsubscribed</div></div>
-    </div>
-    <div class="table-wrap">
-      <div class="table-bar">
-        <input type="text" placeholder="Search email, status, IP, fields…" oninput="debounceSearch(this.value)">
-        <select id="sub-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadSubscribers(1)">
-          <option value="all">All statuses</option><option value="active">Active</option><option value="unsubscribed">Unsubscribed</option>
-        </select>
-        <div style="flex:1"></div>
-        <button id="clear-exports-btn" class="btn btn-outline btn-sm" style="display:none" onclick="clearAllExportFlags()"><span class="material-icons-round mi">flag</span> Clear export flags</button>
-        <button class="btn btn-primary btn-sm" onclick="exportData('csv')"><span class="material-icons-round mi">download</span> CSV</button>
-        <button class="btn btn-outline btn-sm" onclick="exportData('json')"><span class="material-icons-round mi">download</span> JSON</button>
+      <div class="stat-card" id="stat-email-err-card" style="cursor:pointer" onclick="switchSubTab('emaillog')" title="View email log">
+        <div class="stat-num" id="stat-email-errors">—</div>
+        <div class="stat-lbl">Email errors</div>
       </div>
-      <div class="tscroll"><table><thead><tr id="sub-thead"></tr></thead><tbody id="sub-tbody"></tbody></table></div>
-      <div class="table-foot"><span class="t-count" id="sub-count"></span><div class="pagination" id="sub-pagination"></div></div>
     </div>
 
-    <!-- Email Log -->
-    <div id="email-log-card" style="display:none;margin-top:24px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-        <h3 style="margin:0;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:6px"><span class="material-icons-round mi" style="font-size:18px!important;color:var(--accent)">mail_outline</span> Email Log</h3>
-        <select id="email-log-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadEmailLog(1)">
-          <option value="">All</option>
-          <option value="sent">Sent ✅</option>
-          <option value="failed">Failed ❌</option>
-        </select>
-        <button class="tbtn tbtn-ghost" onclick="loadEmailLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
-        <span id="email-log-count" style="font-size:0.78rem;color:var(--ink3);margin-left:auto"></span>
+    <!-- Inner tabs -->
+    <div class="docs-tabs" style="margin-bottom:0">
+      <button class="docs-tab active" id="sub-tab-entries" onclick="switchSubTab('entries')"><span class="material-icons-round mi" style="font-size:15px!important">people</span> Entries</button>
+      <button class="docs-tab" id="sub-tab-emaillog" onclick="switchSubTab('emaillog')"><span class="material-icons-round mi" style="font-size:15px!important">mail_outline</span> Email Log</button>
+    </div>
+
+    <!-- Entries panel -->
+    <div id="sub-panel-entries">
+      <div class="table-wrap" style="border-top:none;border-radius:0 0 8px 8px">
+        <div class="table-bar">
+          <input type="text" placeholder="Search email, status, IP, fields…" oninput="debounceSearch(this.value)">
+          <select id="sub-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadSubscribers(1)">
+            <option value="all">All statuses</option><option value="active">Active</option><option value="unsubscribed">Unsubscribed</option>
+          </select>
+          <div style="flex:1"></div>
+          <button id="clear-exports-btn" class="btn btn-outline btn-sm" style="display:none" onclick="clearAllExportFlags()"><span class="material-icons-round mi">flag</span> Clear export flags</button>
+          <button class="btn btn-primary btn-sm" onclick="exportData('csv')"><span class="material-icons-round mi">download</span> CSV</button>
+          <button class="btn btn-outline btn-sm" onclick="exportData('json')"><span class="material-icons-round mi">download</span> JSON</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAllSubscribers()" title="Permanently delete all subscriber records"><span class="material-icons-round mi">delete_forever</span> Delete All</button>
+        </div>
+        <div class="tscroll"><table><thead><tr id="sub-thead"></tr></thead><tbody id="sub-tbody"></tbody></table></div>
+        <div class="table-foot"><span class="t-count" id="sub-count"></span><div class="pagination" id="sub-pagination"></div></div>
       </div>
-      <div class="table-wrap" style="margin-top:0">
+    </div>
+
+    <!-- Email Log panel -->
+    <div id="sub-panel-emaillog" style="display:none">
+      <div class="table-wrap" style="border-top:none;border-radius:0 0 8px 8px">
+        <div class="table-bar">
+          <select id="email-log-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadEmailLog(1)">
+            <option value="">All</option>
+            <option value="sent">Sent ✅</option>
+            <option value="failed">Failed ❌</option>
+          </select>
+          <button class="tbtn tbtn-ghost" onclick="loadEmailLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+          <span id="email-log-count" style="font-size:0.78rem;color:var(--ink3);margin-left:auto"></span>
+        </div>
         <div class="tscroll">
           <table>
             <thead><tr>
@@ -2490,11 +2504,31 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
               <th style="width:260px">Error</th>
               <th style="width:70px"></th>
             </tr></thead>
-            <tbody id="email-log-tbody"><tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
+            <tbody id="email-log-tbody"><tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">Loading…</td></tr></tbody>
           </table>
         </div>
         <div class="table-foot"><div class="pagination" id="email-log-pagination"></div></div>
       </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Delete All Subscribers confirmation modal -->
+<div id="delete-all-modal" class="modal-overlay" style="z-index:2100;display:none">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-head">
+      <span style="font-weight:600;font-size:0.95rem;color:var(--danger)"><span class="material-icons-round mi" style="font-size:17px;vertical-align:-3px">warning</span> Delete all subscribers</span>
+      <button class="modal-close" onclick="document.getElementById('delete-all-modal').style.display='none'">✕</button>
+    </div>
+    <div style="padding:20px 20px 0">
+      <p style="font-size:0.85rem;color:var(--ink2);margin-bottom:14px">This will <strong>permanently delete all subscriber records</strong> for this form. This cannot be undone. Export a backup first if needed.</p>
+      <p style="font-size:0.85rem;margin-bottom:8px">Type <strong>Delete All</strong> to confirm:</p>
+      <input id="delete-all-confirm-input" type="text" placeholder="Delete All" oninput="document.getElementById('delete-all-confirm-btn').disabled=this.value!=='Delete All'" style="width:100%;margin-bottom:14px">
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('delete-all-modal').style.display='none'">Cancel</button>
+      <button id="delete-all-confirm-btn" class="btn btn-danger btn-sm" disabled onclick="confirmDeleteAllSubscribers()"><span class="material-icons-round mi">delete_forever</span> Delete all</button>
     </div>
   </div>
 </div>
@@ -7348,7 +7382,7 @@ function switchTab(tab,btn){
   const fsn=document.getElementById('form-subnav');
   if(fsn&&currentFormSlug)fsn.style.display=(tab==='design'||tab==='help'||tab==='forms'||tab==='global-settings')?'none':'flex';
   if(tab==='forms'&&_formsPreviewSlug){const wrap=document.getElementById('forms-prev-frame-wrap');const ph=document.getElementById('forms-preview-placeholder');if(wrap)wrap.style.display='flex';if(ph)ph.style.display='none';_applyFormsPreviewSize();}
-  if(tab==='subscribers')loadSubscribers(1);
+  if(tab==='subscribers'){switchSubTab('entries');loadSubscribers(1);}
   if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help'){switchInnerTab('help');renderUserNotes();}
@@ -7362,15 +7396,15 @@ function switchTab(tab,btn){
 }
 
 // ── Subscribers ──
-// ── Email Log ──
-let _emailLogVisible = false;
-function toggleEmailLog(){
-  _emailLogVisible = !_emailLogVisible;
-  const card = document.getElementById('email-log-card');
-  const btn  = document.getElementById('email-log-toggle-btn');
-  if(card) card.style.display = _emailLogVisible ? 'block' : 'none';
-  if(btn)  btn.style.background = _emailLogVisible ? 'var(--bg2)' : '';
-  if(_emailLogVisible) loadEmailLog(1);
+// ── Subscriber inner tabs ──
+let _subActiveTab = 'entries';
+function switchSubTab(tab){
+  _subActiveTab = tab;
+  document.getElementById('sub-panel-entries').style.display   = tab==='entries'  ? '' : 'none';
+  document.getElementById('sub-panel-emaillog').style.display  = tab==='emaillog' ? '' : 'none';
+  document.getElementById('sub-tab-entries').classList.toggle('active',  tab==='entries');
+  document.getElementById('sub-tab-emaillog').classList.toggle('active', tab==='emaillog');
+  if(tab==='emaillog') loadEmailLog(1);
 }
 async function loadEmailLog(page){
   if(!currentFormSlug) return;
@@ -7431,7 +7465,7 @@ async function resendEmail(logId, btn){
   try {
     const r = await adminFetch(`/api/admin/forms/${currentFormSlug}/email-log/${logId}/resend`, {method:'POST'});
     const data = await r.json();
-    if(r.ok){ showToast('Email resent'); loadSubscribers(subPage); if(_emailLogVisible)loadEmailLog(); }
+    if(r.ok){ showToast('Email resent'); loadSubscribers(subPage); if(_subActiveTab==='emaillog')loadEmailLog(); }
     else { showToast(data.error||'Resend failed','error'); btn.disabled=false; btn.innerHTML='<span class="material-icons-round mi" style="font-size:13px!important">send</span> Resend'; }
   } catch(e){ showToast(e.message,'error'); btn.disabled=false; }
 }
@@ -7441,11 +7475,21 @@ async function loadSubscribers(page){
   subPage=page||1;
   const status=document.getElementById('sub-status-filter').value;
   const base=`/api/admin/forms/${currentFormSlug}/subscribers`;
-  const j=await fetch(`${base}?page=${subPage}&search=${encodeURIComponent(subSearch)}&status=${status}&sort=${subSort}&dir=${subSortDir}`).then(r=>r.json());
-  const all=await fetch(`${base}?limit=9999`).then(r=>r.json());
+  const [j, all, emailCounts] = await Promise.all([
+    fetch(`${base}?page=${subPage}&search=${encodeURIComponent(subSearch)}&status=${status}&sort=${subSort}&dir=${subSortDir}`).then(r=>r.json()),
+    fetch(`${base}?limit=9999`).then(r=>r.json()),
+    adminFetch(`/api/admin/forms/${currentFormSlug}/email-log/counts`).then(r=>r.ok?r.json():{sent:0,failed:0}).catch(()=>({sent:0,failed:0}))
+  ]);
   document.getElementById('stat-total').textContent=all.total;
   document.getElementById('stat-active').textContent=all.subscribers.filter(s=>s.status==='active').length;
   document.getElementById('stat-unsub').textContent=all.subscribers.filter(s=>s.status==='unsubscribed').length;
+  const errEl=document.getElementById('stat-email-errors');
+  const errCard=document.getElementById('stat-email-err-card');
+  if(errEl) errEl.textContent=emailCounts.failed;
+  if(errCard){
+    errCard.style.setProperty('--stat-color', emailCounts.failed>0?'var(--danger)':'');
+    errEl.style.color=emailCounts.failed>0?'var(--danger)':'';
+  }
   // Show/hide "clear all exports" button
   const hasExported=all.subscribers.some(s=>s.exported);
   const clearBtn=document.getElementById('clear-exports-btn');
@@ -7519,6 +7563,21 @@ function debounceSearch(val){clearTimeout(searchTimer);subSearch=val;searchTimer
   });
 })();
 
+function deleteAllSubscribers(){
+  if(!currentFormSlug){showToast('No form selected','error');return;}
+  const input=document.getElementById('delete-all-confirm-input');
+  const btn=document.getElementById('delete-all-confirm-btn');
+  if(input){input.value='';} if(btn){btn.disabled=true;}
+  document.getElementById('delete-all-modal').style.display='flex';
+  setTimeout(()=>input?.focus(),100);
+}
+async function confirmDeleteAllSubscribers(){
+  document.getElementById('delete-all-modal').style.display='none';
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers`,{method:'DELETE'});
+  const data=await r.json();
+  if(r.ok){showToast(`${data.deleted} subscriber${data.deleted!==1?'s':''} deleted`);loadSubscribers(1);}
+  else showToast(data.error||'Delete failed','error');
+}
 async function deleteSubscriber(id,email){
   if(!confirm(`Permanently delete data for ${email}?`))return;
   const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}`,{method:'DELETE'});

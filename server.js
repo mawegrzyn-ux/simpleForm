@@ -1426,6 +1426,29 @@ app.get('/api/admin/forms/:slug/email-log', adminAuth, async (req, res) => {
 });
 
 // Email log: resend welcome email for a specific log entry
+// Email log: sent/failed counts (for stat card)
+app.get('/api/admin/forms/:slug/email-log/counts', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT status, COUNT(*) AS n FROM email_log WHERE form_slug=$1 GROUP BY status`,
+      [req.params.slug]
+    );
+    const counts = { sent: 0, failed: 0 };
+    rows.forEach(r => { if (r.status in counts) counts[r.status] = parseInt(r.n); });
+    res.json(counts);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Subscribers: delete ALL subscribers for a form (bulk GDPR purge)
+app.delete('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      'DELETE FROM subscribers WHERE form_slug=$1', [req.params.slug]);
+    res.json({ deleted: rowCount });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Email log: resend welcome email for a specific log entry
 app.post('/api/admin/forms/:slug/email-log/:logId/resend', adminAuth, async (req, res) => {
   try {
     const { slug, logId } = req.params;
