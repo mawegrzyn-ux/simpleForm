@@ -552,8 +552,10 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .mi-check{position:absolute;top:4px;right:4px;background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:11px!important;pointer-events:none;}
 .media-item.selected .mi-check{display:flex;}
 .mi-shared{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;border-radius:3px;padding:1px 4px;font-size:0.58rem;font-weight:600;letter-spacing:0.03em;pointer-events:none;}
-#media-detail{width:210px;border-left:1px solid var(--border);padding:14px;overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;gap:10px;background:var(--bg);}
-#media-detail-img{width:100%;border-radius:var(--r);object-fit:contain;max-height:120px;background:var(--panel);border:1px solid var(--border);display:none;}
+#media-detail{width:210px;border-left:1px solid var(--border);padding:14px 14px 14px 18px;overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;gap:10px;background:var(--bg);position:relative;min-width:180px;max-width:520px;}
+#media-detail-resizer{position:absolute;left:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:10;transition:background 100ms;}
+#media-detail-resizer:hover,#media-detail-resizer.mdr-dragging{background:var(--accent);}
+#media-detail-img{width:100%;border-radius:var(--r);object-fit:contain;max-height:var(--md-img-h,120px);background:var(--panel);border:1px solid var(--border);display:none;}
 #media-detail-none{color:var(--ink3);font-size:0.82rem;text-align:center;padding-top:32px;line-height:1.7;}
 .md-row{font-size:0.78rem;line-height:1.5;word-break:break-all;}
 .md-row strong{font-size:0.67rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:1px;}
@@ -3101,6 +3103,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
       <!-- Right detail panel -->
       <div id="media-detail">
+        <div id="media-detail-resizer" title="Drag to resize"></div>
         <!-- State: nothing selected -->
         <div id="media-detail-none">Select an item<br>to see details</div>
         <!-- State: single item selected -->
@@ -3826,6 +3829,39 @@ function clearMediaMultiSel(){
   document.querySelectorAll('#media-grid .ml-check').forEach(el=>{el.textContent='check_box_outline_blank';});
   _clearMediaDetail();_updateBulkBar();
 }
+// ── Media detail panel resizer ─────────────────────────────────────────────
+(function initMediaDetailResizer(){
+  const detail=document.getElementById('media-detail');
+  const handle=document.getElementById('media-detail-resizer');
+  if(!handle||!detail)return;
+  let startX=0,startW=0;
+  function _setW(w){
+    const clamped=Math.min(520,Math.max(180,w));
+    detail.style.width=clamped+'px';
+    // Preview image height scales at 65% of panel width
+    detail.style.setProperty('--md-img-h',Math.round(clamped*0.65)+'px');
+  }
+  handle.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    startX=e.clientX;startW=detail.offsetWidth;
+    handle.classList.add('mdr-dragging');
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    function onMove(ev){
+      // Handle is on left edge — drag left = wider
+      _setW(startW+(startX-ev.clientX));
+    }
+    function onUp(){
+      handle.classList.remove('mdr-dragging');
+      document.body.style.cursor='';
+      document.body.style.userSelect='';
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+})();
 function insertSelectedMedia(){
   if(!_mediaSelected&&_mediaMultiSel.size!==1)return;
   const id=_mediaSelected?_mediaSelected.id:[..._mediaMultiSel][0];
