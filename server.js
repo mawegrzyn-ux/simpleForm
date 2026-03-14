@@ -2950,27 +2950,75 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
   if (section.type === 'spinwheel') {
     const rewards = section.rewards || [];
     if (!rewards.length) return '';
-    const swId = `sf_sw_${section.id.replace(/[^a-z0-9]/gi,'_')}`;
+    const swId   = `sf_sw_${section.id.replace(/[^a-z0-9]/gi,'_')}`;
     const colors = JSON.stringify(rewards.map(r => r.color || '#e94560'));
     const labels = JSON.stringify(rewards.map(r => r.label || ''));
     const probs  = JSON.stringify(rewards.map(r => +(r.probability || 1)));
+    const images = JSON.stringify(rewards.map(r => r.image  || ''));
+    const sz     = parseInt(section.canvasSize) || 280;
+    const ctr    = sz / 2;
+    const rad    = ctr - 10; // inner radius leaving 10px border
     return `<div style="text-align:center;margin:20px 0">
-    <canvas id="${swId}" width="280" height="280" style="max-width:100%;display:block;margin:0 auto;border-radius:50%;cursor:pointer"></canvas>
-    <button class="sf-btn" style="margin-top:16px;max-width:280px" id="${swId}_btn">${escapeHtml(section.spinButtonText || 'Spin!')}</button>
+    <canvas id="${swId}" width="${sz}" height="${sz}" style="max-width:100%;display:block;margin:0 auto;border-radius:50%;cursor:pointer"></canvas>
+    <button class="sf-btn" style="margin-top:16px;max-width:${sz}px" id="${swId}_btn">${escapeHtml(section.spinButtonText || 'Spin!')}</button>
     <p id="${swId}_res" style="margin-top:12px;font-weight:700;font-size:1.1rem;min-height:1.6em"></p>
   </div>
   <script>(function(){
     var C=document.getElementById('${swId}'),ctx=C.getContext('2d');
-    var colors=${colors},labels=${labels},probs=${probs},n=colors.length,TAU=Math.PI*2,arc=TAU/n,rot=0,spinning=false;
-    function draw(r){ctx.clearRect(0,0,280,280);for(var i=0;i<n;i++){ctx.beginPath();ctx.moveTo(140,140);ctx.arc(140,140,130,r+arc*i,r+arc*(i+1));ctx.fillStyle=colors[i];ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();ctx.save();ctx.translate(140,140);ctx.rotate(r+arc*i+arc/2);ctx.textAlign='right';ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=3;ctx.fillText(labels[i],118,5);ctx.restore();}ctx.beginPath();ctx.arc(140,140,14,0,TAU);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#ddd';ctx.lineWidth=2;ctx.stroke();}
+    var colors=${colors},labels=${labels},probs=${probs},imageUrls=${images};
+    var n=colors.length,TAU=Math.PI*2,arc=TAU/n,rot=0,spinning=false;
+    var ctr=${ctr},rad=${rad};
+    /* Pre-load segment images — each onload triggers a redraw */
+    var imgs=imageUrls.map(function(u){
+      if(!u)return null;
+      var m=new Image();m.crossOrigin='anonymous';m.src=u;
+      m.onload=function(){draw(rot);};
+      return m;
+    });
+    function draw(r){
+      ctx.clearRect(0,0,C.width,C.height);
+      for(var i=0;i<n;i++){
+        /* Segment */
+        ctx.beginPath();ctx.moveTo(ctr,ctr);ctx.arc(ctr,ctr,rad,r+arc*i,r+arc*(i+1));
+        ctx.fillStyle=colors[i];ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+        ctx.save();ctx.translate(ctr,ctr);ctx.rotate(r+arc*i+arc/2);
+        /* Image at ~55% radius (centred on segment midpoint ray) */
+        var imgSize=Math.round(rad*0.31);
+        if(imgs[i]&&imgs[i].complete&&imgs[i].naturalWidth){
+          ctx.drawImage(imgs[i],Math.round(rad*0.4)-imgSize/2,-imgSize/2,imgSize,imgSize);
+        }
+        /* Label near outer rim */
+        ctx.textAlign='right';ctx.fillStyle='#fff';
+        ctx.font='bold '+Math.round(rad*0.09)+'px sans-serif';
+        ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=3;
+        ctx.fillText(labels[i],Math.round(rad*0.9),Math.round(rad*0.04));
+        ctx.restore();
+      }
+      /* Centre hub */
+      ctx.beginPath();ctx.arc(ctr,ctr,Math.round(rad*0.1),0,TAU);
+      ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#ddd';ctx.lineWidth=2;ctx.stroke();
+      /* Pointer triangle at top */
+      ctx.beginPath();ctx.moveTo(ctr,ctr-rad-2);ctx.lineTo(ctr-9,ctr-rad+14);ctx.lineTo(ctr+9,ctr-rad+14);
+      ctx.closePath();ctx.fillStyle='#333';ctx.fill();
+    }
     draw(rot);
     document.getElementById('${swId}_btn').addEventListener('click',function(){
       if(spinning)return;spinning=true;
       var total=probs.reduce(function(a,b){return a+b;},0),r=Math.random()*total,sum=0,pick=0;
       for(var i=0;i<n;i++){sum+=probs[i];if(r<=sum){pick=i;break;}}
       var extra=TAU*5+(TAU/n)*(n-pick-0.5),start=null,dur=3500,from=rot;
-      document.getElementById('${swId}_res').textContent='';
-      function anim(ts){if(!start)start=ts;var p=Math.min((ts-start)/dur,1),e=1-Math.pow(1-p,4),cur=from+extra*e;draw(cur);if(p<1){requestAnimationFrame(anim);}else{rot=cur%(TAU);spinning=false;document.getElementById('${swId}_res').textContent='\uD83C\uDF89 '+labels[pick];}}
+      document.getElementById('${swId}_res').innerHTML='';
+      function anim(ts){
+        if(!start)start=ts;
+        var p=Math.min((ts-start)/dur,1),e=1-Math.pow(1-p,4),cur=from+extra*e;
+        draw(cur);
+        if(p<1){requestAnimationFrame(anim);}
+        else{
+          rot=cur%TAU;spinning=false;
+          var imgHtml=imageUrls[pick]?'<img src="'+imageUrls[pick]+'" style="display:block;margin:8px auto 0;max-height:90px;max-width:180px;border-radius:6px;object-fit:contain">':'';
+          document.getElementById('${swId}_res').innerHTML='\uD83C\uDF89 '+labels[pick]+imgHtml;
+        }
+      }
       requestAnimationFrame(anim);
     });
   })();<\/script>`;

@@ -5591,17 +5591,31 @@ function videoBkBody(b){
 function spinwheelBkBody(b){
   const rewards=b.rewards||[];
   const rows=rewards.map((r,i)=>`
-    <div class="reward-row">
-      <input type="color" value="${r.color||'#e94560'}" oninput="updateReward('${b.id}',${i},'color',this.value)">
-      <input type="text" value="${r.label||''}" placeholder="Prize label" oninput="updateReward('${b.id}',${i},'label',this.value)">
-      <input type="number" value="${r.probability||1}" min="0.1" max="10" step="0.1" style="width:60px" oninput="updateReward('${b.id}',${i},'probability',+this.value)">
-      <button class="ibtn danger" onclick="removeReward('${b.id}',${i})"><span class="material-icons-round mi">delete</span></button>
+    <div class="reward-row" style="flex-wrap:wrap;gap:5px;padding:6px 0;border-bottom:1px solid var(--brd)">
+      <input type="color" value="${r.color||'#e94560'}" title="Segment colour" oninput="updateReward('${b.id}',${i},'color',this.value)" style="width:32px;height:32px;flex-shrink:0">
+      <input type="text" value="${escHtml(r.label||'')}" placeholder="Prize label" style="flex:1;min-width:80px" oninput="updateReward('${b.id}',${i},'label',this.value)">
+      <input type="number" value="${r.probability||1}" min="0.1" max="10" step="0.1" title="Weight (probability)" style="width:56px;flex-shrink:0" oninput="updateReward('${b.id}',${i},'probability',+this.value)">
+      ${r.image
+        ? `<img src="${escHtml(r.image)}" style="height:32px;width:32px;object-fit:cover;border-radius:4px;border:1px solid var(--brd);flex-shrink:0" title="${escHtml(r.image)}">
+           <button class="ibtn" title="Remove image" onclick="clearRewardImage('${b.id}',${i})"><span class="material-icons-round mi" style="font-size:14px">hide_image</span></button>`
+        : `<button class="ibtn" title="Add image from media library" onclick="pickRewardImage('${b.id}',${i})"><span class="material-icons-round mi" style="font-size:14px">add_photo_alternate</span></button>`
+      }
+      <button class="ibtn danger" title="Remove reward" onclick="removeReward('${b.id}',${i})"><span class="material-icons-round mi">delete</span></button>
     </div>`).join('');
   return `
-    <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:8px">Up to 8 rewards. Weight controls probability.</p>
+    <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:6px">Up to 8 segments. <strong>Weight</strong> controls relative probability. <strong>Image</strong> is shown in the segment and in the result.</p>
     <div id="rewards-list-${b.id}">${rows}</div>
-    ${rewards.length<8?`<button class="add-field-btn" onclick="addReward('${b.id}')"><span class="material-icons-round mi">add</span> Add reward</button>`:''}
-    <div class="cg" style="margin-top:8px"><label class="cl">Spin button text</label><input type="text" value="${b.spinButtonText||'Spin!'}" oninput="updateBlockProp('${b.id}','spinButtonText',this.value)"></div>`;
+    ${rewards.length<8?`<button class="add-field-btn" style="margin-top:4px" onclick="addReward('${b.id}')"><span class="material-icons-round mi">add</span> Add segment</button>`:''}
+    <div class="cr" style="gap:8px;margin-top:10px">
+      <div class="cg" style="flex:1;margin:0"><label class="cl">Spin button text</label><input type="text" value="${escHtml(b.spinButtonText||'Spin!')}" oninput="updateBlockProp('${b.id}','spinButtonText',this.value)"></div>
+      <div class="cg" style="flex:0 0 96px;margin:0"><label class="cl">Wheel size (px)</label><input type="number" value="${b.canvasSize||280}" min="180" max="480" step="20" oninput="updateBlockProp('${b.id}','canvasSize',+this.value)"></div>
+    </div>`;
+}
+function pickRewardImage(blockId,idx){
+  openMediaPicker(function(url){updateReward(blockId,idx,'image',url);updateBkBody(blockId);schedulePreview();});
+}
+function clearRewardImage(blockId,idx){
+  updateReward(blockId,idx,'image','');updateBkBody(blockId);schedulePreview();
 }
 
 function contentBkBody(b){
@@ -5699,7 +5713,7 @@ function addReward(blockId){
   const found=_blockArray(blockId);if(!found)return;const b=found.block;if(!b.rewards)b.rewards=[];
   if(b.rewards.length>=8){toast('Maximum 8 rewards','error');return;}
   const dc=['#e94560','#e67e22','#27ae60','#2980b9','#8e44ad','#f39c12','#16a085','#c0392b'];
-  b.rewards.push({label:'Prize '+(b.rewards.length+1),color:dc[b.rewards.length%8],probability:1});
+  b.rewards.push({label:'Prize '+(b.rewards.length+1),color:dc[b.rewards.length%8],probability:1,image:''});
   updateBkBody(blockId);schedulePreview();
 }
 function removeReward(blockId,idx){const found=_blockArray(blockId);if(found&&found.block.rewards){found.block.rewards.splice(idx,1);updateBkBody(blockId);schedulePreview();}}
@@ -6166,7 +6180,7 @@ function addBlock(type){
   const defaults={
     divider:{id,type:'divider',visible:true,style:'line',color:'#e0e0e0',thickness:1,spacing:20,columns:1,colors:{}},
     video:{id,type:'video',visible:true,url:'',aspectRatio:'16:9',caption:'',columns:1,colors:{}},
-    spinwheel:{id,type:'spinwheel',visible:true,rewards:[{label:'Prize 1',color:'#e94560',probability:1}],spinButtonText:'Spin!',columns:1,colors:{}},
+    spinwheel:{id,type:'spinwheel',visible:true,rewards:[{label:'Prize 1',color:'#e94560',probability:1,image:''}],spinButtonText:'Spin!',canvasSize:280,columns:1,colors:{}},
     content:{id,type:'content',visible:true,columns:1,elements:[],colors:{}},
     container:{id,type:'container',visible:true,columns:1,items:[],style:{}},
   };
