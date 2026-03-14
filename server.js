@@ -167,6 +167,26 @@ async function sendWelcomeEmail(cfg, subscriber) {
   const rawBody    = sanitizeWysiwyg(s.emailBodyHtml) || `<p>Hi!</p><p>Thanks for subscribing to <strong>${s.title}</strong>. We're excited to have you!</p>`;
   const subject    = replaceMergeTags(rawSubject, cfg, subscriber, prefUrl);
   const bodyHtml   = replaceMergeTags(rawBody,    cfg, subscriber, prefUrl);
+  // Prize draw — append a prize section if this subscriber won something
+  let prizeSection = '';
+  const pdField = (cfg.fields || []).find(f => f.type === 'prizedraw');
+  if (pdField) {
+    const rawPrize = (subscriber.customFields || {})[pdField.id];
+    let prize = null;
+    try { prize = typeof rawPrize === 'string' ? JSON.parse(rawPrize) : rawPrize; } catch(e) {}
+    if (prize && prize.label) {
+      const prizeUrl = `${ORIGIN}/${cfg.slug}/prize/${subscriber.unsubscribeToken}`;
+      const prizeImg = prize.icon ? `<img src="${escapeHtml(prize.icon)}" width="80" height="80" style="border-radius:50%;object-fit:cover;display:block;margin:0 auto 12px" alt="${escapeHtml(prize.label)}">` : '';
+      prizeSection = `
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0"><tr><td align="center" style="background:#fffbea;border-radius:8px;padding:24px;border:2px solid #f59e0b">
+  <p style="margin:0 0 4px;font-size:1.4rem">🎉</p>
+  ${prizeImg}
+  <p style="margin:0 0 4px;font-size:0.85rem;color:#92400e;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">You won a prize!</p>
+  <p style="margin:0 0 16px;font-size:1.3rem;font-weight:700;color:#78350f">${escapeHtml(prize.label)}</p>
+  <a href="${prizeUrl}" style="display:inline-block;background:#f59e0b;color:#fff;text-decoration:none;padding:10px 24px;border-radius:6px;font-weight:600;font-size:0.9rem">View your prize →</a>
+</td></tr></table>`;
+    }
+  }
   // Auto-append unsubscribe footer only if {{unsubscribeUrl}} not already used in body
   const footer = rawBody.includes('{{unsubscribeUrl}}') ? '' :
     `<p style="margin-top:32px;font-size:0.8rem;color:#aaa;border-top:1px solid #eee;padding-top:16px">Don't want these emails? <a href="${prefUrl}" style="color:#aaa">Manage preferences</a></p>`;
@@ -177,6 +197,7 @@ async function sendWelcomeEmail(cfg, subscriber) {
 <table width="${maxWidth}" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}">
 <tr><td style="background:${cardBg};border-radius:${radius};padding:${padding};color:${textColor};font-family:'${bodyFont}',Helvetica,Arial,sans-serif;font-size:${bodyFontSize};line-height:1.6">
 ${bodyHtml}
+${prizeSection}
 ${footer}
 </td></tr></table></td></tr></table>
 </body></html>`;
@@ -1788,6 +1809,54 @@ app.post('/:slug/unsubscribe/:token', async (req, res) => {
   res.send(renderUnsubscribePage(cfg, { subscriber, allSubs, token, message, success }, sharedFonts));
 });
 
+// Prize reveal page
+app.get('/:slug/prize/:token', async (req, res) => {
+  const { slug, token } = req.params;
+  let cfg;
+  try { cfg = await readFormConfig(slug); } catch(e) { return res.status(404).send('Form not found'); }
+  try {
+    const { rows } = await pool.query(
+      'SELECT custom_fields FROM subscribers WHERE form_slug=$1 AND unsubscribe_token=$2 LIMIT 1',
+      [slug, token]
+    );
+    if (!rows[0]) return res.status(404).send('Prize not found');
+    const prizedrawField = (cfg.fields || []).find(f => f.type === 'prizedraw');
+    if (!prizedrawField) return res.status(404).send('Prize not found');
+    const raw = (rows[0].custom_fields || {})[prizedrawField.id];
+    let prize = null;
+    try { prize = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
+    if (!prize) return res.status(404).send('Prize not found');
+    const d = cfg.design || {};
+    const accent = d.accentColor || '#e94560';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Prize</title>
+<style>
+  body{margin:0;padding:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:${d.pageBg||'#f5f5f5'};font-family:${d.bodyFont||'sans-serif'}}
+  .card{background:${d.cardBg||'#fff'};border-radius:${d.cardRadius||16}px;padding:40px 32px;max-width:420px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.12)}
+  h1{margin:0 0 8px;font-size:1.5rem;color:${d.headingColor||'#222'}}
+  .prize-name{font-size:1.8rem;font-weight:700;color:${accent};margin:20px 0}
+  .prize-img{width:120px;height:120px;object-fit:cover;border-radius:50%;margin:0 auto 16px;display:block;border:4px solid ${accent}}
+  .emoji{font-size:3rem;margin-bottom:8px}
+  p{color:${d.textColor||'#555'};margin:0 0 24px}
+  a.btn{display:inline-block;background:${d.btnBg||accent};color:${d.btnTextColor||'#fff'};text-decoration:none;padding:12px 28px;border-radius:${d.btnBorderRadius||8}px;font-weight:600;font-size:0.95rem}
+</style></head><body>
+<div class="card">
+  <div class="emoji">🎉</div>
+  ${prize.icon ? `<img class="prize-img" src="${escapeHtml(prize.icon)}" alt="${escapeHtml(prize.label)}">` : ''}
+  <h1>Congratulations!</h1>
+  <p>You won:</p>
+  <div class="prize-name">${escapeHtml(prize.label)}</div>
+  <p>This reward is waiting for you. Check your email for details.</p>
+  <a class="btn" href="/${escapeHtml(slug)}">Visit us again</a>
+</div>
+</body></html>`;
+    res.send(html);
+  } catch (e) {
+    console.error('[prize]', e.message);
+    res.status(500).send('Error');
+  }
+});
+
 // Public form page
 app.get('/:slug', async (req, res) => {
   const { slug } = req.params;
@@ -2040,7 +2109,22 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   }
 
   const customFields = {};
-  cfg.fields.filter(f => !f.system).forEach(f => { customFields[f.id] = (body[f.id] || '').trim(); });
+  cfg.fields.filter(f => !f.system).forEach(f => {
+    if (f.type === 'prizedraw') return; // handled separately
+    customFields[f.id] = (body[f.id] || '').trim();
+  });
+  // Prize draw: server picks winner weighted by probability
+  let prizeResult = null;
+  const prizedrawField = cfg.fields.find(f => f.type === 'prizedraw');
+  if (prizedrawField && (prizedrawField.prizes || []).length) {
+    const prizes = prizedrawField.prizes;
+    const total = prizes.reduce((s, p) => s + (+(p.probability || 1)), 0);
+    let r = Math.random() * total, cum = 0, winIdx = prizes.length - 1;
+    for (let i = 0; i < prizes.length; i++) { cum += +(prizes[i].probability || 1); if (r <= cum) { winIdx = i; break; } }
+    const winner = prizes[winIdx];
+    prizeResult = { fieldId: prizedrawField.id, index: winIdx, label: winner.label || '', icon: winner.icon || '' };
+    customFields[prizedrawField.id] = JSON.stringify(prizeResult);
+  }
 
   const id             = uuidv4();
   const token          = uuidv4();
@@ -2100,7 +2184,7 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   bumpAnalytic(slug, 'submits');
   // Fire-and-forget welcome email (never blocks the response)
   sendWelcomeEmail(cfg, record).catch(e => console.error('[email]', e.message));
-  res.json({ success: true });
+  res.json({ success: true, ...(prizeResult ? { prizeResult } : {}) });
   } catch(routeErr) {
     console.error('[subscribe]', routeErr.message);
     if (!res.headersSent) {
@@ -2483,6 +2567,9 @@ function renderFormField(f, cfg) {
     <label for="sf_${f.id}">${escapeHtml(f.label)}${req}</label>
     <input type="email" id="sf_${f.id}" name="${f.id}" placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="email" maxlength="254" ${f.required ? 'required' : ''}></div>`;
   }
+
+  // ── prizedraw — rendered separately in confirmation section ──
+  if (f.type === 'prizedraw') return ''; // rendered in confirmation section — not in the main form
 
   // ── default (text, number, textarea handled above, etc.) ──
   return `<div class="sf-field"${condAttr}>
@@ -3113,6 +3200,88 @@ function hexToRgb(hex) {
   return `${r},${g},${b}`;
 }
 
+function renderPrizeDrawWidget(field, cfg, opts = {}) {
+  const prizes = field.prizes || [];
+  if (!prizes.length) return '';
+  const sz      = parseInt(field.canvasSize) || 280;
+  const ctr     = sz / 2;
+  const rad     = ctr - 10;
+  const labels  = JSON.stringify(prizes.map(r => r.label || ''));
+  const colors  = JSON.stringify(prizes.map(r => r.color || '#e94560'));
+  const probs   = JSON.stringify(prizes.map(r => +(r.probability || 1)));
+  const images  = JSON.stringify(prizes.map(r => r.icon  || ''));
+  const accent  = (cfg.design && cfg.design.accentColor) || '#e94560';
+  const btnText = escapeHtml(field.buttonText || 'Spin!');
+  const fid     = field.id;
+  const auto    = field.autoSpin !== false;
+  const presetIdx = (opts.presetIndex != null) ? opts.presetIndex : -1;
+  return `
+<div class="sf-prizedraw sf-prizedraw--${escapeHtml(field.drawMethod||'spinwheel')}" id="sf-pd-${fid}" data-field-id="${fid}" style="text-align:center;margin:16px auto;max-width:${sz+40}px">
+  <div style="position:relative;display:inline-block">
+    <canvas id="sf-pd-canvas-${fid}" width="${sz}" height="${sz}" style="display:block;border-radius:50%;box-shadow:0 4px 24px rgba(0,0,0,0.18)"></canvas>
+    <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:22px solid ${accent}"></div>
+  </div>
+  ${!auto ? `<div style="margin-top:16px"><button id="sf-pd-btn-${fid}" class="sf-btn" onclick="sfPdSpin_${fid}(-1)">${btnText}</button></div>` : ''}
+  <div id="sf-pd-result-${fid}" style="margin-top:18px;min-height:40px;font-size:1.1rem;font-weight:600;color:${accent}"></div>
+</div>
+<script>
+(function(){
+  var labels=${labels},colors=${colors},probs=${probs},images_=${images};
+  var sz=${sz},ctr=${ctr},rad=${rad},fid='${fid}',auto=${auto},presetIdx=${presetIdx};
+  var rotation=0,spinning=false,n=labels.length;
+  var imgs=images_.map(function(src){if(!src)return null;var img=new Image();img.crossOrigin='anonymous';img.src=src;return img;});
+  function draw(rot){
+    var cvs=document.getElementById('sf-pd-canvas-'+fid);if(!cvs)return;
+    var ctx=cvs.getContext('2d'),arc=2*Math.PI/n;
+    ctx.clearRect(0,0,sz,sz);
+    for(var i=0;i<n;i++){
+      var s=rot+i*arc,e=rot+(i+1)*arc;
+      ctx.beginPath();ctx.moveTo(ctr,ctr);ctx.arc(ctr,ctr,rad,s,e);ctx.closePath();
+      ctx.fillStyle=colors[i]||'#e94560';ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.stroke();
+      ctx.save();ctx.translate(ctr,ctr);ctx.rotate(s+arc/2);
+      var im=imgs[i];
+      if(im&&im.complete&&im.naturalWidth){var isz=rad*0.28;try{ctx.drawImage(im,rad*0.45-isz/2,-isz/2,isz,isz);}catch(e2){}}
+      ctx.fillStyle='#fff';ctx.font='bold '+Math.round(sz*0.058)+'px sans-serif';
+      ctx.textAlign='left';ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(0,0,0,0.25)';ctx.shadowBlur=3;
+      ctx.fillText(labels[i]||'',rad*0.55,0);ctx.restore();
+    }
+    ctx.beginPath();ctx.arc(ctr,ctr,rad*0.13,0,2*Math.PI);
+    ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,0.2)';ctx.shadowBlur=6;ctx.fill();ctx.shadowBlur=0;
+  }
+  function spin(targetIdx){
+    if(spinning)return;spinning=true;
+    var btn=document.getElementById('sf-pd-btn-'+fid);if(btn)btn.disabled=true;
+    var arc=2*Math.PI/n;
+    var target=targetIdx>=0?targetIdx:(function(){var tot=probs.reduce(function(a,b){return a+b},0),r=Math.random()*tot,cum=0;for(var i=0;i<n;i++){cum+=probs[i];if(r<=cum)return i;}return n-1;})();
+    var targetAngle=-Math.PI/2-(target*arc+arc/2);
+    var extra=5+Math.floor(Math.random()*3);
+    var endAngle=rotation+extra*2*Math.PI+((targetAngle-rotation)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+    var duration=3500,start_=null;
+    function ease(t){return 1-Math.pow(1-t,3);}
+    function frame(ts){
+      if(!start_)start_=ts;
+      var p=Math.min((ts-start_)/duration,1);
+      rotation=rotation+(endAngle-rotation)*ease(p);
+      draw(rotation);
+      if(p<1){requestAnimationFrame(frame);}
+      else{rotation=endAngle;draw(rotation);spinning=false;showResult(target);}
+    }
+    requestAnimationFrame(frame);
+  }
+  function showResult(idx){
+    var el=document.getElementById('sf-pd-result-'+fid);if(!el)return;
+    var im=images_[idx]?'<img src="'+images_[idx]+'" style="height:48px;width:48px;object-fit:cover;border-radius:50%;vertical-align:middle;margin-right:8px">':'';
+    el.innerHTML='🎉 '+im+'<span>'+labels[idx]+'</span>';
+  }
+  draw(0);
+  window['sfPdSpinTo_'+fid]=function(idx){spin(idx>=0?idx:-1);};
+  if(auto&&presetIdx>=0){setTimeout(function(){spin(presetIdx);},400);}
+})();
+<\/script>`;
+}
+
 function renderPublicPage(cfg, sharedFonts = [], templates = []) {
   let d = cfg.design || {};
   if (cfg.designTemplateId) {
@@ -3130,6 +3299,8 @@ function renderPublicPage(cfg, sharedFonts = [], templates = []) {
     : `background: ${d.backgroundColor};`;
 
   const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '')).join('\n  ');
+  const prizedrawFields = (cfg.fields || []).filter(f => f.type === 'prizedraw');
+  const prizedrawWidgets = prizedrawFields.map(f => renderPrizeDrawWidget(f, cfg)).join('\n');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -3249,7 +3420,7 @@ ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? 
              style="width:130px;padding:7px 10px;border:1.5px solid ${d.fieldBorderColor||'#ccc'};border-radius:6px;font-size:0.9rem">
     </div>
   </form>
-  ${confirmationBlocks ? `<div id="sf-confirmation" style="display:none">${confirmationBlocks}</div>` : ''}
+  ${(confirmationBlocks || prizedrawWidgets) ? `<div id="sf-confirmation" style="display:none">${confirmationBlocks}${prizedrawWidgets}</div>` : ''}
 </div>
 
 <!-- "Cookie settings" link — shown after first consent is recorded -->
@@ -3406,6 +3577,7 @@ ${trackingConfigBlock(s)}
         if(conf && conf.children.length > 0){
           if(fc) fc.style.display = 'none';
           conf.style.display = 'block';
+          if(j.prizeResult){const fn=window['sfPdSpinTo_'+j.prizeResult.fieldId];if(fn)fn(j.prizeResult.index);}
         } else {
           if(msg){msg.className='sf-msg success'; msg.textContent=${JSON.stringify((formSection && formSection.submitSuccessMessage) || "Thank you! You're subscribed.")};msg.style.display='block';}
           if(btn){btn.textContent='\u2713 Subscribed';btn.style.opacity='0.7';}
@@ -3758,6 +3930,8 @@ function renderEmbedPage(cfg, sharedFonts = [], templates = []) {
 
   const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
   const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '')).join('\n  ');
+  const prizedrawFields = (cfg.fields || []).filter(f => f.type === 'prizedraw');
+  const prizedrawWidgets = prizedrawFields.map(f => renderPrizeDrawWidget(f, cfg)).join('\n');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -3832,7 +4006,7 @@ ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? 
       ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
     </div>
   </form>
-  ${confirmationBlocks ? `<div id="sf-confirmation" style="display:none">${confirmationBlocks}</div>` : ''}
+  ${(confirmationBlocks || prizedrawWidgets) ? `<div id="sf-confirmation" style="display:none">${confirmationBlocks}${prizedrawWidgets}</div>` : ''}
 
 <script>
 (function(){
