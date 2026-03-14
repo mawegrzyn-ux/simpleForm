@@ -972,7 +972,12 @@ app.get('/api/admin/media/img-proxy', adminAuth, async (req, res) => {
 });
 
 // Multi-upload: POST /api/admin/forms/:slug/upload-multi (up to 20 files)
-app.post('/api/admin/forms/:slug/upload-multi', adminAuth, upload.array('images', 20), async (req, res) => {
+app.post('/api/admin/forms/:slug/upload-multi', adminAuth, (req, res, next) => {
+  upload.array('images', 20)(req, res, err => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload error' });
+    next();
+  });
+}, async (req, res) => {
   if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files' });
   const folder = req.body.folder || '';
   const shared = req.body.shared === '1' || req.body.shared === 'true';

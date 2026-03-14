@@ -3056,6 +3056,37 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
   </div>
 </div>
 
+<!-- ── Submit Button Modal ──────────────────────────────────────────────── -->
+<div id="submit-btn-modal" class="modal-overlay" style="z-index:2050">
+  <div class="modal-box" style="width:min(500px,96vw)">
+    <div class="modal-head">
+      <h2>Submit button</h2>
+      <button class="modal-close" onclick="closeSubmitBtnModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div style="padding:18px;display:flex;flex-direction:column;gap:16px">
+      <div class="cg">
+        <label class="cl">Button label</label>
+        <input type="text" id="sbe-label" placeholder="Subscribe" oninput="cfg.design.buttonText=this.value;schedulePreview();_sbeUpdateSummary()">
+      </div>
+      <div class="cg">
+        <label class="cl">Disclaimer text <span style="font-size:0.7rem;color:var(--ink3);font-weight:400">(click to edit, HTML allowed, use {privacyUrl})</span></label>
+        <div class="wysi-preview" id="sbe-gdpr-preview" onclick="openSubmitDisclaimerWysiwyg()" style="min-height:38px"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label class="tgl"><input type="checkbox" id="sbe-gdpr-checkbox" onchange="cfg.site.gdprCheckboxRequired=this.checked;schedulePreview();_sbeUpdateSummary()"><span class="tgl-s"></span></label>
+        <label class="tgl-lbl">Require checkbox agreement</label>
+      </div>
+      <div class="cg">
+        <label class="cl">Error message <span style="font-size:0.7rem;color:var(--ink3);font-weight:400">(shown on failed submission)</span></label>
+        <div class="wysi-preview" id="sbe-err-preview" onclick="openSubmitBtnErrorWysiwyg()" style="min-height:38px"></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:10px 18px;border-top:1px solid var(--border)">
+      <button class="tbtn tbtn-primary" onclick="saveConfig();closeSubmitBtnModal()"><span class="material-icons-round mi">save</span> Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Image Editor ─────────────────────────────────────────────────────── -->
 <div id="img-editor-modal" class="modal-overlay" style="z-index:3100;display:none">
   <div class="modal-box" style="width:min(820px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0">
@@ -3610,18 +3641,27 @@ async function _uploadMediaFiles(files){
   fd.append('shared',shared?'1':'0');
   fd.append('folder',folder);
   try{
-    const j=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload-multi`,{method:'POST',body:fd}).then(r=>r.json());
+    const resp=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload-multi`,{method:'POST',body:fd});
+    if(!resp.ok){
+      const text=await resp.text();
+      let msg='Upload failed';try{msg=JSON.parse(text).error||msg;}catch(_){}
+      throw new Error(msg);
+    }
+    const j=await resp.json();
     (j.results||[]).forEach((r,i)=>{
       const chip=toUpload[i]?.chip;if(!chip)return;
       if(r.ok){chip.className='mu-chip done';chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">check_circle</span><span class="mu-name" title="${escHtml(r.name)}">${escHtml(r.name)}</span>`;}
-      else{chip.className='mu-chip error';chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">error</span><span class="mu-name" title="${escHtml(r.name)}">${escHtml(r.name)}</span>`;}
+      else{chip.className='mu-chip error';chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">error</span><span class="mu-name" title="${escHtml(r.name)}">${escHtml(r.name)}</span><span style="font-size:0.68rem;margin-left:2px" title="${escHtml(r.error||'')}">!</span>`;}
     });
     await loadMediaLibrary();
     const done=j.results?.filter(r=>r.ok).length||0;
     if(done)toast(`${done} image${done>1?'s':''} uploaded`,'success');
+    const failed=j.results?.filter(r=>!r.ok).length||0;
+    if(failed)toast(`${failed} file${failed>1?'s':''} failed to upload`,'error');
     setTimeout(()=>{if(chipsEl)chipsEl.style.display='none';},3000);
   }catch(e){
     toUpload.forEach(({chip})=>{chip.className='mu-chip error';chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">error</span><span class="mu-name">Upload failed</span>`;});
+    toast(e.message||'Upload failed','error');
   }
 }
 // ── Image Editor (E2) ─────────────────────────────────────────────────────────
@@ -4088,31 +4128,22 @@ function heroBkBody(s){
 }
 
 function formBkBody(){
-  const form=cfg.sections.find(s=>s.id==='form')||{};
-  const btnText=(cfg.design.buttonText||'Subscribe').replace(/"/g,'&quot;');
-  const errHtml=form.submitErrorMessage||'';
-  const gdprHtmlVal=cfg.site.gdprText||'';
+  const btnText=(cfg.design.buttonText||'Subscribe').replace(/</g,'&lt;');
+  const gdprNote=cfg.site.gdprCheckboxRequired?' · checkbox required':'';
   return `
     <div class="modal-section"><div class="modal-section-title">Fields</div>
       <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:7px;line-height:1.5">Email always required. Drag to reorder. Use conditions for dynamic visibility.</p>
       <div class="field-list" id="field-list"></div>
       <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>
     </div>
-    <div class="modal-section"><div class="modal-section-title">Submit button</div>
-      <div class="cg"><label class="cl">Button label</label>
-        <input type="text" value="${btnText}" oninput="cfg.design.buttonText=this.value;schedulePreview()"></div>
-    </div>
-    <div class="modal-section"><div class="modal-section-title">Disclaimer &amp; errors</div>
-      <div class="cg"><label class="cl">Disclaimer text</label>
-        <div class="wysi-preview" id="form-bk-gdpr-preview" onclick="openSubmitDisclaimerWysiwyg()" style="min-height:36px">${gdprHtmlVal||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer… (HTML, use {privacyUrl})</span>'}</div>
+    <div class="modal-section" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0">
+      <div>
+        <div class="modal-section-title" style="margin:0 0 2px">Submit button</div>
+        <div style="font-size:0.73rem;color:var(--ink3)">Label: <strong>${btnText}</strong>${gdprNote}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <label class="tgl"><input type="checkbox" id="form-bk-gdpr-checkbox" onchange="cfg.site.gdprCheckboxRequired=this.checked;schedulePreview()"${cfg.site.gdprCheckboxRequired?' checked':''}><span class="tgl-s"></span></label>
-        <label class="tgl-lbl">Require checkbox agreement</label>
-      </div>
-      <div class="cg"><label class="cl">Error message</label>
-        <div class="wysi-preview" onclick="openFormErrorWysiwyg()">${errHtml||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>'}</div>
-      </div>
+      <button class="tbtn tbtn-ghost" style="font-size:0.78rem;padding:3px 10px;flex-shrink:0" onclick="openSubmitBtnEdit()">
+        <span class="material-icons-round mi" style="font-size:14px">edit</span> Edit
+      </button>
     </div>`;
 }
 
@@ -5234,7 +5265,7 @@ function openSubmitDisclaimerWysiwyg(){
     cfg.site.gdprText=html;
     const placeholder='<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer text… (HTML allowed, use {privacyUrl} as placeholder)</span>';
     const prev=document.getElementById('ie-submit-gdpr-preview');if(prev)prev.innerHTML=html||placeholder;
-    const prev2=document.getElementById('form-bk-gdpr-preview');if(prev2)prev2.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit disclaimer… (HTML, use {privacyUrl})</span>';
+    const prev2=document.getElementById('sbe-gdpr-preview');if(prev2)prev2.innerHTML=html||placeholder;
     schedulePreview();
   },[
     {label:'Privacy link',html:'<a href="{privacyUrl}" target="_blank">Privacy Policy</a>'},
@@ -5457,16 +5488,36 @@ function dropField(dragId,targetId){
   renderFieldList();schedulePreview();
 }
 
-// Open submit button editor — switches to Build tab, expands & scrolls to form block
+// ── Submit Button Modal ──
 function openSubmitBtnEdit(){
-  // Switch to Build tab + Fields sub-view (where field list lives)
-  switchTab('build');
-  // Expand the form block card and scroll to it
-  const card=document.getElementById('bk-form');
-  if(card){
-    if(!card.classList.contains('open')){card.classList.add('open');_bkOpenMap['form']=true;}
-    setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),80);
-  }
+  if(!cfg){toast('Open a form first','error');return;}
+  const form=cfg.sections?.find(s=>s.id==='form');
+  const gdprHtml=cfg.site?.gdprText||'';
+  const errHtml=form?.submitErrorMessage||'';
+  const ph=(msg)=>`<span style="color:var(--ink3);font-size:0.75rem">${msg}</span>`;
+  document.getElementById('sbe-label').value=cfg.design?.buttonText||'';
+  document.getElementById('sbe-gdpr-preview').innerHTML=gdprHtml||ph('Click to edit disclaimer… (HTML, use {privacyUrl})');
+  document.getElementById('sbe-gdpr-checkbox').checked=!!cfg.site?.gdprCheckboxRequired;
+  document.getElementById('sbe-err-preview').innerHTML=errHtml||ph('Click to edit error message…');
+  document.getElementById('submit-btn-modal').classList.add('open');
+}
+function closeSubmitBtnModal(){
+  document.getElementById('submit-btn-modal').classList.remove('open');
+  // Refresh the form block summary in the build panel
+  updateBkBody('form');
+}
+function _sbeUpdateSummary(){
+  // Keep the form block panel summary in sync while the modal is open
+  updateBkBody('form');
+}
+function openSubmitBtnErrorWysiwyg(){
+  const form=cfg.sections?.find(s=>s.id==='form');
+  openWysiwygModal(form?.submitErrorMessage||'','Error message',html=>{
+    if(form)form.submitErrorMessage=html;
+    const ph='<span style="color:var(--ink3);font-size:0.75rem">Click to edit error message…</span>';
+    const prev=document.getElementById('sbe-err-preview');if(prev)prev.innerHTML=html||ph;
+    schedulePreview();
+  });
 }
 
 // ── Field modal ──
