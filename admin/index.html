@@ -5520,12 +5520,13 @@ function openSubmitBtnEdit(){
 }
 function closeSubmitBtnModal(){
   document.getElementById('submit-btn-modal').classList.remove('open');
-  // Refresh the form block summary in the build panel
+  // Refresh the form block summary in the build panel, then repopulate field list
   updateBkBody('form');
+  renderFieldList();
 }
 function _sbeUpdateSummary(){
-  // Keep the form block panel summary in sync while the modal is open
   updateBkBody('form');
+  renderFieldList();
 }
 function openSubmitBtnErrorWysiwyg(){
   const form=cfg.sections?.find(s=>s.id==='form');
