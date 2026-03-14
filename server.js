@@ -1976,21 +1976,41 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
     );
     record.id = existing.id;
   } else {
-    try {
+    // When allowDup is on and no key-field combination matched, the same email might
+    // already exist with different key-field values — UPDATE that record instead of
+    // attempting a new INSERT (which would violate the unique email constraint).
+    let existingEmailId = null;
+    if (allowDup) {
+      const { rows: emailRows } = await pool.query(
+        'SELECT id FROM subscribers WHERE form_slug=$1 AND email=$2 LIMIT 1', [slug, email]);
+      if (emailRows[0]) existingEmailId = emailRows[0].id;
+    }
+
+    if (existingEmailId) {
       await pool.query(
-        `INSERT INTO subscribers
-         (id, form_slug, email, status, subscribed_at, unsubscribed_at,
-          unsubscribe_token, consent_given, consent_timestamp, ip_address, custom_fields)
-         VALUES($1,$2,$3,'active',NOW(),NULL,$4,TRUE,$5,$6,$7)`,
-        [id, slug, email, token, now, req.ip, customFields]
+        `UPDATE subscribers SET status='active', subscribed_at=NOW(), unsubscribed_at=NULL,
+         unsubscribe_token=$1, consent_given=TRUE, consent_timestamp=$2,
+         ip_address=$3, custom_fields=$4 WHERE id=$5`,
+        [token, now, req.ip, customFields, existingEmailId]
       );
-    } catch(insertErr) {
-      if (insertErr.code === '23505') {
-        // Race condition: another request inserted the same email between our SELECT and INSERT
-        bumpAnalytic(slug, 'errors');
-        return res.status(409).json({ error: 'This email is already subscribed.' });
+      record.id = existingEmailId;
+    } else {
+      try {
+        await pool.query(
+          `INSERT INTO subscribers
+           (id, form_slug, email, status, subscribed_at, unsubscribed_at,
+            unsubscribe_token, consent_given, consent_timestamp, ip_address, custom_fields)
+           VALUES($1,$2,$3,'active',NOW(),NULL,$4,TRUE,$5,$6,$7)`,
+          [id, slug, email, token, now, req.ip, customFields]
+        );
+      } catch(insertErr) {
+        if (insertErr.code === '23505') {
+          // Race condition: another request inserted the same email between our SELECT and INSERT
+          bumpAnalytic(slug, 'errors');
+          return res.status(409).json({ error: 'This email is already subscribed.' });
+        }
+        throw insertErr; // Re-throw unexpected errors to be caught by top-level handler
       }
-      throw insertErr; // Re-throw unexpected errors to be caught by top-level handler
     }
   }
 
