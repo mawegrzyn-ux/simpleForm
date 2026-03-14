@@ -13,7 +13,7 @@ const session    = require('express-session');
 const { Issuer, generators } = require('openid-client');
 const nodemailer = require('nodemailer');
 const { Pool }   = require('pg');
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const multerS3   = require('multer-s3');
 
 const app  = express();
@@ -951,6 +951,24 @@ app.get('/api/admin/media/check-dup', adminAuth, async (req, res) => {
       res.json({ exists: false });
     }
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Image proxy for canvas editor — fetches S3 object server-side and returns with CORS headers
+// Avoids the browser CORS restriction that taints canvas when drawing cross-origin images
+app.get('/api/admin/media/img-proxy', adminAuth, async (req, res) => {
+  const key = (req.query.key || '').replace(/^\/+/, '');
+  if (!key || !key.startsWith('uploads/')) return res.status(400).send('Invalid key');
+  try {
+    const cmd = new GetObjectCommand({ Bucket: S3_BUCKET, Key: key });
+    const s3Res = await s3.send(cmd);
+    const mimeType = s3Res.ContentType || 'image/jpeg';
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    s3Res.Body.pipe(res);
+  } catch(e) {
+    res.status(404).send('Not found');
+  }
 });
 
 // Multi-upload: POST /api/admin/forms/:slug/upload-multi (up to 20 files)

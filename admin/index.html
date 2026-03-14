@@ -3634,9 +3634,11 @@ function openImgEditor(item){
   document.getElementById('ied-crop-mode').checked=false;
   document.getElementById('ied-crop-sel').style.display='none';
   document.getElementById('ied-crop-apply').style.display='none';
+  const info=document.getElementById('ied-info');if(info)info.textContent='Loading…';
   const modal=document.getElementById('img-editor-modal');modal.classList.add('open');
-  // Load image into offscreen canvas
-  const img=new Image();img.crossOrigin='anonymous';
+  // Use server proxy to avoid S3 CORS restrictions on canvas taint
+  const proxyUrl=item.s3Key?`/api/admin/media/img-proxy?key=${encodeURIComponent(item.s3Key)}`:item.url;
+  const img=new Image();
   img.onload=()=>{
     _iedAspect=img.naturalWidth/img.naturalHeight;
     _iedOffscreen=document.createElement('canvas');
@@ -3646,8 +3648,8 @@ function openImgEditor(item){
     document.getElementById('ied-h').value=img.naturalHeight;
     _iedRenderCanvas();
   };
-  img.onerror=()=>toast('Could not load image (CORS). Try downloading and re-uploading.','error');
-  img.src=item.url;
+  img.onerror=()=>{if(info)info.textContent='';toast('Could not load image','error');};
+  img.src=proxyUrl;
 }
 function closeImgEditor(){
   const modal=document.getElementById('img-editor-modal');modal.classList.remove('open');
