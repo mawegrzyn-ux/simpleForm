@@ -345,6 +345,13 @@ pre{padding:13px;font-size:0.79rem;line-height:1.65;color:var(--ink);overflow-x:
 .help-table tr:last-child td{border-bottom:none;}
 kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:0.8em;font-family:monospace;box-shadow:0 1px 0 var(--border);}
 .help-group.help-hidden{display:none;}
+.note-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--accent-bg);border-radius:var(--r) var(--r) 0 0;}
+.note-title-inp{flex:1;border:none;background:none;font-weight:600;font-size:0.88rem;color:var(--ink);outline:none;font-family:var(--font);min-width:0;}
+.note-title-inp::placeholder{color:var(--ink3);font-style:italic;}
+.note-chevron-btn{background:none;border:none;cursor:pointer;padding:2px;color:var(--ink3);display:flex;border-radius:4px;flex-shrink:0;}
+.note-chevron-btn:hover{background:rgba(0,0,0,.06);}
+.help-group.note-item:not(.open) .note-head{border-radius:var(--r);}
+.help-group.note-item .help-group-body{padding:12px 14px;font-size:0.83rem;color:var(--ink2);line-height:1.65;min-height:40px;}
 /* Design tab */
 #tab-design{flex-direction:row;overflow:hidden;}
 #design-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;position:relative;}
@@ -353,7 +360,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #dtpl-editor-view .page-body{flex:1;overflow-y:auto;padding-top:16px;}
 #tab-subscribers .page-body{max-width:none;}
 #tab-pfsettings{flex-direction:row;overflow:hidden;}
-#settings-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;}
+#settings-panel{width:460px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;flex-shrink:0;min-height:0;}
 #settings-panel .page-body{max-width:none;padding:24px 20px;}
 #settings-preview{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 #settings-prev-frame-wrap{flex:1;overflow:auto;padding:20px;background:var(--bg2);}
@@ -780,10 +787,10 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       </div>
       <div class="card" style="padding:16px">
         <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">palette</span> Template Style</div>
-        <div class="cg"><label class="cl">Background</label><input type="color" id="etpl-bgColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"><div id="etpl-bgColor-swatches" class="etpl-swatch-row"></div></div>
-        <div class="cg"><label class="cl">Card background</label><input type="color" id="etpl-cardBg" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"><div id="etpl-cardBg-swatches" class="etpl-swatch-row"></div></div>
-        <div class="cg"><label class="cl">Text colour</label><input type="color" id="etpl-textColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"><div id="etpl-textColor-swatches" class="etpl-swatch-row"></div></div>
-        <div class="cg"><label class="cl">Heading colour</label><input type="color" id="etpl-headingColor" oninput="updateEtplDesign()" style="width:100%;height:32px;border-radius:4px;cursor:pointer"><div id="etpl-headingColor-swatches" class="etpl-swatch-row"></div></div>
+        <div class="cg"><label class="cl">Background</label><div id="etpl-bgColor"></div></div>
+        <div class="cg"><label class="cl">Card background</label><div id="etpl-cardBg"></div></div>
+        <div class="cg"><label class="cl">Text colour</label><div id="etpl-textColor"></div></div>
+        <div class="cg"><label class="cl">Heading colour</label><div id="etpl-headingColor"></div></div>
         <div class="cg"><label class="cl">Body font</label>
           <select id="etpl-bodyFont" onchange="updateEtplDesign()">
             <option>Lato</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Source Sans Pro</option><option>Georgia</option><option>Merriweather</option><option>Playfair Display</option>
@@ -1506,6 +1513,12 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-14 — Group D — Settings overflow, email colours, unsubscribe page</h3>
+        <ul>
+          <li>✅ <strong>Settings sidebar overflow (D1)</strong> — added <code>min-height:0</code> to <code>#settings-panel</code>; without it the flex item could not shrink below its content size so the panel clipped instead of scrolling</li>
+          <li>✅ <strong>Email colour pickers → brand dropdowns (D2)</strong> — replaced four native <code>&lt;input type=color&gt;</code> elements (background, card background, text, heading) in the email Template Style card with <code>buildBrandColorPicker</code> dropdowns; colours now come exclusively from the form's named brand palette; init and <code>updateEtplDesign()</code> updated to use callbacks instead of reading <code>.value</code></li>
+          <li>✅ <strong>Unsubscribe page redesign (D3)</strong> — new <code>GET/POST /:slug/unsubscribe/:token</code> routes; page queries all active subscriptions for that email and shows each as a row with an individual <strong>Unsubscribe</strong> button; plus <strong>Unsubscribe from all forms</strong> and <strong>Delete all my data</strong> (red, confirm dialog) buttons; full form branding (fonts, colours, card style); analytics bumped on each unsubscribe action</li>
+        </ul>
         <h3>2026-03-13 — Group C — Field modal fullscreen &amp; custom help notes</h3>
         <ul>
           <li>✅ <strong>Field modal fullscreen (C1)</strong> — fullscreen toggle button (<code>fullscreen</code> / <code>fullscreen_exit</code> icon) added to the field editor modal header; toggles <code>.modal-fullscreen</code> class which sets <code>width/height:100vw/vh</code> and removes border-radius; icon resets and class is cleared when the modal is closed via ✕ or Cancel</li>
@@ -1855,6 +1868,7 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
     <div class="docs-tabs">
       <button class="docs-tab active" id="docs-tab-help-btn" onclick="switchInnerTab('help',this)"><span class="material-icons-round mi" style="font-size:14px">help_outline</span> Help</button>
       <button class="docs-tab" id="docs-tab-system-btn" onclick="switchInnerTab('system',this)"><span class="material-icons-round mi" style="font-size:14px">dns</span> System</button>
+      <button class="docs-tab" id="docs-tab-notes-btn" onclick="switchInnerTab('notes',this)"><span class="material-icons-round mi" style="font-size:14px">sticky_note_2</span> Notes</button>
     </div>
     <div id="docs-panel-help" class="docs-panel active">
     <div class="page-head">
@@ -1865,14 +1879,6 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
       <input type="search" id="help-search" placeholder="Search help…" style="flex:1;max-width:340px" oninput="filterHelp(this.value)">
     </div>
     <div id="help-sections">
-
-    <!-- USER NOTES -->
-    <div id="user-notes-wrap"></div>
-    <div id="user-notes-add-row" style="margin-bottom:18px">
-      <button class="tbtn tbtn-ghost" style="font-size:0.8rem;display:flex;align-items:center;gap:5px" onclick="addUserNote()">
-        <span class="material-icons-round mi" style="font-size:14px">add</span> Add note section
-      </button>
-    </div>
 
     <!-- GETTING STARTED -->
     <div class="help-group" data-tags="start create form publish embed overview">
@@ -2253,6 +2259,24 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
 
     </div><!-- /help-sections -->
     </div><!-- /docs-panel-help -->
+
+    <!-- NOTES PANEL -->
+    <div id="docs-panel-notes" class="docs-panel">
+      <div class="page-head">
+        <h2>Notes</h2>
+        <p>Per-form private notes and custom documentation — saved with each form config.</p>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center">
+        <input type="search" id="notes-search" placeholder="Search notes…" style="flex:1;max-width:340px" oninput="filterNotes(this.value)">
+        <button class="tbtn tbtn-ghost" style="display:flex;align-items:center;gap:5px;font-size:0.82rem;flex-shrink:0" onclick="addUserNote()">
+          <span class="material-icons-round mi" style="font-size:14px">add</span> Add note
+        </button>
+      </div>
+      <div id="user-notes-wrap"></div>
+      <p id="notes-empty-msg" style="display:none;color:var(--ink3);font-size:0.83rem;font-style:italic;margin-top:4px">No notes yet — click <strong>+ Add note</strong> to create the first one.</p>
+      <p id="notes-no-form-msg" style="display:none;color:var(--ink3);font-size:0.83rem;font-style:italic;margin-top:4px">Open a form first to view and add per-form notes.</p>
+    </div><!-- /docs-panel-notes -->
+
     <div id="docs-system-slot"></div><!-- system panel moved here by JS -->
   </div>
 </div><!-- /tab-help -->
@@ -4703,39 +4727,48 @@ function openPrivacyWysiwyg(){
 // ── User Notes (Help tab — per-form custom sections) ──────────────────────
 function renderUserNotes(){
   const wrap=document.getElementById('user-notes-wrap');
+  const emptyMsg=document.getElementById('notes-empty-msg');
+  const noFormMsg=document.getElementById('notes-no-form-msg');
   if(!wrap)return;
   if(!cfg){
-    wrap.innerHTML='<p style="font-size:0.8rem;color:var(--ink3);margin-bottom:4px;font-style:italic">Open a form to view and add per-form notes.</p>';
+    wrap.innerHTML='';
+    if(emptyMsg)emptyMsg.style.display='none';
+    if(noFormMsg)noFormMsg.style.display='block';
     return;
   }
+  if(noFormMsg)noFormMsg.style.display='none';
   if(!cfg.site)cfg.site={};
   const notes=cfg.site.helpSections||[];
+  if(emptyMsg)emptyMsg.style.display=notes.length?'none':'block';
   if(!notes.length){wrap.innerHTML='';return;}
-  wrap.innerHTML=notes.map((n,i)=>`
-    <div class="help-group" id="unote-${n.id}" style="margin-bottom:8px;border:1.5px solid var(--accent);border-radius:var(--r)">
-      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--accent-bg);border-radius:calc(var(--r) - 2px) calc(var(--r) - 2px) 0 0">
-        <span class="material-icons-round mi" style="color:var(--accent);font-size:15px">sticky_note_2</span>
-        <input type="text" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Section title…"
-               style="flex:1;border:none;background:none;font-weight:600;font-size:0.85rem;color:var(--ink);outline:none;font-family:var(--font)"
+  wrap.innerHTML=notes.map(n=>`
+    <div class="help-group open note-item" id="unote-${n.id}" style="margin-bottom:8px">
+      <div class="note-head">
+        <span class="material-icons-round mi" style="color:var(--accent);font-size:15px;flex-shrink:0">sticky_note_2</span>
+        <input class="note-title-inp" type="text" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Note title…"
                oninput="(function(v){const f=(cfg.site.helpSections||[]).find(x=>x.id==='${n.id}');if(f)f.title=v;})(this.value)">
-        <button class="tbtn tbtn-ghost" style="font-size:0.76rem;padding:3px 10px;display:flex;align-items:center;gap:4px"
+        <button class="tbtn tbtn-ghost" style="font-size:0.76rem;padding:3px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0"
                 onclick="openUserNoteWysiwyg('${n.id}')"><span class="mi" style="font-size:13px">edit</span> Edit</button>
-        <button class="tbtn tbtn-ghost" style="padding:3px 7px;color:var(--danger)" title="Delete note"
+        <button class="tbtn tbtn-ghost" style="padding:3px 7px;color:var(--danger);flex-shrink:0" title="Delete"
                 onclick="deleteUserNote('${n.id}')"><span class="mi" style="font-size:14px">delete</span></button>
+        <button class="note-chevron-btn" onclick="this.closest('.help-group').classList.toggle('open')" title="Collapse">
+          <span class="material-icons-round help-chevron" style="font-size:18px">expand_more</span>
+        </button>
       </div>
-      <div style="padding:12px 14px;font-size:0.83rem;color:var(--ink2);line-height:1.65;min-height:36px">
+      <div class="help-group-body">
         ${n.html||'<span style="color:var(--ink3);font-size:0.77rem;font-style:italic">Click Edit to add content…</span>'}
       </div>
     </div>`).join('');
 }
 function addUserNote(){
   if(!cfg){toast('Open a form first to add notes','');return;}
+  switchInnerTab('notes');
   if(!cfg.site)cfg.site={};
   if(!cfg.site.helpSections)cfg.site.helpSections=[];
   const id='n'+Date.now();
   cfg.site.helpSections.push({id,title:'',html:''});
   renderUserNotes();
-  setTimeout(()=>{const inp=document.querySelector(`#unote-${id} input[type=text]`);if(inp)inp.focus();},40);
+  setTimeout(()=>{const inp=document.querySelector(`#unote-${id} .note-title-inp`);if(inp)inp.focus();},40);
 }
 function deleteUserNote(id){
   if(!cfg||!cfg.site||!cfg.site.helpSections)return;
@@ -5448,6 +5481,14 @@ function _initHelp(){
   if(slot&&panel)slot.replaceWith(panel);
 })();
 
+function filterNotes(q){
+  const term=(q||'').toLowerCase().trim();
+  document.querySelectorAll('#user-notes-wrap .note-item').forEach(el=>{
+    if(!term){el.classList.remove('help-hidden');return;}
+    const text=(el.textContent||'').toLowerCase();
+    el.classList.toggle('help-hidden',!text.includes(term));
+  });
+}
 function switchInnerTab(name,btn){
   document.querySelectorAll('.docs-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.docs-panel').forEach(p=>p.classList.remove('active'));
@@ -5459,6 +5500,7 @@ function switchInnerTab(name,btn){
   const panel=document.getElementById('docs-panel-'+name);
   if(panel)panel.classList.add('active');
   if(name==='help')_initHelp();
+  if(name==='notes')renderUserNotes();
 }
 
 // ── Tabs ──
@@ -5647,10 +5689,10 @@ function populateEmailTab(){
   const wysi=document.getElementById('etpl-wysi');
   if(wysi)wysi.innerHTML=cfg.site.emailBodyHtml||'';
   const ed=cfg.site.emailDesign||{};
-  _etplSetControl('etpl-bgColor',     ed.bgColor||'#f4f4f4');
-  _etplSetControl('etpl-cardBg',      ed.cardBg||'#ffffff');
-  _etplSetControl('etpl-textColor',   ed.textColor||'#333333');
-  _etplSetControl('etpl-headingColor',ed.headingColor||'#1a1a2e');
+  buildBrandColorPicker('etpl-bgColor',     ed.bgColor||'',     c=>{(cfg.site.emailDesign||(cfg.site.emailDesign={})).bgColor=c;     applyEtplDesign();});
+  buildBrandColorPicker('etpl-cardBg',      ed.cardBg||'',      c=>{(cfg.site.emailDesign||(cfg.site.emailDesign={})).cardBg=c;      applyEtplDesign();});
+  buildBrandColorPicker('etpl-textColor',   ed.textColor||'',   c=>{(cfg.site.emailDesign||(cfg.site.emailDesign={})).textColor=c;   applyEtplDesign();});
+  buildBrandColorPicker('etpl-headingColor',ed.headingColor||'',c=>{(cfg.site.emailDesign||(cfg.site.emailDesign={})).headingColor=c;applyEtplDesign();});
   _etplSetControl('etpl-bodyFont',    ed.bodyFont||'Lato');
   _etplSetControl('etpl-bodyFontSize',ed.bodyFontSize||'16px');
   _etplSetControl('etpl-headingFont', ed.headingFont||'Playfair Display');
@@ -5699,10 +5741,7 @@ function _etplWriteBack(){
 }
 function updateEtplDesign(){
   const ed=cfg.site.emailDesign||(cfg.site.emailDesign={});
-  ed.bgColor      =document.getElementById('etpl-bgColor')?.value||ed.bgColor;
-  ed.cardBg       =document.getElementById('etpl-cardBg')?.value||ed.cardBg;
-  ed.textColor    =document.getElementById('etpl-textColor')?.value||ed.textColor;
-  ed.headingColor =document.getElementById('etpl-headingColor')?.value||ed.headingColor;
+  // bgColor/cardBg/textColor/headingColor driven by buildBrandColorPicker callbacks
   ed.bodyFont     =document.getElementById('etpl-bodyFont')?.value||ed.bodyFont;
   ed.bodyFontSize =document.getElementById('etpl-bodyFontSize')?.value||ed.bodyFontSize;
   ed.headingFont  =document.getElementById('etpl-headingFont')?.value||ed.headingFont;

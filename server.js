@@ -1274,6 +1274,82 @@ app.get('/branding-preview', adminAuth, async (req, res) => {
   }
 });
 
+// Per-form unsubscribe page (GET) — lists all active subscriptions for that email
+app.get('/:slug/unsubscribe/:token', async (req, res) => {
+  const { slug, token } = req.params;
+  let cfg, subscriber = null, allSubs = [], sharedFonts = [];
+  try { cfg = await readFormConfig(slug); } catch(e) { return res.status(404).send('Form not found'); }
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM subscribers WHERE form_slug=$1 AND unsubscribe_token=$2 LIMIT 1`,
+      [slug, token]
+    );
+    subscriber = rows[0] ? rowToSubscriber(rows[0]) : null;
+    if (subscriber) {
+      const { rows: sr } = await pool.query(
+        `SELECT form_slug, subscribed_at FROM subscribers WHERE email=$1 AND status='active' ORDER BY subscribed_at`,
+        [subscriber.email]
+      );
+      allSubs = sr;
+    }
+    sharedFonts = await readSharedFonts();
+  } catch(e) { /* render with what we have */ }
+  res.send(renderUnsubscribePage(cfg, { subscriber, allSubs, token }, sharedFonts));
+});
+
+// Per-form unsubscribe page (POST) — handles unsub-one / unsub-all / delete-all actions
+app.post('/:slug/unsubscribe/:token', async (req, res) => {
+  const { slug, token } = req.params;
+  const { action, form_slug } = req.body;
+  let cfg, subscriber = null, allSubs = [], sharedFonts = [], message = '', success = false;
+  try { cfg = await readFormConfig(slug); } catch(e) { return res.status(404).send('Form not found'); }
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM subscribers WHERE form_slug=$1 AND unsubscribe_token=$2 LIMIT 1`,
+      [slug, token]
+    );
+    subscriber = rows[0] ? rowToSubscriber(rows[0]) : null;
+    sharedFonts = await readSharedFonts();
+    if (!subscriber) {
+      message = 'Token not found or already processed.';
+    } else if (action === 'unsub-one' && form_slug) {
+      await pool.query(
+        `UPDATE subscribers SET status='unsubscribed', unsubscribed_at=NOW()
+         WHERE email=$1 AND form_slug=$2 AND status='active'`,
+        [subscriber.email, form_slug]
+      );
+      bumpAnalytic(form_slug, 'unsubscribes');
+      message = `Unsubscribed from ${form_slug}.`;
+      success = true;
+    } else if (action === 'unsub-all') {
+      const { rows: active } = await pool.query(
+        `SELECT form_slug FROM subscribers WHERE email=$1 AND status='active'`,
+        [subscriber.email]
+      );
+      await pool.query(
+        `UPDATE subscribers SET status='unsubscribed', unsubscribed_at=NOW() WHERE email=$1 AND status='active'`,
+        [subscriber.email]
+      );
+      for (const r of active) bumpAnalytic(r.form_slug, 'unsubscribes');
+      message = 'Unsubscribed from all forms.';
+      success = true;
+    } else if (action === 'delete-all') {
+      await pool.query(`DELETE FROM subscribers WHERE email=$1`, [subscriber.email]);
+      subscriber = null;
+      message = 'All your data has been permanently deleted.';
+      success = true;
+    }
+    if (subscriber) {
+      const { rows: sr } = await pool.query(
+        `SELECT form_slug, subscribed_at FROM subscribers WHERE email=$1 AND status='active' ORDER BY subscribed_at`,
+        [subscriber.email]
+      );
+      allSubs = sr;
+    }
+  } catch(e) { message = 'An error occurred. Please try again.'; }
+  res.send(renderUnsubscribePage(cfg, { subscriber, allSubs, token, message, success }, sharedFonts));
+});
+
 // Public form page
 app.get('/:slug', async (req, res) => {
   const { slug } = req.params;
@@ -2692,27 +2768,64 @@ ${sliderPickerJS()}
 </html>`;
 }
 
-function renderUnsubscribePage(cfg, message, success, isDelete = false, sharedFonts = []) {
+function renderUnsubscribePage(cfg, { subscriber, allSubs = [], token, message, success } = {}, sharedFonts = []) {
   const d = cfg.design;
-  const title = isDelete ? 'Delete My Data' : 'Unsubscribe';
+  const ac = d.accentColor || d.primaryColor || '#c94b39';
+  const pc = d.primaryColor || '#1a1a2e';
+  const bg = d.backgroundColor || '#f4f4f4';
+  const font = d.bodyFont || 'Inter';
+  const hfont = d.googleFont || d.headingFont || font;
+  const formBase = `/${cfg.slug}/unsubscribe/${token||''}`;
+  const btnPrimary = `display:block;width:100%;padding:11px 20px;background:${ac};color:#fff;border:none;border-radius:8px;font-size:0.92rem;font-family:'${font}',sans-serif;font-weight:600;cursor:pointer;margin-bottom:8px;transition:opacity 120ms;`;
+  const btnDanger  = `display:block;width:100%;padding:11px 20px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:0.92rem;font-family:'${font}',sans-serif;font-weight:600;cursor:pointer;margin-bottom:0;transition:opacity 120ms;`;
+  const btnGhost   = `background:none;border:1.5px solid ${ac};color:${ac};border-radius:6px;padding:5px 14px;font-size:0.8rem;cursor:pointer;font-family:'${font}',sans-serif;white-space:nowrap;`;
+
+  const subRows = allSubs.map(s => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #eee;">
+      <span style="font-size:0.87rem;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.form_slug)}</span>
+      <form method="POST" action="${formBase}" style="margin:0;flex-shrink:0">
+        <input type="hidden" name="action" value="unsub-one">
+        <input type="hidden" name="form_slug" value="${escapeHtml(s.form_slug)}">
+        <button type="submit" style="${btnGhost}">Unsubscribe</button>
+      </form>
+    </div>`).join('');
+
+  const bodyContent = subscriber ? `
+    <p style="font-size:0.85rem;color:#777;margin:0 0 16px">Signed in as <strong style="color:#444">${escapeHtml(subscriber.email)}</strong></p>
+    ${allSubs.length ? `
+      <div style="margin-bottom:20px;border-top:1px solid #eee">${subRows}</div>
+      <form method="POST" action="${formBase}" style="margin-bottom:8px">
+        <input type="hidden" name="action" value="unsub-all">
+        <button type="submit" style="${btnPrimary}">Unsubscribe from all forms</button>
+      </form>` : `<p style="color:#777;font-size:0.9rem;margin-bottom:20px">You have no active subscriptions.</p>`}
+    <form method="POST" action="${formBase}" onsubmit="return confirm('Permanently delete all your data? This cannot be undone.')">
+      <input type="hidden" name="action" value="delete-all">
+      <button type="submit" style="${btnDanger}">Delete all my data</button>
+    </form>` :
+    `<p style="color:#777;font-size:0.9rem">Subscription not found or already processed.</p>`;
+
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escapeHtml(title)} · ${escapeHtml(cfg.site.title)}</title>
+<title>Manage Subscriptions · ${escapeHtml(cfg.site.title || 'SignFlow')}</title>
 ${googleFontTag(cfg, null, sharedFonts)}
 ${customFontFaceCSS(cfg, sharedFonts)}
 <style>
-  body { font-family: '${d.bodyFont}',sans-serif; background:${d.backgroundColor}; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 20px; }
-  .card { background:#fff; border-radius:12px; padding:40px; max-width:440px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.1); text-align:center; }
-  h1 { font-family:'${d.googleFont}',serif; color:${d.primaryColor}; margin-bottom:16px; }
-  p { color:#555; line-height:1.6; margin-bottom:20px; }
-  .success { color:#155724; background:#d4edda; padding:14px; border-radius:6px; }
-  .error { color:#721c24; background:#f8d7da; padding:14px; border-radius:6px; }
-  a { color:${d.accentColor}; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'${font}',sans-serif;background:${bg};min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 16px;}
+  .card{background:#fff;border-radius:14px;padding:36px 32px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.12);}
+  h1{font-family:'${hfont}',serif;color:${pc};font-size:1.5rem;margin-bottom:8px;}
+  .sub-title{font-size:0.8rem;color:#aaa;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #eee;}
+  .msg-ok{color:#155724;background:#d4edda;padding:12px 14px;border-radius:6px;font-size:0.87rem;margin-bottom:16px;}
+  .msg-err{color:#721c24;background:#f8d7da;padding:12px 14px;border-radius:6px;font-size:0.87rem;margin-bottom:16px;}
+  a{color:${ac};}
+  button:hover{opacity:.88;}
 </style></head><body>
 <div class="card">
-  <h1>${title}</h1>
-  ${message ? `<p class="${success ? 'success' : 'error'}">${message}</p>` : '<p>Processing your request…</p>'}
-  <p><a href="/">← Back to home</a></p>
+  <h1>Manage subscriptions</h1>
+  <p class="sub-title">${escapeHtml(cfg.site.title || cfg.slug)}</p>
+  ${message ? `<div class="${success ? 'msg-ok' : 'msg-err'}">${escapeHtml(message)}</div>` : ''}
+  ${bodyContent}
+  <p style="margin-top:20px;font-size:0.8rem"><a href="/">← Back to home</a></p>
 </div></body></html>`;
 }
 
