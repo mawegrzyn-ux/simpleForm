@@ -140,13 +140,30 @@ ${bodyHtml}
 ${footer}
 </td></tr></table></td></tr></table>
 </body></html>`;
-  await mailer.sendMail({
-    from: `"${fromName}" <${SMTP_FROM}>`,
-    to: subscriber.email,
-    ...(s.emailReplyTo ? { replyTo: s.emailReplyTo } : {}),
-    subject,
-    html
-  });
+  let sendError = null;
+  try {
+    await mailer.sendMail({
+      from: `"${fromName}" <${SMTP_FROM}>`,
+      to: subscriber.email,
+      ...(s.emailReplyTo ? { replyTo: s.emailReplyTo } : {}),
+      subject,
+      html
+    });
+  } catch(e) {
+    sendError = e.message;
+    console.error('[email]', e.message);
+  }
+  // Log every attempt to email_log (best-effort — never blocks the response)
+  try {
+    await pool.query(
+      `INSERT INTO email_log (form_slug, subscriber_id, email, subject, status, error)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [cfg.slug, subscriber.id || null, subscriber.email, subject,
+       sendError ? 'failed' : 'sent', sendError || null]
+    );
+  } catch(dbErr) {
+    console.error('[email-log]', dbErr.message);
+  }
 }
 
 // ── Paths (data/ kept for import script; uploads now in S3) ───────────────────
@@ -358,7 +375,10 @@ function rowToSubscriber(r) {
     consentGiven: r.consent_given, consentTimestamp: r.consent_timestamp,
     ipAddress: r.ip_address, customFields: r.custom_fields || {},
     exported: r.exported || false,
-    exportedAt: r.exported_at ? r.exported_at.toISOString() : null
+    exportedAt: r.exported_at ? r.exported_at.toISOString() : null,
+    emailStatus:  r.email_status  || null,   // 'sent' | 'failed' | null (never attempted)
+    emailError:   r.email_error   || null,
+    emailLogId:   r.email_log_id  || null,
   };
 }
 
@@ -589,6 +609,18 @@ async function initDb() {
       expires_at   TIMESTAMPTZ NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ip_flags_expires ON ip_flags(expires_at);
+
+    CREATE TABLE IF NOT EXISTS email_log (
+      id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      form_slug     TEXT        NOT NULL REFERENCES forms(slug) ON DELETE CASCADE,
+      subscriber_id UUID,
+      email         TEXT        NOT NULL,
+      subject       TEXT,
+      status        TEXT        NOT NULL CHECK (status IN ('sent','failed')),
+      error         TEXT,
+      sent_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_email_log_form ON email_log(form_slug, sent_at DESC);
 
     CREATE TABLE IF NOT EXISTS global_settings (
       id    INTEGER PRIMARY KEY DEFAULT 1,
@@ -1271,7 +1303,15 @@ app.get('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
     const countRes = await pool.query(`SELECT COUNT(*) AS c FROM subscribers WHERE ${where}`, vals);
     const total = parseInt(countRes.rows[0].c, 10);
     const dataRes = await pool.query(
-      `SELECT * FROM subscribers WHERE ${where} ORDER BY ${sort} ${dir} LIMIT $${vals.length+1} OFFSET $${vals.length+2}`,
+      `SELECT s.*, el.status AS email_status, el.error AS email_error, el.id AS email_log_id
+         FROM subscribers s
+         LEFT JOIN LATERAL (
+           SELECT status, error, id FROM email_log
+           WHERE subscriber_id = s.id
+           ORDER BY sent_at DESC LIMIT 1
+         ) el ON true
+         WHERE ${where.replace(/\b(form_slug|email|status|ip_address|custom_fields)\b/g, 's.$1')}
+         ORDER BY s.${sort} ${dir} LIMIT $${vals.length+1} OFFSET $${vals.length+2}`,
       [...vals, limit, offset]
     );
     res.json({ subscribers: dataRes.rows.map(rowToSubscriber), total, page, pages: Math.ceil(total/limit) });
@@ -1353,6 +1393,56 @@ app.post('/api/admin/forms/:slug/subscribers/:id/reactivate', adminAuth, async (
        WHERE id=$1 AND form_slug=$2`, [req.params.id, req.params.slug]);
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Email log: paginated list with optional status filter
+app.get('/api/admin/forms/:slug/email-log', adminAuth, async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const page   = Math.max(1, parseInt(req.query.page) || 1);
+    const limit  = 50;
+    const offset = (page - 1) * limit;
+    const status = ['sent','failed'].includes(req.query.status) ? req.query.status : null;
+
+    const conds  = status ? 'WHERE form_slug=$1 AND status=$2' : 'WHERE form_slug=$1';
+    const params = status ? [slug, status] : [slug];
+
+    const [countRes, rowRes] = await Promise.all([
+      pool.query(`SELECT COUNT(*) FROM email_log ${conds}`, params),
+      pool.query(
+        `SELECT id, subscriber_id, email, subject, status, error, sent_at
+           FROM email_log ${conds} ORDER BY sent_at DESC LIMIT ${limit} OFFSET ${offset}`,
+        params
+      )
+    ]);
+    res.json({
+      rows:  rowRes.rows,
+      total: parseInt(countRes.rows[0].count),
+      page,
+      pages: Math.ceil(parseInt(countRes.rows[0].count) / limit),
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Email log: resend welcome email for a specific log entry
+app.post('/api/admin/forms/:slug/email-log/:logId/resend', adminAuth, async (req, res) => {
+  try {
+    const { slug, logId } = req.params;
+    const { rows: logRows } = await pool.query(
+      'SELECT * FROM email_log WHERE id=$1 AND form_slug=$2', [logId, slug]);
+    if (!logRows.length) return res.status(404).json({ error: 'Log entry not found' });
+
+    const logEntry = logRows[0];
+    if (!logEntry.subscriber_id) return res.status(400).json({ error: 'No subscriber linked — cannot resend' });
+
+    const { rows: subRows } = await pool.query(
+      'SELECT * FROM subscribers WHERE id=$1', [logEntry.subscriber_id]);
+    if (!subRows.length) return res.status(404).json({ error: 'Subscriber deleted — cannot resend' });
+
+    const cfg = await readFormConfig(slug);
+    await sendWelcomeEmail(cfg, rowToSubscriber(subRows[0]));
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

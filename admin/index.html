@@ -1550,6 +1550,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>analytics</code></td><td><code>(form_slug, key)</code></td><td>Event counters (<code>visits</code>, <code>submits</code>, <code>errors</code>); upserted via <code>ON CONFLICT DO UPDATE</code></td></tr>
           <tr><td><code>isel_presets</code></td><td><code>id</code> UUID</td><td>Saved icon/tile selector presets; <code>name</code> UNIQUE; <code>items</code> JSONB tile array</td></tr>
           <tr><td><code>ip_flags</code></td><td><code>ip_hash</code> text</td><td>Bot IP flags; <code>ip_hash</code> = HMAC-SHA256(ip, salt); <code>level</code> 1–3; <code>strike_count</code>; <code>expires_at</code> timestamptz; auto-indexed</td></tr>
+          <tr><td><code>email_log</code></td><td><code>id</code> UUID</td><td>Welcome email send log; FK → <code>forms.slug</code> CASCADE; <code>status</code> = <code>sent</code>|<code>failed</code>; <code>error</code> = SMTP error text; indexed on <code>(form_slug, sent_at DESC)</code></td></tr>
           <tr><td><code>global_settings</code></td><td><code>id</code> int (always 1)</td><td>Single-row platform config; <code>value</code> JSONB holds <code>captchaMode</code>, <code>hcaptchaSiteKey</code>, <code>hcaptchaSecretKey</code></td></tr>
           <tr><td><code>session</code></td><td><code>sid</code></td><td>Auto-created by <code>connect-pg-simple</code>; stores Express sessions</td></tr>
         </table>
@@ -1867,6 +1868,12 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-14 — Email Log</h3>
+        <ul>
+          <li>✅ <strong>Email Log</strong> — every welcome email attempt (success and failure) logged to new <code>email_log</code> PostgreSQL table with <code>form_slug</code>, <code>subscriber_id</code>, <code>email</code>, <code>subject</code>, <code>status</code>, <code>error</code>, <code>sent_at</code></li>
+          <li>✅ <strong>Email Log UI</strong> — Subscribers tab → Email Log button (toggle); filter All / Sent / Failed; shows timestamp, email, subject, status icon, SMTP error; Resend button on failed rows retries the welcome email immediately</li>
+          <li>✅ <strong>New API routes</strong> — <code>GET /api/admin/forms/:slug/email-log</code> (paginated, status filter); <code>POST /api/admin/forms/:slug/email-log/:id/resend</code></li>
+        </ul>
         <h3>2026-03-14 — CAPTCHA mode moved to Platform Settings (global)</h3>
         <ul>
           <li>✅ <strong>hCaptcha is now optional platform-wide setting</strong> — removed per-form hCaptcha card; CAPTCHA mode (Built-in / hCaptcha) now lives in Platform Settings → Anti-Bot Protection; keys stored in new <code>global_settings</code> PostgreSQL table (single-row JSONB); loaded at startup, refreshed on save</li>
@@ -2424,7 +2431,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <tr><td>403 after Auth0 login</td><td>Role not assigned — check user has <code>signflow-admin</code> role in Auth0 User Management</td></tr>
           <tr><td>Media uploads fail</td><td>Check S3 credentials in <code>.env</code>, bucket policy allows public read, IAM user has S3 write access</td></tr>
           <tr><td>DB connection error at startup</td><td>Check <code>DATABASE_URL</code> format and that the managed DB is in the <em>Available</em> state in Lightsail</td></tr>
-          <tr><td>Welcome email not sent</td><td>Verify SMTP settings; check <code>pm2 logs</code> for Nodemailer errors; confirm SMTP provider allows the From address</td></tr>
+          <tr><td>Welcome email not sent</td><td>Check the <strong>Email Log</strong> (Subscribers tab → Email Log button) — failed attempts show the exact SMTP error. Also verify SMTP settings and confirm SMTP provider allows the From address.</td></tr>
           <tr><td>Embed shows blank</td><td>Known bug fixed — embed.js now uses correct slug in iframe src. Ensure you are on the latest commit.</td></tr>
         </table>
 
@@ -2437,7 +2444,9 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
 <!-- SUBSCRIBERS TAB -->
 <div id="tab-subscribers" class="page">
   <div class="page-body">
-    <div class="page-head"><h2>Subscribers</h2><p>Manage your mailing list and export data.</p></div>
+    <div class="page-head"><h2>Subscribers</h2><p>Manage your mailing list and export data.</p>
+      <button class="btn btn-outline btn-sm" id="email-log-toggle-btn" onclick="toggleEmailLog()" style="margin-left:auto"><span class="material-icons-round mi">mail_outline</span> Email Log</button>
+    </div>
     <div class="stats-row" id="sub-stats">
       <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-lbl">Total</div></div>
       <div class="stat-card"><div class="stat-num" id="stat-active">—</div><div class="stat-lbl">Active</div></div>
@@ -2456,6 +2465,36 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
       <div class="tscroll"><table><thead><tr id="sub-thead"></tr></thead><tbody id="sub-tbody"></tbody></table></div>
       <div class="table-foot"><span class="t-count" id="sub-count"></span><div class="pagination" id="sub-pagination"></div></div>
+    </div>
+
+    <!-- Email Log -->
+    <div id="email-log-card" style="display:none;margin-top:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <h3 style="margin:0;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:6px"><span class="material-icons-round mi" style="font-size:18px!important;color:var(--accent)">mail_outline</span> Email Log</h3>
+        <select id="email-log-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadEmailLog(1)">
+          <option value="">All</option>
+          <option value="sent">Sent ✅</option>
+          <option value="failed">Failed ❌</option>
+        </select>
+        <button class="tbtn tbtn-ghost" onclick="loadEmailLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+        <span id="email-log-count" style="font-size:0.78rem;color:var(--ink3);margin-left:auto"></span>
+      </div>
+      <div class="table-wrap" style="margin-top:0">
+        <div class="tscroll">
+          <table>
+            <thead><tr>
+              <th style="width:140px">Time</th>
+              <th>Email</th>
+              <th>Subject</th>
+              <th style="width:70px;text-align:center">Status</th>
+              <th style="width:260px">Error</th>
+              <th style="width:70px"></th>
+            </tr></thead>
+            <tbody id="email-log-tbody"><tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><div class="pagination" id="email-log-pagination"></div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2887,6 +2926,10 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <p>If <code>{{unsubscribeUrl}}</code> is not found anywhere in the email body, SignFlow appends a plain-text unsubscribe footer automatically: <em>"To unsubscribe, visit: [link]"</em>. This ensures every email is legally compliant without any extra effort.</p>
         <h3>Email subject line</h3>
         <p>Set the subject line in the template editor. Merge tags work in the subject too — e.g. <code>Welcome, {{firstName}}!</code></p>
+        <h3>Email Log</h3>
+        <p>Every welcome email attempt is recorded in the <strong>Email Log</strong> — including successes and failures. Access it from the <strong>Subscribers</strong> tab via the <strong>Email Log</strong> button in the page header.</p>
+        <p>The log shows: timestamp, recipient email, subject line, send status (✅ sent / ❌ failed), and the full SMTP error message for failures. Failed entries show a <strong>Resend</strong> button that immediately retries the welcome email for that subscriber.</p>
+        <p>Filter by status (All / Sent / Failed) to quickly isolate delivery problems. The log is per-form and paginated at 50 entries per page.</p>
       </div>
     </div>
 
@@ -5218,23 +5261,13 @@ function heroBkBody(s){
 }
 
 function formBkBody(){
-  const btnText=(cfg.design.buttonText||'Subscribe').replace(/</g,'&lt;');
-  const gdprNote=cfg.site.gdprCheckboxRequired?' · checkbox required':'';
   return `
     <div class="modal-section"><div class="modal-section-title">Fields</div>
       <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:7px;line-height:1.5">Email always required. Drag to reorder. Use conditions for dynamic visibility.</p>
       <div class="field-list" id="field-list"></div>
       <button class="add-field-btn" onclick="openFieldModal()"><span class="material-icons-round mi">add</span> Add field</button>
     </div>
-    <div class="modal-section" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0">
-      <div>
-        <div class="modal-section-title" style="margin:0 0 2px">Submit button</div>
-        <div style="font-size:0.73rem;color:var(--ink3)">Label: <strong>${btnText}</strong>${gdprNote}</div>
-      </div>
-      <button class="tbtn tbtn-ghost" style="font-size:0.78rem;padding:3px 10px;flex-shrink:0" onclick="openSubmitBtnEdit()">
-        <span class="material-icons-round mi" style="font-size:14px">edit</span> Edit
-      </button>
-    </div>`;
+  `;
 }
 
 function footerBkBody(s){
@@ -7329,6 +7362,80 @@ function switchTab(tab,btn){
 }
 
 // ── Subscribers ──
+// ── Email Log ──
+let _emailLogVisible = false;
+function toggleEmailLog(){
+  _emailLogVisible = !_emailLogVisible;
+  const card = document.getElementById('email-log-card');
+  const btn  = document.getElementById('email-log-toggle-btn');
+  if(card) card.style.display = _emailLogVisible ? 'block' : 'none';
+  if(btn)  btn.style.background = _emailLogVisible ? 'var(--bg2)' : '';
+  if(_emailLogVisible) loadEmailLog(1);
+}
+async function loadEmailLog(page){
+  if(!currentFormSlug) return;
+  const tbody = document.getElementById('email-log-tbody');
+  const countEl = document.getElementById('email-log-count');
+  const pagEl   = document.getElementById('email-log-pagination');
+  if(!tbody) return;
+  const status = document.getElementById('email-log-status-filter')?.value || '';
+  const url = `/api/admin/forms/${currentFormSlug}/email-log?page=${page||1}${status?'&status='+status:''}`;
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:16px">Loading…</td></tr>`;
+  try {
+    const r = await adminFetch(url);
+    if(!r.ok){ tbody.innerHTML=`<tr><td colspan="6" style="color:var(--danger);padding:16px">Failed to load</td></tr>`; return; }
+    const data = await r.json();
+    if(countEl) countEl.textContent = `${data.total} record${data.total!==1?'s':''}`;
+    if(!data.rows.length){
+      tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">No entries yet</td></tr>`;
+      if(pagEl) pagEl.innerHTML=''; return;
+    }
+    const relTime = d => {
+      const diff = Math.round((Date.now()-new Date(d))/1000);
+      if(diff<60) return diff+'s ago';
+      if(diff<3600) return Math.floor(diff/60)+'m ago';
+      if(diff<86400) return Math.floor(diff/3600)+'h ago';
+      return new Date(d).toLocaleDateString();
+    };
+    tbody.innerHTML = data.rows.map(row => {
+      const isFailed = row.status === 'failed';
+      const errCell = row.error
+        ? `<span title="${escHtml(row.error)}" style="color:var(--danger);font-size:0.78rem;cursor:help;display:block;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(row.error)}</span>`
+        : `<span style="color:var(--ink3)">—</span>`;
+      const resendBtn = isFailed && row.subscriber_id
+        ? `<button class="tbtn tbtn-ghost" style="font-size:0.72rem;padding:2px 6px;gap:3px;color:var(--accent)" onclick="resendEmail('${row.id}',this)"><span class="material-icons-round mi" style="font-size:13px!important">send</span> Resend</button>`
+        : '';
+      return `<tr>
+        <td style="white-space:nowrap;color:var(--ink3);font-size:0.78rem" title="${new Date(row.sent_at).toLocaleString()}">${relTime(row.sent_at)}</td>
+        <td style="font-size:0.82rem;font-family:monospace">${escHtml(row.email)}</td>
+        <td style="font-size:0.82rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(row.subject||'')}">${escHtml(row.subject||'—')}</td>
+        <td style="text-align:center">${isFailed?'❌':'✅'}</td>
+        <td>${errCell}</td>
+        <td>${resendBtn}</td>
+      </tr>`;
+    }).join('');
+    // Pagination
+    if(pagEl){
+      let pag='';
+      for(let i=1;i<=data.pages;i++){
+        pag+=`<button class="page-btn${i===data.page?' active':''}" onclick="loadEmailLog(${i})">${i}</button>`;
+      }
+      pagEl.innerHTML=pag;
+    }
+  } catch(e){ tbody.innerHTML=`<tr><td colspan="6" style="color:var(--danger);padding:16px">${e.message}</td></tr>`; }
+}
+async function resendEmail(logId, btn){
+  if(!currentFormSlug) return;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    const r = await adminFetch(`/api/admin/forms/${currentFormSlug}/email-log/${logId}/resend`, {method:'POST'});
+    const data = await r.json();
+    if(r.ok){ showToast('Email resent'); loadSubscribers(subPage); if(_emailLogVisible)loadEmailLog(); }
+    else { showToast(data.error||'Resend failed','error'); btn.disabled=false; btn.innerHTML='<span class="material-icons-round mi" style="font-size:13px!important">send</span> Resend'; }
+  } catch(e){ showToast(e.message,'error'); btn.disabled=false; }
+}
+
 async function loadSubscribers(page){
   if(!currentFormSlug)return;
   subPage=page||1;
@@ -7345,7 +7452,7 @@ async function loadSubscribers(page){
   if(clearBtn)clearBtn.style.display=hasExported?'':'none';
   const thead=document.getElementById('sub-thead');thead.innerHTML='';
   const SUB_SORT_COLS={Email:'email',Status:'status',Subscribed:'subscribed_at'};
-  ['Email','Status','Exported','Subscribed',...(cfg.fields||[]).filter(f=>!f.system).map(f=>f.label),''].forEach(h=>{
+  ['Email','Status','Exported','Subscribed',...(cfg.fields||[]).filter(f=>!f.system).map(f=>f.label),'Email sent',''].forEach(h=>{
     const th=document.createElement('th');
     const col=SUB_SORT_COLS[h];
     if(col){
@@ -7375,7 +7482,17 @@ async function loadSubscribers(page){
     const subAction=s.status==='active'?'unsub':'reactivate';
     const subTitle=s.status==='active'?'Unsubscribe':'Re-activate';
     const subBtn=`<button class="btn btn-outline btn-sm" data-action="${subAction}" data-id="${escHtml(s.id)}" data-email="${safeEmail}" title="${subTitle}"><span class="material-icons-round mi" style="font-size:13px">${subIcon}</span></button>`;
-    tr.innerHTML=`<td class="email-cell">${safeEmail}</td><td><span class="badge ${safeStatus}">${safeStatus}</span></td>${exportedCell}<td class="date-cell">${safeDate}</td>${fields}<td style="white-space:nowrap">${subBtn} <button class="btn btn-danger btn-sm" data-action="delete" data-id="${escHtml(s.id)}" data-email="${safeEmail}">Delete</button></td>`;
+    // Email send status cell
+    let emailSentCell;
+    if(s.emailStatus==='sent'){
+      emailSentCell=`<td style="text-align:center"><span title="Delivered" style="color:var(--success,#2e7d32);font-size:15px;line-height:1" class="material-icons-round mi">mark_email_read</span></td>`;
+    } else if(s.emailStatus==='failed'){
+      const errTip=escHtml(s.emailError||'Unknown error');
+      emailSentCell=`<td style="text-align:center"><span class="material-icons-round mi" title="${errTip}" style="color:var(--danger);font-size:15px;line-height:1;cursor:help">mail_lock</span>${s.emailLogId?` <button class="btn btn-outline btn-sm" data-action="resend-email" data-log-id="${escHtml(s.emailLogId)}" title="Resend welcome email" style="padding:1px 4px;font-size:0.68rem">↩ Resend</button>`:''}</td>`;
+    } else {
+      emailSentCell=`<td style="text-align:center;color:var(--ink3);font-size:0.78rem">—</td>`;
+    }
+    tr.innerHTML=`<td class="email-cell">${safeEmail}</td><td><span class="badge ${safeStatus}">${safeStatus}</span></td>${exportedCell}<td class="date-cell">${safeDate}</td>${fields}${emailSentCell}<td style="white-space:nowrap">${subBtn} <button class="btn btn-danger btn-sm" data-action="delete" data-id="${escHtml(s.id)}" data-email="${safeEmail}">Delete</button></td>`;
     tbody.appendChild(tr);
   });
   const cnt=document.getElementById('sub-count');if(cnt)cnt.textContent=`${j.total} subscriber${j.total!==1?'s':''}`;
@@ -7398,6 +7515,7 @@ function debounceSearch(val){clearTimeout(searchTimer);subSearch=val;searchTimer
     else if(action==='unsub')adminUnsubscribe(id,email);
     else if(action==='reactivate')adminReactivate(id,email);
     else if(action==='clear-export')clearExportFlag(id);
+    else if(action==='resend-email'){ const logId=btn.dataset.logId; if(logId)resendEmail(logId,btn); }
   });
 })();
 
