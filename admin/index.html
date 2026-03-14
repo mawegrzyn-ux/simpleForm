@@ -2766,6 +2766,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
             <option value="failed">Failed ❌</option>
           </select>
           <button class="tbtn tbtn-ghost" onclick="loadEmailLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+          <button class="tbtn tbtn-ghost" onclick="clearEmailLog()" style="gap:4px;color:var(--danger,#e94560)"><span class="material-icons-round mi" style="font-size:15px">delete_sweep</span> Clear log</button>
           <span id="email-log-count" style="font-size:0.78rem;color:var(--ink3);margin-left:auto"></span>
         </div>
         <div class="tscroll">
@@ -7831,6 +7832,17 @@ function switchSubTab(tab){
   document.getElementById('sub-tab-entries').classList.toggle('active',  tab==='entries');
   document.getElementById('sub-tab-emaillog').classList.toggle('active', tab==='emaillog');
   if(tab==='emaillog') loadEmailLog(1);
+}
+async function clearEmailLog(){
+  if(!currentFormSlug)return;
+  if(!confirm('Clear the entire email log for this form? This cannot be undone.'))return;
+  try{
+    const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/email-log`,{method:'DELETE'});
+    const j=await r.json();
+    loadEmailLog(1);
+    // Refresh error stat card count
+    if(typeof loadEmailLogCounts==='function')loadEmailLogCounts();
+  }catch(e){alert('Failed to clear log: '+e.message);}
 }
 async function loadEmailLog(page){
   if(!currentFormSlug) return;
