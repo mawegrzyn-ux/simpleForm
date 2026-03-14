@@ -928,6 +928,53 @@ app.post('/api/admin/forms/:slug/upload', adminAuth, upload.single('image'), asy
   res.json({ url });
 });
 
+// Duplicate-check before upload: GET /api/admin/media/check-dup?name=foo.jpg&scope=form&slug=myslug
+app.get('/api/admin/media/check-dup', adminAuth, async (req, res) => {
+  try {
+    const name  = (req.query.name  || '').trim();
+    const scope = req.query.scope === 'shared' ? 'shared' : 'form';
+    const slug  = req.query.slug || '';
+    if (!name) return res.json({ exists: false });
+    let rows;
+    if (scope === 'shared') {
+      ({ rows } = await pool.query(
+        `SELECT id, url, original_name FROM media WHERE form_slug IS NULL AND original_name=$1 LIMIT 1`, [name]
+      ));
+    } else {
+      ({ rows } = await pool.query(
+        `SELECT id, url, original_name FROM media WHERE form_slug=$1 AND original_name=$2 LIMIT 1`, [slug, name]
+      ));
+    }
+    if (rows.length) {
+      res.json({ exists: true, id: rows[0].id, url: rows[0].url });
+    } else {
+      res.json({ exists: false });
+    }
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Multi-upload: POST /api/admin/forms/:slug/upload-multi (up to 20 files)
+app.post('/api/admin/forms/:slug/upload-multi', adminAuth, upload.array('images', 20), async (req, res) => {
+  if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files' });
+  const folder = req.body.folder || '';
+  const shared = req.body.shared === '1' || req.body.shared === 'true';
+  const results = [];
+  for (const file of req.files) {
+    try {
+      await pool.query(
+        `INSERT INTO media(id, form_slug, s3_key, url, original_name, mime_type, size, folder, uploaded_at)
+         VALUES($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+        [uuidv4(), shared ? null : req.params.slug, file.key, file.location,
+         file.originalname, file.mimetype, file.size, folder]
+      );
+      results.push({ ok: true, name: file.originalname, url: file.location });
+    } catch(e) {
+      results.push({ ok: false, name: file.originalname, error: e.message });
+    }
+  }
+  res.json({ results });
+});
+
 // Upload image directly to shared library
 app.post('/api/admin/media/upload', adminAuth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
@@ -1040,6 +1087,9 @@ app.get('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
     const search = (req.query.search || '').trim();
     const status = req.query.status || 'all';
     const offset = (page - 1) * limit;
+    const SORT_ALLOW = { email:'email', status:'status', subscribed_at:'subscribed_at' };
+    const sort = SORT_ALLOW[req.query.sort] || 'subscribed_at';
+    const dir  = req.query.dir === 'asc' ? 'ASC' : 'DESC';
 
     const conditions = ['form_slug=$1'];
     const vals = [slug];
@@ -1053,7 +1103,7 @@ app.get('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
     const countRes = await pool.query(`SELECT COUNT(*) AS c FROM subscribers WHERE ${where}`, vals);
     const total = parseInt(countRes.rows[0].c, 10);
     const dataRes = await pool.query(
-      `SELECT * FROM subscribers WHERE ${where} ORDER BY subscribed_at DESC LIMIT $${vals.length+1} OFFSET $${vals.length+2}`,
+      `SELECT * FROM subscribers WHERE ${where} ORDER BY ${sort} ${dir} LIMIT $${vals.length+1} OFFSET $${vals.length+2}`,
       [...vals, limit, offset]
     );
     res.json({ subscribers: dataRes.rows.map(rowToSubscriber), total, page, pages: Math.ceil(total/limit) });

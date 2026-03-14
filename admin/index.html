@@ -505,7 +505,24 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 /* ── Media Picker ──────────────────────────────────────────────────────── */
 #media-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:2100;display:none;align-items:center;justify-content:center;}
 #media-picker-overlay.open{display:flex;}
-#media-picker-box{background:var(--panel);border-radius:var(--rlg);width:min(1060px,96vw);height:min(660px,92vh);display:flex;flex-direction:column;box-shadow:var(--shadow-lg);overflow:hidden;animation:fadeUp .18s var(--ease);}
+#media-picker-box{background:var(--panel);border-radius:var(--rlg);width:min(1060px,96vw);height:min(660px,92vh);display:flex;flex-direction:column;box-shadow:var(--shadow-lg);overflow:hidden;animation:fadeUp .18s var(--ease);position:relative;}
+#media-drop-overlay{display:none;position:absolute;inset:0;z-index:10;background:rgba(74,144,226,0.12);border:3px dashed var(--accent);border-radius:var(--rlg);align-items:center;justify-content:center;pointer-events:none;}
+#media-drop-overlay.active{display:flex;}
+#media-upload-chips{display:none;flex-wrap:wrap;gap:6px;padding:8px 12px;background:var(--accent-bg);border-bottom:1px solid var(--border);}
+.mu-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 8px;border-radius:20px;font-size:0.75rem;background:var(--panel);border:1.5px solid var(--border);color:var(--ink2);max-width:200px;}
+.mu-chip .mu-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.mu-chip.uploading{border-color:var(--accent);color:var(--accent);}
+.mu-chip.done{border-color:#22c55e;color:#166534;}
+.mu-chip.error{border-color:var(--danger);color:var(--danger);}
+.mu-chip.skipped{border-color:#f59e0b;color:#92400e;}
+/* Image editor */
+#img-editor-modal{align-items:center;justify-content:center;}
+#img-editor-modal.open{display:flex!important;}
+.ied-handle{position:absolute;width:10px;height:10px;background:var(--accent);border-radius:2px;cursor:pointer;}
+.ied-handle[data-h="tl"]{cursor:nwse-resize;}
+.ied-handle[data-h="tr"]{cursor:nesw-resize;}
+.ied-handle[data-h="bl"]{cursor:nesw-resize;}
+.ied-handle[data-h="br"]{cursor:nwse-resize;}
 #media-picker-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
 #media-picker-head h2{font-size:0.95rem;font-weight:600;flex:1;}
 #media-picker-toolbar{display:flex;align-items:center;gap:8px;padding:10px 18px;border-bottom:1px solid var(--border2);flex-shrink:0;background:var(--bg);}
@@ -1513,6 +1530,13 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-14 — Plan completion: subscriber sort, submit button, multi-upload, image editor</h3>
+        <ul>
+          <li>✅ <strong>Subscriber sortable columns (F1)</strong> — Email, Status and Subscribed column headers are clickable; sort direction toggles with arrow icon; <code>sort</code>+<code>dir</code> params sent to API; SQL uses allowlisted <code>ORDER BY</code></li>
+          <li>✅ <strong>Submit button row in field list (B2)</strong> — non-draggable "Submit button" row at bottom of field list; edit icon expands the Form block in the Build panel where button label, disclaimer and error message live</li>
+          <li>✅ <strong>Multi-file upload + drag-drop + dedup (E1)</strong> — file input accepts <code>multiple</code> files; drag images onto the Media Library to upload; per-file progress chips (uploading → done / error / skipped); duplicate check via <code>GET /api/admin/media/check-dup</code> prompts to reuse existing; new <code>POST /api/admin/forms/:slug/upload-multi</code> batch route on server</li>
+          <li>✅ <strong>Client-side image editor (E2)</strong> — "Edit image" button in media detail panel; Canvas API editor with rotate (90° steps), resize (aspect-ratio lock), crop (draggable selection with corner handles); "Save as copy" uploads via the multi-upload route; JPEG, PNG, WebP only</li>
+        </ul>
         <h3>2026-03-14 — Group D — Settings overflow, email colours, unsubscribe page</h3>
         <ul>
           <li>✅ <strong>Settings sidebar overflow (D1)</strong> — added <code>min-height:0</code> to <code>#settings-panel</code>; without it the flex item could not shrink below its content size so the panel clipped instead of scrolling</li>
@@ -1578,6 +1602,209 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
           <li>✅ <strong>Preference centre crash fix</strong> — <code>findAllSubscriptions()</code> now properly awaited before passing to renderer</li>
           <li>✅ <strong>CSP font-src</strong> — added <code>https://*.amazonaws.com</code> so custom fonts hosted on S3 load correctly</li>
         </ul>
+      </div>
+    </div>
+
+    <!-- CONTEXTUAL AI CHAT -->
+    <div class="help-group" data-tags="ai chat rag vector pgvector tool use function calling claude anthropic knowledge base contextual assistant embeddings streaming sse agentic loop voyageai openai">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">smart_toy</span> Contextual AI Chat — Design &amp; Architecture
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+
+        <h3>Overview</h3>
+        <p>A planned feature: a floating AI assistant panel in the admin that answers questions with awareness of the current page, active form config, and live data. Architecture combines <strong>RAG</strong> (semantic search over help docs via pgvector) with <strong>Tool Use / Function Calling</strong> so Claude can both explain how things work <em>and</em> inspect the user's actual live state before answering.</p>
+
+        <h3>Why RAG + Tool Use together?</h3>
+        <table class="help-table">
+          <tr><th>Technique</th><th>Answers</th><th>Limitation alone</th></tr>
+          <tr><td><strong>RAG</strong></td><td>"How does X work?"</td><td>Can't see live data — gives generic advice</td></tr>
+          <tr><td><strong>Tool use</strong></td><td>"What is happening?"</td><td>No knowledge of docs — can't explain features</td></tr>
+          <tr><td><strong>Combined</strong></td><td>"Why isn't X working <em>for me</em>?"</td><td>—</td></tr>
+        </table>
+        <p style="margin-top:8px">Example: <em>"Why is my embed blank?"</em> → <code>search_docs("embed blank page")</code> retrieves the relevant doc chunks → <code>get_form("wing-signup")</code> fetches actual <code>embedAllowedDomains</code> value → Claude answers with the user's specific settings, not generic steps.</p>
+        <p>Key: <code>search_docs</code> is itself a Claude tool — Claude decides <em>when</em> to search and <em>with what query</em>, and can retry with different terms if the first result is weak.</p>
+
+        <h3>Architecture</h3>
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto;white-space:pre">User message + { currentTab, currentFormSlug, activeModal }
+        │
+        ▼
+POST /api/admin/ai-chat   (adminAuth — never public)
+        │
+        ▼
+System prompt: role + injected page context (thin — no docs stuffed)
+        │
+        ▼
+Claude (claude-sonnet) with tool definitions
+        │
+  ┌─────┴───────────────────────────────────┐
+  │  Agentic tool-call loop (repeats until  │
+  │  stop_reason === "end_turn")            │
+  │                                         │
+  │  search_docs(query)  ←── pgvector       │
+  │  get_form(slug)      ←── PostgreSQL     │
+  │  get_analytics(slug) ←── PostgreSQL     │
+  │  get_subscribers(s)  ←── PostgreSQL     │
+  │  get_form_list()     ←── PostgreSQL     │
+  └─────────────────────────────────────────┘
+        │
+        ▼
+SSE stream text chunks → floating chat panel in browser</pre>
+
+        <h3>RAG pipeline — pgvector (zero new infrastructure)</h3>
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">-- One migration
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE doc_embeddings (
+  id        SERIAL PRIMARY KEY,
+  chunk_id  TEXT UNIQUE,       -- e.g. "help-embed-1", "system-security-2"
+  content   TEXT,              -- 200–400 token plain-text chunk
+  embedding vector(1536),      -- from text-embedding-3-small or Voyage AI
+  metadata  JSONB              -- { section, tab, tags[] }
+);
+CREATE INDEX ON doc_embeddings USING ivfflat (embedding vector_cosine_ops);</pre>
+
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">// scripts/embed-docs.js — run once at deploy; re-run when docs change
+// 1. Parse Help + System tab HTML into plain-text chunks (~300 tokens each)
+// 2. Embed each chunk:
+//    • OpenAI text-embedding-3-small  ($0.02 / 1M tokens — pennies for ~150 chunks)
+//    • OR Voyage AI voyage-3-lite     (Anthropic's recommended embedding partner)
+// 3. Upsert into doc_embeddings (ON CONFLICT chunk_id DO UPDATE)
+
+async function search_docs(query, limit = 4) {
+  const qEmbed = await embedText(query);
+  const { rows } = await pool.query(
+    `SELECT content, metadata, 1 - (embedding &lt;=&gt; $1) AS similarity
+     FROM doc_embeddings ORDER BY embedding &lt;=&gt; $1 LIMIT $2`,
+    [pgvector.toSql(qEmbed), limit]
+  );
+  return rows;
+}</pre>
+
+        <h3>Tool definitions (5 tools)</h3>
+        <table class="help-table">
+          <tr><th>Tool</th><th>Description</th><th>When Claude uses it</th></tr>
+          <tr><td><code>search_docs(query, limit?)</code></td><td>Semantic search over help + system docs</td><td>Any how-to or troubleshooting question</td></tr>
+          <tr><td><code>get_form(slug)</code></td><td>Full form config — fields, design, site, email, embed settings</td><td>Question is about a specific form's behaviour</td></tr>
+          <tr><td><code>get_analytics(slug)</code></td><td>Views, submits, errors, unsubscribes counts</td><td>Conversion or performance questions</td></tr>
+          <tr><td><code>get_subscribers_summary(slug)</code></td><td>Count by status + 5 most recent emails</td><td>Subscriber / growth questions</td></tr>
+          <tr><td><code>get_form_list()</code></td><td>All form slugs and names</td><td>Non-form-specific or "what forms do I have" questions</td></tr>
+        </table>
+
+        <h3>Server route — agentic loop with SSE streaming</h3>
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">app.post('/api/admin/ai-chat', adminAuth, async (req, res) =&gt; {
+  const { message, context, history = [] } = req.body;
+  // context = { currentTab, currentFormSlug, activeModal, panelTab }
+  // history = prior [ {role,content} ] turns for multi-turn awareness
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+
+  const system =
+    `You are a concise SignFlow admin assistant. Max 3–4 sentences unless genuinely ` +
+    `needed. Reference exact setting names and their location in the UI. ` +
+    `Context: tab="${context.currentTab}", form="${context.currentFormSlug||'none'}", ` +
+    `modal="${context.activeModal||'none'}". ` +
+    `Always call tools before answering — never guess from memory alone.`;
+
+  const messages = [
+    ...history,
+    { role: 'user', content: message }
+  ];
+
+  // Agentic loop — Claude may call tools multiple times before final answer
+  while (true) {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5', max_tokens: 1024,
+      system, tools, messages
+    });
+
+    if (response.stop_reason === 'end_turn') {
+      for (const block of response.content)
+        if (block.type === 'text')
+          res.write(`data: ${JSON.stringify({ text: block.text })}\n\n`);
+      break;
+    }
+
+    if (response.stop_reason === 'tool_use') {
+      messages.push({ role: 'assistant', content: response.content });
+      const results = [];
+      for (const block of response.content) {
+        if (block.type !== 'tool_use') continue;
+        const result = await executeTool(block.name, block.input);
+        results.push({ type: 'tool_result', tool_use_id: block.id,
+                       content: JSON.stringify(result) });
+      }
+      messages.push({ role: 'user', content: results });
+      // loop → Claude sees results, may call more tools or produce final answer
+    }
+  }
+
+  res.write('data: [DONE]\n\n');
+  res.end();
+});</pre>
+
+        <h3>Browser context object (sent with every message)</h3>
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">// Captured just before sending each message:
+function buildAiContext() {
+  return {
+    currentTab:      currentTab,           // 'build' | 'design' | 'pfsettings' | 'help' …
+    currentFormSlug: currentFormSlug,      // null if on forms list
+    activeModal:     getActiveModal(),     // 'field-modal' | 'block-modal' | null
+    panelTab:        _panelTab || null,    // 'email' | 'fields' | 'response' …
+  };
+}</pre>
+
+        <h3>Example interactions</h3>
+        <table class="help-table">
+          <tr><th>Question</th><th>Tools called</th><th>Why better than RAG alone</th></tr>
+          <tr><td>"Why is my embed blank?"</td><td>search_docs + get_form</td><td>Reads actual embedAllowedDomains — gives specific fix</td></tr>
+          <tr><td>"Why only 12 subscribers in 2 weeks?"</td><td>get_analytics + get_form + search_docs</td><td>Sees 28 errors, spots gdprCheckboxRequired is on</td></tr>
+          <tr><td>"How do I add a slider field?"</td><td>search_docs</td><td>Retrieves exact doc chunk — no live data needed</td></tr>
+          <tr><td>"What forms do I have?"</td><td>get_form_list</td><td>Returns live list, not cached or guessed</td></tr>
+          <tr><td>"Is email sending enabled on wing-signup?"</td><td>get_form</td><td>Reads emailEnabled directly from cfg</td></tr>
+        </table>
+
+        <h3>Cost model</h3>
+        <table class="help-table">
+          <tr><th>Item</th><th>Cost</th><th>Notes</th></tr>
+          <tr><td>Embed all docs once</td><td>~$0.000003</td><td>~150 chunks × 300 tokens</td></tr>
+          <tr><td>Re-embed on doc change</td><td>Same</td><td>Re-run embed-docs.js</td></tr>
+          <tr><td>Per chat message (Haiku)</td><td>~$0.002–0.005</td><td>Includes 2–4 tool calls; good for simple Qs</td></tr>
+          <tr><td>Per chat message (Sonnet)</td><td>~$0.01–0.03</td><td>Better reasoning for complex multi-tool Qs</td></tr>
+          <tr><td>pgvector hosting</td><td>$0</td><td>Existing Lightsail DB</td></tr>
+          <tr><td>Admin-only usage estimate</td><td>&lt;$1 / month</td><td>Easily absorbed</td></tr>
+        </table>
+
+        <h3>Build order</h3>
+        <ol>
+          <li><strong>pgvector migration</strong> — <code>CREATE EXTENSION vector</code> + <code>doc_embeddings</code> table + ivfflat index</li>
+          <li><strong>embed-docs.js script</strong> — parse Help + System tab HTML → chunk (~300 tokens) → embed → upsert to DB</li>
+          <li><strong>executeTool() dispatcher</strong> — routes tool name to DB query; returns structured JSON</li>
+          <li><strong>POST /api/admin/ai-chat route</strong> — agentic loop, SSE streaming, adminAuth guard</li>
+          <li><strong>Floating panel UI</strong> — chat bubble bottom-right, expands to 360px panel, SSE reader, conversation history client-side</li>
+          <li><strong>Context injection</strong> — <code>buildAiContext()</code> called on every send; passes tab, slug, modal</li>
+          <li><em>Phase 2:</em> feedback thumbs, session rate limiting (20 msg / 5 min), public form variant</li>
+        </ol>
+
+        <h3>Dependencies &amp; environment variables</h3>
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">npm install @anthropic-ai/sdk pgvector openai   # openai for embeddings only
+# alternative embedding: npm install voyageai
+
+# .env additions:
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...       # for text-embedding-3-small
+# VOYAGE_API_KEY=pa-...     # alternative — Anthropic's recommended partner</pre>
+
+        <h3>Security</h3>
+        <ul>
+          <li>Route behind <code>adminAuth</code> — never publicly accessible</li>
+          <li><code>ANTHROPIC_API_KEY</code> server-side only — never sent to browser</li>
+          <li><code>get_subscribers_summary</code> returns counts + max 5 emails — no bulk PII exposure</li>
+          <li>Suggested rate limit: 20 messages / 5 min per session to cap runaway costs</li>
+          <li>Tool inputs validated server-side (slug regex, etc.) before any DB query</li>
+        </ul>
+
       </div>
     </div>
 
@@ -2751,6 +2978,13 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
 <!-- ── Media Picker ──────────────────────────────────────────────────────── -->
 <div id="media-picker-overlay">
   <div id="media-picker-box">
+    <!-- Drag-and-drop overlay (CSS-driven via .active class) -->
+    <div id="media-drop-overlay">
+      <div style="text-align:center;color:var(--accent);font-weight:600;font-size:1.1rem;user-select:none">
+        <span class="material-icons-round" style="font-size:48px;display:block;margin-bottom:8px">cloud_upload</span>
+        Drop images to upload
+      </div>
+    </div>
     <div id="media-picker-head">
       <h2>Media Library</h2>
       <button class="modal-close" onclick="closeMediaPicker()"><span class="material-icons-round" style="font-size:18px">close</span></button>
@@ -2765,9 +2999,9 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <select id="media-upload-folder" style="max-width:120px" title="Upload to folder">
           <option value="">No folder</option>
         </select>
-        <label class="tbtn tbtn-ghost" style="cursor:pointer">
+        <label class="tbtn tbtn-ghost" style="cursor:pointer" title="Select one or more images">
           <span class="material-icons-round mi">upload</span> Upload
-          <input type="file" id="media-upload-input" accept="image/*" style="display:none" onchange="handleMediaPickerUpload(this)">
+          <input type="file" id="media-upload-input" accept="image/*" multiple style="display:none" onchange="handleMediaPickerUpload(this)">
         </label>
       </div>
     </div>
@@ -2788,6 +3022,7 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         </div>
       </div>
       <div id="media-grid-wrap">
+        <div id="media-upload-chips"></div>
         <div id="media-grid"></div>
         <div id="media-empty">No media here — upload an image to get started.</div>
       </div>
@@ -2800,6 +3035,9 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
           <select id="media-folder-sel" style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.8rem;font-family:var(--font)" onchange="moveMediaToFolder(this.value)">
             <option value="">No folder</option>
           </select>
+          <button class="up-btn" id="media-edit-btn" onclick="openImgEditor(_mediaSelected)" style="font-size:0.78rem" title="Edit image (rotate, resize, crop — saves as new copy)">
+            <span class="material-icons-round mi" style="font-size:14px">edit</span> Edit image
+          </button>
           <button class="up-btn" id="media-share-btn" onclick="toggleMediaShared()" style="font-size:0.78rem">
             <span class="material-icons-round mi" style="font-size:14px">public</span> <span id="media-share-btn-lbl">Move to shared</span>
           </button>
@@ -2818,10 +3056,54 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
   </div>
 </div>
 
+<!-- ── Image Editor ─────────────────────────────────────────────────────── -->
+<div id="img-editor-modal" class="modal-overlay" style="z-index:3100;display:none">
+  <div class="modal-box" style="width:min(820px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0">
+    <div class="modal-head" style="padding:12px 16px">
+      <h2>Edit image</h2>
+      <button class="modal-close" onclick="closeImgEditor()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <!-- Toolbar -->
+    <div style="display:flex;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;align-items:center;background:var(--accent-bg)">
+      <button class="tbtn tbtn-ghost" onclick="imgEdRotate(-90)" title="Rotate 90° left"><span class="material-icons-round mi" style="font-size:16px">rotate_left</span> Rotate L</button>
+      <button class="tbtn tbtn-ghost" onclick="imgEdRotate(90)" title="Rotate 90° right"><span class="material-icons-round mi" style="font-size:16px">rotate_right</span> Rotate R</button>
+      <div style="width:1px;height:22px;background:var(--border);margin:0 4px"></div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:0.78rem">
+        W<input type="number" id="ied-w" style="width:64px" min="1" placeholder="px" oninput="imgEdResizeInput('w')">
+        H<input type="number" id="ied-h" style="width:64px" min="1" placeholder="px" oninput="imgEdResizeInput('h')">
+        <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="ied-lock" checked> Lock ratio</label>
+        <button class="tbtn tbtn-ghost" onclick="imgEdApplyResize()" style="padding:3px 8px;font-size:0.75rem">Apply</button>
+      </div>
+      <div style="width:1px;height:22px;background:var(--border);margin:0 4px"></div>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.78rem"><input type="checkbox" id="ied-crop-mode" onchange="imgEdToggleCrop(this.checked)"> Crop mode</label>
+      <button id="ied-crop-apply" class="tbtn tbtn-ghost" onclick="imgEdApplyCrop()" style="display:none;padding:3px 8px;font-size:0.75rem">Apply crop</button>
+    </div>
+    <!-- Canvas area -->
+    <div id="ied-canvas-wrap" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg);min-height:0">
+      <div id="ied-canvas-container" style="position:relative;display:inline-block;box-shadow:0 2px 12px rgba(0,0,0,.15)">
+        <canvas id="ied-canvas" style="display:block;max-width:100%"></canvas>
+        <!-- Crop overlay -->
+        <div id="ied-crop-sel" style="display:none;position:absolute;border:2px solid var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,.35);box-sizing:border-box;cursor:move">
+          <div class="ied-handle" data-h="tl" style="top:-5px;left:-5px"></div>
+          <div class="ied-handle" data-h="tr" style="top:-5px;right:-5px"></div>
+          <div class="ied-handle" data-h="bl" style="bottom:-5px;left:-5px"></div>
+          <div class="ied-handle" data-h="br" style="bottom:-5px;right:-5px"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Footer -->
+    <div style="display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--border);flex-shrink:0;align-items:center">
+      <span id="ied-info" style="font-size:0.78rem;color:var(--ink3);flex:1"></span>
+      <button class="tbtn tbtn-ghost" onclick="closeImgEditor()">Cancel</button>
+      <button class="tbtn tbtn-primary" onclick="imgEdSaveAsCopy()"><span class="material-icons-round mi">save</span> Save as copy</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
-let cfg=null,previewTimer=null,editingFieldId=null,subPage=1,subSearch='',searchTimer=null,currentTab='forms';
+let cfg=null,previewTimer=null,editingFieldId=null,subPage=1,subSearch='',subSort='subscribed_at',subSortDir='desc',searchTimer=null,currentTab='forms';
 let currentFormSlug=null,formsIndex=[];
 let _csrfToken=''; // populated on admin load from /api/admin/csrf-token
 
@@ -3103,6 +3385,21 @@ async function handleImageUpload(input,type){
 // ── Media Picker ──────────────────────────────────────────────────────────────
 let _mediaItems=[],_mediaFiltered=[],_mediaSelected=null,_mediaCallback=null,_mediaType=null;
 let _mediaScope='all',_mediaFolder='';
+// Drag-and-drop wiring — runs once after DOM is ready
+document.addEventListener('DOMContentLoaded',function(){
+  const box=document.getElementById('media-picker-box');
+  const overlay=document.getElementById('media-drop-overlay');
+  if(!box||!overlay)return;
+  let _dragCounter=0;
+  box.addEventListener('dragenter',e=>{e.preventDefault();_dragCounter++;overlay.classList.add('active');});
+  box.addEventListener('dragleave',()=>{if(--_dragCounter<=0){_dragCounter=0;overlay.classList.remove('active');}});
+  box.addEventListener('dragover',e=>e.preventDefault());
+  box.addEventListener('drop',async e=>{
+    e.preventDefault();_dragCounter=0;overlay.classList.remove('active');
+    const files=Array.from(e.dataTransfer?.files||[]).filter(f=>f.type.startsWith('image/'));
+    if(files.length)await _uploadMediaFiles(files);
+  });
+});
 async function openMediaPicker(callbackOrType){
   _mediaCallback=typeof callbackOrType==='function'?callbackOrType:null;
   _mediaType=typeof callbackOrType==='string'?callbackOrType:null;
@@ -3268,19 +3565,259 @@ async function createMediaFolder(){
   setMediaScope('folder',folder);
   toast(`Folder "${folder}" created — upload images or drag items into it`,'success');
 }
+// Multi-file upload handler (file input or drag-drop)
 async function handleMediaPickerUpload(input){
-  const file=input.files[0];if(!file)return;
+  const files=Array.from(input.files||[]);if(!files.length)return;
+  input.value='';
+  await _uploadMediaFiles(files);
+}
+async function _uploadMediaFiles(files){
   if(!currentFormSlug){toast('No form selected','error');return;}
   const scope=document.getElementById('media-upload-scope')?.value||'form';
   const folder=document.getElementById('media-upload-folder')?.value||'';
-  const fd=new FormData();fd.append('image',file);
-  fd.append('shared',scope==='shared'?'1':'0');
+  const shared=scope==='shared';
+  // Show chips area
+  const chipsEl=document.getElementById('media-upload-chips');
+  if(chipsEl){chipsEl.style.display='flex';chipsEl.innerHTML='';}
+  // Build chips + check duplicates
+  const toUpload=[];
+  for(const file of files){
+    const chip=document.createElement('div');chip.className='mu-chip uploading';
+    chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">hourglass_top</span><span class="mu-name" title="${escHtml(file.name)}">${escHtml(file.name)}</span>`;
+    if(chipsEl)chipsEl.appendChild(chip);
+    // Duplicate check
+    try{
+      const dup=await adminFetch(`/api/admin/media/check-dup?name=${encodeURIComponent(file.name)}&scope=${scope}&slug=${currentFormSlug}`).then(r=>r.json());
+      if(dup.exists){
+        const use=confirm(`"${file.name}" already exists in your library.\n\nClick OK to use the existing file, Cancel to upload a new copy.`);
+        if(use){
+          chip.className='mu-chip skipped';
+          chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">link</span><span class="mu-name" title="${escHtml(file.name)}">${escHtml(file.name)}</span><span style="font-size:0.68rem;margin-left:2px">reused</span>`;
+          continue;
+        }
+      }
+    }catch(_){}
+    toUpload.push({file,chip});
+  }
+  if(!toUpload.length){
+    await loadMediaLibrary();
+    setTimeout(()=>{if(chipsEl)chipsEl.style.display='none';},2000);
+    return;
+  }
+  // Upload all via multi-upload route
+  const fd=new FormData();
+  toUpload.forEach(({file})=>fd.append('images',file));
+  fd.append('shared',shared?'1':'0');
   fd.append('folder',folder);
   try{
-    const j=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload`,{method:'POST',body:fd}).then(r=>r.json());
-    if(j.url){input.value='';await loadMediaLibrary();const newest=_mediaItems[0];if(newest)selectMediaItem(newest.id);toast('Uploaded','success');}
-  }catch(e){toast('Upload failed','error');}
+    const j=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload-multi`,{method:'POST',body:fd}).then(r=>r.json());
+    (j.results||[]).forEach((r,i)=>{
+      const chip=toUpload[i]?.chip;if(!chip)return;
+      if(r.ok){chip.className='mu-chip done';chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">check_circle</span><span class="mu-name" title="${escHtml(r.name)}">${escHtml(r.name)}</span>`;}
+      else{chip.className='mu-chip error';chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">error</span><span class="mu-name" title="${escHtml(r.name)}">${escHtml(r.name)}</span>`;}
+    });
+    await loadMediaLibrary();
+    const done=j.results?.filter(r=>r.ok).length||0;
+    if(done)toast(`${done} image${done>1?'s':''} uploaded`,'success');
+    setTimeout(()=>{if(chipsEl)chipsEl.style.display='none';},3000);
+  }catch(e){
+    toUpload.forEach(({chip})=>{chip.className='mu-chip error';chip.innerHTML=`<span class="material-icons-round" style="font-size:13px">error</span><span class="mu-name">Upload failed</span>`;});
+  }
 }
+// ── Image Editor (E2) ─────────────────────────────────────────────────────────
+let _iedItem=null,_iedOffscreen=null,_iedRotation=0,_iedAspect=1,_iedCropRect=null,_iedDragState=null;
+function openImgEditor(item){
+  if(!item)return;
+  const ext=(item.name||'').split('.').pop().toLowerCase();
+  if(!['jpg','jpeg','png','webp','gif'].includes(ext)){toast('Image editor supports JPEG, PNG and WebP only','error');return;}
+  _iedItem=item;_iedRotation=0;_iedOffscreen=null;_iedCropRect=null;
+  document.getElementById('ied-crop-mode').checked=false;
+  document.getElementById('ied-crop-sel').style.display='none';
+  document.getElementById('ied-crop-apply').style.display='none';
+  const modal=document.getElementById('img-editor-modal');modal.classList.add('open');
+  // Load image into offscreen canvas
+  const img=new Image();img.crossOrigin='anonymous';
+  img.onload=()=>{
+    _iedAspect=img.naturalWidth/img.naturalHeight;
+    _iedOffscreen=document.createElement('canvas');
+    _iedOffscreen.width=img.naturalWidth;_iedOffscreen.height=img.naturalHeight;
+    _iedOffscreen.getContext('2d').drawImage(img,0,0);
+    document.getElementById('ied-w').value=img.naturalWidth;
+    document.getElementById('ied-h').value=img.naturalHeight;
+    _iedRenderCanvas();
+  };
+  img.onerror=()=>toast('Could not load image (CORS). Try downloading and re-uploading.','error');
+  img.src=item.url;
+}
+function closeImgEditor(){
+  const modal=document.getElementById('img-editor-modal');modal.classList.remove('open');
+  _iedItem=null;_iedOffscreen=null;
+}
+function _iedRenderCanvas(){
+  if(!_iedOffscreen)return;
+  const canvas=document.getElementById('ied-canvas');
+  const rotated=(_iedRotation/90)%2!==0;
+  canvas.width=rotated?_iedOffscreen.height:_iedOffscreen.width;
+  canvas.height=rotated?_iedOffscreen.width:_iedOffscreen.height;
+  const ctx=canvas.getContext('2d');
+  ctx.save();ctx.translate(canvas.width/2,canvas.height/2);
+  ctx.rotate(_iedRotation*Math.PI/180);
+  ctx.drawImage(_iedOffscreen,-_iedOffscreen.width/2,-_iedOffscreen.height/2);
+  ctx.restore();
+  // Sync crop overlay to canvas if active
+  if(_iedCropRect){_iedDrawCropRect(_iedCropRect);}
+  const info=document.getElementById('ied-info');if(info)info.textContent=`${canvas.width} × ${canvas.height} px`;
+  document.getElementById('ied-w').value=canvas.width;
+  document.getElementById('ied-h').value=canvas.height;
+}
+function imgEdRotate(deg){
+  _iedRotation=(_iedRotation+deg+360)%360;
+  _iedAspect=(_iedRotation/90)%2!==0?(1/_iedAspect):_iedAspect;
+  _iedCropRect=null;if(_iedCropRect)document.getElementById('ied-crop-sel').style.display='none';
+  _iedRenderCanvas();
+}
+function imgEdResizeInput(changed){
+  if(!_iedOffscreen)return;
+  const lock=document.getElementById('ied-lock').checked;
+  if(!lock)return;
+  const canvas=document.getElementById('ied-canvas');
+  const aspect=canvas.width/canvas.height;
+  if(changed==='w'){
+    const w=parseInt(document.getElementById('ied-w').value)||0;
+    if(w)document.getElementById('ied-h').value=Math.round(w/aspect);
+  }else{
+    const h=parseInt(document.getElementById('ied-h').value)||0;
+    if(h)document.getElementById('ied-w').value=Math.round(h*aspect);
+  }
+}
+function imgEdApplyResize(){
+  if(!_iedOffscreen)return;
+  const w=Math.max(1,parseInt(document.getElementById('ied-w').value)||0);
+  const h=Math.max(1,parseInt(document.getElementById('ied-h').value)||0);
+  // Draw current rotated view into a new offscreen at requested size
+  const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
+  const ctx=tmp.getContext('2d');
+  const src=document.getElementById('ied-canvas');
+  ctx.drawImage(src,0,0,w,h);
+  _iedOffscreen=tmp;_iedRotation=0;_iedAspect=w/h;_iedCropRect=null;
+  _iedRenderCanvas();toast(`Resized to ${w}×${h}`,'success');
+}
+// Crop
+function imgEdToggleCrop(on){
+  const sel=document.getElementById('ied-crop-sel');
+  const applyBtn=document.getElementById('ied-crop-apply');
+  if(!on){sel.style.display='none';applyBtn.style.display='none';_iedCropRect=null;return;}
+  applyBtn.style.display='';
+  const canvas=document.getElementById('ied-canvas');
+  const pad=0.1;
+  const x=Math.round(canvas.width*pad),y=Math.round(canvas.height*pad);
+  const w=Math.round(canvas.width*(1-2*pad)),h=Math.round(canvas.height*(1-2*pad));
+  _iedCropRect={x,y,w,h};_iedDrawCropRect(_iedCropRect);
+  _iedSetupCropDrag();
+}
+function _iedDrawCropRect(r){
+  const canvas=document.getElementById('ied-canvas');
+  const container=document.getElementById('ied-canvas-container');
+  const sel=document.getElementById('ied-crop-sel');
+  // Scale from canvas coords to display coords
+  const scaleX=canvas.offsetWidth/canvas.width;
+  const scaleY=canvas.offsetHeight/canvas.height;
+  sel.style.display='block';
+  sel.style.left=Math.round(r.x*scaleX)+'px';
+  sel.style.top=Math.round(r.y*scaleY)+'px';
+  sel.style.width=Math.round(r.w*scaleX)+'px';
+  sel.style.height=Math.round(r.h*scaleY)+'px';
+}
+function _iedSetupCropDrag(){
+  const sel=document.getElementById('ied-crop-sel');
+  const canvas=document.getElementById('ied-canvas');
+  function getCanvasRect(){return canvas.getBoundingClientRect();}
+  function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+  function toCanvasCoords(cx,cy){
+    const br=getCanvasRect();
+    const sx=canvas.width/br.width,sy=canvas.height/br.height;
+    return{x:(cx-br.left)*sx,y:(cy-br.top)*sy};
+  }
+  // Move the whole selection
+  sel.onmousedown=function(e){
+    if(e.target.dataset.h)return;// handle drag
+    e.preventDefault();
+    const startX=e.clientX,startY=e.clientY;
+    const startR={..._iedCropRect};
+    function onMove(e){
+      const br=getCanvasRect();
+      const sx=canvas.width/br.width,sy=canvas.height/br.height;
+      const dx=(e.clientX-startX)*sx,dy=(e.clientY-startY)*sy;
+      _iedCropRect.x=clamp(startR.x+dx,0,canvas.width-startR.w);
+      _iedCropRect.y=clamp(startR.y+dy,0,canvas.height-startR.h);
+      _iedDrawCropRect(_iedCropRect);
+    }
+    function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
+    document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  };
+  // Corner handles
+  sel.querySelectorAll('.ied-handle').forEach(handle=>{
+    handle.onmousedown=function(e){
+      e.stopPropagation();e.preventDefault();
+      const pos=handle.dataset.h;
+      const startX=e.clientX,startY=e.clientY;
+      const startR={..._iedCropRect};
+      const br=getCanvasRect();
+      const sx=canvas.width/br.width,sy=canvas.height/br.height;
+      function onMove(e){
+        const dx=(e.clientX-startX)*sx,dy=(e.clientY-startY)*sy;
+        const r={..._iedCropRect};
+        if(pos==='tl'){r.x=clamp(startR.x+dx,0,startR.x+startR.w-20);r.y=clamp(startR.y+dy,0,startR.y+startR.h-20);r.w=startR.w-(r.x-startR.x);r.h=startR.h-(r.y-startR.y);}
+        else if(pos==='tr'){r.w=clamp(startR.w+dx,20,canvas.width-startR.x);r.y=clamp(startR.y+dy,0,startR.y+startR.h-20);r.h=startR.h-(r.y-startR.y);}
+        else if(pos==='bl'){r.x=clamp(startR.x+dx,0,startR.x+startR.w-20);r.w=startR.w-(r.x-startR.x);r.h=clamp(startR.h+dy,20,canvas.height-startR.y);}
+        else if(pos==='br'){r.w=clamp(startR.w+dx,20,canvas.width-startR.x);r.h=clamp(startR.h+dy,20,canvas.height-startR.y);}
+        Object.assign(_iedCropRect,r);_iedDrawCropRect(_iedCropRect);
+      }
+      function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
+      document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+    };
+  });
+}
+function imgEdApplyCrop(){
+  if(!_iedCropRect||!_iedOffscreen)return;
+  // Get current full rendered canvas (with rotation applied)
+  const src=document.getElementById('ied-canvas');
+  const r=_iedCropRect;
+  const tmp=document.createElement('canvas');tmp.width=Math.round(r.w);tmp.height=Math.round(r.h);
+  tmp.getContext('2d').drawImage(src,Math.round(r.x),Math.round(r.y),Math.round(r.w),Math.round(r.h),0,0,Math.round(r.w),Math.round(r.h));
+  _iedOffscreen=tmp;_iedRotation=0;_iedAspect=tmp.width/tmp.height;_iedCropRect=null;
+  document.getElementById('ied-crop-mode').checked=false;
+  document.getElementById('ied-crop-sel').style.display='none';
+  document.getElementById('ied-crop-apply').style.display='none';
+  _iedRenderCanvas();toast('Crop applied','success');
+}
+async function imgEdSaveAsCopy(){
+  if(!_iedOffscreen){toast('No image loaded','error');return;}
+  // Apply any pending rotation to get final canvas
+  const finalCanvas=document.getElementById('ied-canvas');
+  const mimeType=(_iedItem?.mimeType||'image/jpeg').replace('image/jpg','image/jpeg');
+  const quality=['image/jpeg','image/webp'].includes(mimeType)?0.92:undefined;
+  const baseName=(_iedItem?.name||'image').replace(/\.[^.]+$/,'');
+  const ext=mimeType==='image/png'?'png':mimeType==='image/webp'?'webp':'jpg';
+  const fileName=`${baseName}-edited.${ext}`;
+  finalCanvas.toBlob(async(blob)=>{
+    if(!blob){toast('Could not generate image','error');return;}
+    const scope=document.getElementById('media-upload-scope')?.value||'form';
+    const folder=document.getElementById('media-upload-folder')?.value||'';
+    const fd=new FormData();fd.append('images',blob,fileName);
+    fd.append('shared',scope==='shared'?'1':'0');fd.append('folder',folder);
+    try{
+      const j=await adminFetch(`/api/admin/forms/${currentFormSlug}/upload-multi`,{method:'POST',body:fd}).then(r=>r.json());
+      if(j.results?.[0]?.ok){
+        closeImgEditor();await loadMediaLibrary();
+        const newest=_mediaItems.find(i=>i.name===fileName)||_mediaItems[0];
+        if(newest)selectMediaItem(newest.id);
+        toast('Saved as copy: '+fileName,'success');
+      }else{toast('Save failed','error');}
+    }catch(e){toast('Upload error: '+e.message,'error');}
+  },mimeType,quality);
+}
+
 // Helper: apply picker-selected URL to the container item image editor
 function _pickItemImg(url){
   const it=document.getElementById('ie-img-url');if(it)it.value=url;
@@ -4897,12 +5434,37 @@ function renderFieldList(){
       item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');dropField(e.dataTransfer.getData('text/plain'),f.id);});
       list.appendChild(item);
     });
+    // Non-draggable Submit button row
+    const submitRow=document.createElement('div');
+    submitRow.className='fi';submitRow.style.cssText='opacity:.75;margin-top:4px;border-top:1px dashed var(--border2);padding-top:6px;cursor:default';
+    submitRow.innerHTML=`
+      <span class="material-icons-round" style="color:var(--ink3);font-size:18px;flex-shrink:0">send</span>
+      <div class="fi-info">
+        <div class="fi-label">Submit button</div>
+        <div class="fi-meta">label · colours · disclaimer</div>
+      </div>
+      <div class="fi-acts">
+        <button class="ibtn" onclick="openSubmitBtnEdit()" title="Edit submit button"><span class="material-icons-round mi">edit</span></button>
+      </div>`;
+    list.appendChild(submitRow);
   });
 }
 function dropField(dragId,targetId){
   const di=cfg.fields.findIndex(f=>f.id===dragId),ti=cfg.fields.findIndex(f=>f.id===targetId);
   if(di===-1||ti===-1)return;const[item]=cfg.fields.splice(di,1);cfg.fields.splice(ti,0,item);
   renderFieldList();schedulePreview();
+}
+
+// Open submit button editor — switches to Build tab, expands & scrolls to form block
+function openSubmitBtnEdit(){
+  // Switch to Build tab + Fields sub-view (where field list lives)
+  switchTab('build');
+  // Expand the form block card and scroll to it
+  const card=document.getElementById('bk-form');
+  if(card){
+    if(!card.classList.contains('open')){card.classList.add('open');_bkOpenMap['form']=true;}
+    setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),80);
+  }
 }
 
 // ── Field modal ──
@@ -5558,7 +6120,7 @@ async function loadSubscribers(page){
   subPage=page||1;
   const status=document.getElementById('sub-status-filter').value;
   const base=`/api/admin/forms/${currentFormSlug}/subscribers`;
-  const j=await fetch(`${base}?page=${subPage}&search=${encodeURIComponent(subSearch)}&status=${status}`).then(r=>r.json());
+  const j=await fetch(`${base}?page=${subPage}&search=${encodeURIComponent(subSearch)}&status=${status}&sort=${subSort}&dir=${subSortDir}`).then(r=>r.json());
   const all=await fetch(`${base}?limit=9999`).then(r=>r.json());
   document.getElementById('stat-total').textContent=all.total;
   document.getElementById('stat-active').textContent=all.subscribers.filter(s=>s.status==='active').length;
@@ -5568,7 +6130,22 @@ async function loadSubscribers(page){
   const clearBtn=document.getElementById('clear-exports-btn');
   if(clearBtn)clearBtn.style.display=hasExported?'':'none';
   const thead=document.getElementById('sub-thead');thead.innerHTML='';
-  ['Email','Status','Exported','Subscribed',...(cfg.fields||[]).filter(f=>!f.system).map(f=>f.label),''].forEach(h=>{const th=document.createElement('th');th.textContent=h;thead.appendChild(th);});
+  const SUB_SORT_COLS={Email:'email',Status:'status',Subscribed:'subscribed_at'};
+  ['Email','Status','Exported','Subscribed',...(cfg.fields||[]).filter(f=>!f.system).map(f=>f.label),''].forEach(h=>{
+    const th=document.createElement('th');
+    const col=SUB_SORT_COLS[h];
+    if(col){
+      const isActive=subSort===col;
+      const nextDir=isActive&&subSortDir==='asc'?'desc':'asc';
+      th.style.cssText='cursor:pointer;user-select:none;white-space:nowrap';
+      th.title='Sort by '+h;
+      th.innerHTML=`<span style="display:inline-flex;align-items:center;gap:2px">${h}<span class="material-icons-round" style="font-size:13px;color:${isActive?'var(--accent)':'var(--ink3)'}">${isActive?(subSortDir==='asc'?'arrow_upward':'arrow_downward'):'unfold_more'}</span></span>`;
+      th.onclick=()=>{subSort=col;subSortDir=nextDir;loadSubscribers(1);};
+    }else{
+      th.textContent=h;
+    }
+    thead.appendChild(th);
+  });
   const tbody=document.getElementById('sub-tbody');tbody.innerHTML='';
   j.subscribers.forEach(s=>{
     const tr=document.createElement('tr');
