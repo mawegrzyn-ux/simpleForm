@@ -573,6 +573,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   <nav class="t-nav">
     <button class="t-tab active" id="tab-forms-btn" onclick="switchTab('forms',this)">Forms<span id="t-form-name-chip" class="t-form-chip" style="display:none"></span></button>
     <button class="t-tab" onclick="switchTab('design',this)">Branding</button>
+    <button class="t-tab" onclick="openMediaPicker('manage')"><span class="material-icons-round mi" style="font-size:15px;vertical-align:-3px">perm_media</span> Media</button>
   </nav>
   <div class="t-spacer"></div>
   <div class="t-actions">
@@ -610,7 +611,6 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
   <button class="f-tab" onclick="switchTab('pfsettings',this)">
     <span class="material-icons-round mi">settings</span> Settings
   </button>
-  <button class="f-tab" onclick="openMediaPicker('manage')" id="subnav-media-btn">Media</button>
   <div class="f-nav-tpl-wrap" id="f-nav-tpl-wrap" style="display:none">
     <span class="f-nav-label" style="font-size:0.73rem;color:var(--ink3)">Branding:</span>
     <select id="f-nav-tpl-sel" class="f-nav-tpl-sel" onchange="setDesignTemplateId(this.value)" title="Active branding"></select>
@@ -1914,7 +1914,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
     <div class="table-wrap">
       <div class="table-bar">
-        <input type="text" placeholder="Search by email…" oninput="debounceSearch(this.value)">
+        <input type="text" placeholder="Search email, status, IP, fields…" oninput="debounceSearch(this.value)">
         <select id="sub-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadSubscribers(1)">
           <option value="all">All statuses</option><option value="active">Active</option><option value="unsubscribed">Unsubscribed</option>
         </select>
@@ -2007,7 +2007,10 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">privacy_tip</span> Privacy Page</div>
-      <div class="wysi-preview" id="privacy-preview" onclick="openPrivacyWysiwyg()" style="min-height:48px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit privacy page content…</span></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="privacy-status" style="font-size:0.78rem;color:var(--ink3)">No content set</span>
+        <button class="tbtn tbtn-ghost" onclick="openPrivacyWysiwyg()"><span class="material-icons-round mi" style="font-size:15px">edit</span> Edit privacy page</button>
+      </div>
     </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">smart_toy</span> hCaptcha</div>
@@ -2028,15 +2031,6 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <input type="text" id="pf-ga4-id" placeholder="G-XXXXXXXXXX" oninput="cfg.site.ga4MeasurementId=this.value.trim()"></div>
       <div class="cg"><label class="cl">Meta Pixel ID</label>
         <input type="text" id="pf-pixel-id" placeholder="1234567890123" oninput="cfg.site.metaPixelId=this.value.trim()"></div>
-    </div>
-    <div class="card" style="padding:16px">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">mail</span> Welcome Email</div>
-      <p class="card-desc" style="font-size:0.78rem;margin-bottom:0">Configure in the <a href="#" onclick="switchTab('email',null);return false" style="color:var(--accent)">Email tab</a>.</p>
-    </div>
-    <div class="card" style="padding:16px">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">unsubscribe</span> Unsubscribe / Preferences Page</div>
-      <p class="card-desc" style="font-size:0.78rem">Text shown at the top of the preferences page (where subscribers manage or cancel their subscription).</p>
-      <div class="wysi-preview" id="unsub-page-preview" onclick="openUnsubPageWysiwyg()" style="min-height:42px"><span style="color:var(--ink3);font-size:0.75rem">Click to edit preferences page text…</span></div>
     </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:8px"><span class="material-icons-round mi">rule</span> Submission deduplication</div>
@@ -3108,6 +3102,21 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <div style="width:1px;height:22px;background:var(--border);margin:0 4px"></div>
       <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.78rem"><input type="checkbox" id="ied-crop-mode" onchange="imgEdToggleCrop(this.checked)"> Crop mode</label>
       <button id="ied-crop-apply" class="tbtn tbtn-ghost" onclick="imgEdApplyCrop()" style="display:none;padding:3px 8px;font-size:0.75rem">Apply crop</button>
+      <div style="width:1px;height:22px;background:var(--border);margin:0 4px"></div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:0.78rem">
+        <span>Format:</span>
+        <select id="ied-fmt" onchange="imgEdFmtChange()" style="font-size:0.78rem;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg)">
+          <option value="">Original</option>
+          <option value="image/jpeg">JPEG</option>
+          <option value="image/webp">WebP</option>
+          <option value="image/png">PNG</option>
+        </select>
+        <span id="ied-qual-wrap" style="display:inline-flex;align-items:center;gap:4px">
+          <span>Quality:</span>
+          <input type="range" id="ied-qual-range" min="40" max="100" value="92" step="1" style="width:70px;cursor:pointer" oninput="document.getElementById('ied-qual-val').textContent=this.value+'%'">
+          <span id="ied-qual-val" style="min-width:32px;font-variant-numeric:tabular-nums">92%</span>
+        </span>
+      </div>
     </div>
     <!-- Canvas area -->
     <div id="ied-canvas-wrap" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg);min-height:0">
@@ -3315,8 +3324,8 @@ function populateControls(){
   const btnBwR=document.getElementById('c-btn-border-w-range');if(btnBwR)btnBwR.value=btnBw;
   const btnBwP=document.getElementById('c-btn-border-w-px');if(btnBwP)btnBwP.value=btnBw;
   // Privacy content
-  const privPrev=document.getElementById('privacy-preview');
-  if(privPrev&&cfg.site.privacyContent)privPrev.innerHTML=cfg.site.privacyContent;
+  const privStatus=document.getElementById('privacy-status');
+  if(privStatus)privStatus.textContent=cfg.site.privacyContent?'Content saved ✓':'No content set';
   // Brand colours
   renderBrandColorList();
   const ce=document.getElementById('captcha-enabled');if(ce)ce.checked=!!cfg.site.captchaEnabled;
@@ -3712,6 +3721,12 @@ function _iedRenderCanvas(){
   document.getElementById('ied-w').value=canvas.width;
   document.getElementById('ied-h').value=canvas.height;
 }
+function imgEdFmtChange(){
+  const fmt=document.getElementById('ied-fmt')?.value||'';
+  const mime=fmt||(_iedItem?.mimeType||'image/jpeg');
+  const hasQuality=['image/jpeg','image/webp'].includes(mime.replace('image/jpg','image/jpeg'));
+  const qw=document.getElementById('ied-qual-wrap');if(qw)qw.style.display=hasQuality?'inline-flex':'none';
+}
 function imgEdRotate(deg){
   _iedRotation=(_iedRotation+deg+360)%360;
   _iedAspect=(_iedRotation/90)%2!==0?(1/_iedAspect):_iedAspect;
@@ -3837,8 +3852,10 @@ async function imgEdSaveAsCopy(){
   if(!_iedOffscreen){toast('No image loaded','error');return;}
   // Apply any pending rotation to get final canvas
   const finalCanvas=document.getElementById('ied-canvas');
-  const mimeType=(_iedItem?.mimeType||'image/jpeg').replace('image/jpg','image/jpeg');
-  const quality=['image/jpeg','image/webp'].includes(mimeType)?0.92:undefined;
+  const fmtOverride=document.getElementById('ied-fmt')?.value||'';
+  const mimeType=(fmtOverride||(_iedItem?.mimeType||'image/jpeg')).replace('image/jpg','image/jpeg');
+  const qualPct=parseInt(document.getElementById('ied-qual-range')?.value||92);
+  const quality=['image/jpeg','image/webp'].includes(mimeType)?qualPct/100:undefined;
   const baseName=(_iedItem?.name||'image').replace(/\.[^.]+$/,'');
   const ext=mimeType==='image/png'?'png':mimeType==='image/webp'?'webp':'jpg';
   const fileName=`${baseName}-edited.${ext}`;
@@ -5290,8 +5307,8 @@ function openFormErrorWysiwyg(){
 function openPrivacyWysiwyg(){
   openWysiwygModal(cfg.site.privacyContent||'','Privacy page content',html=>{
     cfg.site.privacyContent=html;
-    const pp=document.getElementById('privacy-preview');
-    if(pp)pp.innerHTML=html||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit privacy page content…</span>';
+    const ps=document.getElementById('privacy-status');
+    if(ps)ps.textContent=html?'Content saved ✓':'No content set';
   });
 }
 // ── User Notes (Help tab — per-form custom sections) ──────────────────────

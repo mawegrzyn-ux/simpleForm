@@ -1118,7 +1118,7 @@ app.get('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
     const vals = [slug];
     if (status !== 'all') { conditions.push(`status=$${vals.length+1}`); vals.push(status); }
     if (search) {
-      conditions.push(`(email ILIKE $${vals.length+1} OR custom_fields::text ILIKE $${vals.length+1})`);
+      conditions.push(`(email ILIKE $${vals.length+1} OR status ILIKE $${vals.length+1} OR ip_address ILIKE $${vals.length+1} OR custom_fields::text ILIKE $${vals.length+1})`);
       vals.push(`%${search}%`);
     }
     const where = conditions.join(' AND ');
