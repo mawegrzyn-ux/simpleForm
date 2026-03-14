@@ -494,23 +494,37 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 ::-webkit-scrollbar-thumb:hover{background:var(--ink3);}
-/* Forms list tab */
-.forms-list{display:flex;flex-direction:column;gap:8px;}
-.form-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;display:flex;align-items:center;gap:14px;transition:box-shadow 120ms;}
-.form-card:hover{box-shadow:var(--shadow-sm);}
+/* Forms list — two-panel layout */
+#tab-forms{flex-direction:row;overflow:hidden;}
+#forms-list-panel{width:380px;background:var(--panel);border-right:1px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;flex-direction:column;}
+#forms-list-panel-head{padding:16px 16px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#forms-list-panel-head h2{flex:1;font-size:1rem;font-weight:700;margin:0;}
+#forms-list-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;}
+#forms-preview-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#forms-prev-toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:5px;flex-shrink:0;}
+#forms-prev-frame-wrap{flex:1;overflow:auto;padding:24px;display:flex;justify-content:center;align-items:flex-start;background:var(--bg2);}
+#forms-preview-frame{border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff;transition:width .3s ease,height .3s ease;}
+#forms-preview-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:14px;color:var(--ink3);background:var(--bg2);}
+#forms-preview-placeholder .material-icons-round{font-size:52px;opacity:.2;}
+#forms-preview-placeholder p{font-size:0.85rem;margin:0;}
+.forms-list{display:flex;flex-direction:column;gap:7px;}
+.form-card{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rlg);padding:12px 13px;cursor:pointer;transition:box-shadow 120ms,border-color 120ms,background 120ms;}
+.form-card:hover{box-shadow:var(--shadow-sm);border-color:var(--border2);}
+.form-card.selected{border-color:var(--accent);background:var(--accent-bg);}
+.form-card-top{display:flex;align-items:flex-start;gap:8px;}
 .form-card-info{flex:1;min-width:0;}
-.form-card-name{font-weight:600;font-size:0.95rem;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.form-card-desc{font-size:0.8rem;color:var(--ink3);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.form-card-meta{display:flex;align-items:center;gap:8px;font-size:0.79rem;color:var(--ink3);}
-.slug-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-family:monospace;font-size:0.73rem;color:var(--ink2);}
-.size-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-size:0.73rem;color:var(--ink3);display:inline-flex;align-items:center;gap:2px;cursor:default;}
-.form-card-analytics{display:flex;align-items:center;gap:10px;font-size:0.76rem;color:var(--ink3);margin-top:4px;}
+.form-card-name{font-weight:600;font-size:0.88rem;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.form-card-desc{font-size:0.75rem;color:var(--ink3);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.form-card-meta{display:flex;align-items:center;flex-wrap:wrap;gap:5px;font-size:0.74rem;color:var(--ink3);}
+.slug-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-family:monospace;font-size:0.71rem;color:var(--ink2);}
+.size-pill{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;font-size:0.71rem;color:var(--ink3);display:inline-flex;align-items:center;gap:2px;cursor:default;}
+.form-card-analytics{display:flex;align-items:center;gap:10px;font-size:0.73rem;color:var(--ink3);margin-top:5px;padding-top:6px;border-top:1px solid var(--border);}
 .analytics-stat{display:inline-flex;align-items:center;gap:3px;}
 .analytics-stat .mi{font-size:13px;}
-.analytics-stat.visits{color:var(--ink2);}
+.analytics-stat.visits{color:#1565c0;}
 .analytics-stat.submits{color:#2e7d32;}
 .analytics-stat.errors{color:#b71c1c;}
-.form-card-acts{display:flex;gap:6px;flex-shrink:0;}
+.form-card-acts{display:flex;gap:4px;flex-shrink:0;}
 /* ── Media Picker ──────────────────────────────────────────────────────── */
 #media-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:2100;display:none;align-items:center;justify-content:center;}
 #media-picker-overlay.open{display:flex;}
@@ -663,15 +677,31 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 
 <!-- FORMS TAB -->
 <div id="tab-forms" class="page active">
-  <div class="page-body" style="max-width:720px">
-    <div class="page-head">
+  <!-- Left: form list -->
+  <div id="forms-list-panel">
+    <div id="forms-list-panel-head">
       <h2>Forms</h2>
-      <p>Each form has its own design, fields, subscribers and public URL.</p>
+      <button class="btn btn-primary btn-sm" onclick="openNewFormModal()"><span class="material-icons-round mi">add</span> New</button>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button class="btn btn-primary" onclick="openNewFormModal()"><span class="material-icons-round mi">add</span> New form</button>
+    <div id="forms-list-scroll">
+      <div id="forms-list" class="forms-list"></div>
     </div>
-    <div id="forms-list" class="forms-list"></div>
+  </div>
+  <!-- Right: live preview -->
+  <div id="forms-preview-panel">
+    <div id="forms-prev-toolbar">
+      <button class="psz active" onclick="setFormsPreviewSize('desktop',this)" title="Desktop"><span class="material-icons-round mi">desktop_mac</span> Desktop</button>
+      <button class="psz" onclick="setFormsPreviewSize('tablet',this)" title="Tablet"><span class="material-icons-round mi">tablet_mac</span> Tablet</button>
+      <button class="psz" onclick="setFormsPreviewSize('mobile',this)" title="Mobile"><span class="material-icons-round mi">smartphone</span> Mobile</button>
+      <span class="prev-lbl">Preview</span>
+    </div>
+    <div id="forms-prev-frame-wrap" style="display:none">
+      <iframe id="forms-preview-frame" src="about:blank" style="width:100%;height:700px"></iframe>
+    </div>
+    <div id="forms-preview-placeholder">
+      <span class="material-icons-round">dynamic_form</span>
+      <p>Select a form to preview</p>
+    </div>
   </div>
 </div>
 
@@ -3488,6 +3518,8 @@ async function loadFormsIndex(){
   if(r.status===401){window.location='/auth/login';return;}
   formsIndex=await r.json();
   renderFormsList();
+  // Auto-select first form for preview on initial load
+  if(formsIndex.length&&!_formsPreviewSlug)selectFormPreview(formsIndex[0].slug);
   loadDesignTemplates();
   loadSharedFonts();
   switchTab('forms');
@@ -3497,39 +3529,74 @@ function fmtBytes(b){if(b==null)return'—';if(b<1024)return b+'B';if(b<1024*102
 
 function fmtNum(n){if(!n&&n!==0)return'—';if(n>=1000000)return(n/1000000).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'k';return String(n);}
 
+let _formsPreviewSlug=null;
+let _formsPreviewSizeCls='desktop';
+
 function renderFormsList(){
   const el=document.getElementById('forms-list');if(!el)return;
-  if(!formsIndex.length){el.innerHTML='<p style="color:var(--ink3);font-size:0.875rem;text-align:center;padding:32px">No forms yet. Create your first form.</p>';return;}
+  if(!formsIndex.length){
+    el.innerHTML='<p style="color:var(--ink3);font-size:0.85rem;text-align:center;padding:40px 16px">No forms yet.<br>Click <strong>+ New</strong> to create your first form.</p>';
+    return;
+  }
   el.innerHTML=formsIndex.map(f=>{
     const a=f.analytics||{};
     const hasAnalytics=a.visits!=null||a.submits!=null;
     const totalPayload=(f.embedPageSize||0)+(f.embedJsSize||0)+(f.mediaSize||0);
     const hasPayload=f.embedPageSize!=null||f.embedJsSize!=null||f.mediaSize!=null;
     const payloadBreakdown=`Embed page: ${fmtBytes(f.embedPageSize)}\nEmbed JS:   ${fmtBytes(f.embedJsSize)}\nMedia:      ${fmtBytes(f.mediaSize)}`;
+    const isSelected=_formsPreviewSlug===f.slug;
     const analyticsRow=hasAnalytics?`
       <div class="form-card-analytics">
         <span class="analytics-stat visits" title="Page visits"><span class="material-icons-round mi">visibility</span> ${fmtNum(a.visits)}</span>
         <span class="analytics-stat submits" title="Successful signups"><span class="material-icons-round mi">how_to_reg</span> ${fmtNum(a.submits)}</span>
         ${(a.errors||0)>0?`<span class="analytics-stat errors" title="Submit errors"><span class="material-icons-round mi">error_outline</span> ${fmtNum(a.errors)}</span>`:''}
-        <button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:0.7rem;padding:1px 6px" onclick="resetAnalytics('${f.slug}')" title="Reset analytics counters">reset</button>
+        <button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:0.7rem;padding:1px 6px" onclick="event.stopPropagation();resetAnalytics('${f.slug}')" title="Reset analytics">reset</button>
       </div>`:'';
-    return`<div class="form-card">
-      <div class="form-card-info">
-        <div class="form-card-name">${escHtml(f.name)}</div>
-        ${f.description?`<div class="form-card-desc">${escHtml(f.description)}</div>`:''}
-        <div class="form-card-meta">
-          <span class="slug-pill">/${f.slug}</span>
-          <span>${f.subscriberCount!=null?f.subscriberCount+' subscriber'+(f.subscriberCount!==1?'s':''):'—'}</span>
-          ${hasPayload?`<span class="size-pill" title="${payloadBreakdown}"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">data_usage</span> ${fmtBytes(totalPayload)}</span>`:''}
+    return`<div class="form-card${isSelected?' selected':''}" onclick="selectFormPreview('${f.slug}')">
+      <div class="form-card-top">
+        <div class="form-card-info">
+          <div class="form-card-name">${escHtml(f.name)}</div>
+          ${f.description?`<div class="form-card-desc">${escHtml(f.description)}</div>`:''}
+          <div class="form-card-meta">
+            <span class="slug-pill">/${f.slug}</span>
+            ${f.subscriberCount!=null?`<span><span class="material-icons-round mi" style="font-size:11px;vertical-align:-2px">people</span> ${f.subscriberCount}</span>`:''}
+            ${hasPayload?`<span class="size-pill" title="${payloadBreakdown}"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">data_usage</span> ${fmtBytes(totalPayload)}</span>`:''}
+          </div>
         </div>
-        ${analyticsRow}
+        <div class="form-card-acts">
+          <button class="tbtn tbtn-ghost" style="padding:4px 8px;font-size:0.75rem;gap:3px" onclick="event.stopPropagation();openFormEditor('${f.slug}')" title="Open editor"><span class="material-icons-round mi" style="font-size:14px">edit</span> Edit</button>
+          <button class="tbtn" style="padding:4px 6px;color:var(--danger)" onclick="event.stopPropagation();deleteForm('${f.slug}','${escHtml(f.name)}')" title="Delete form"><span class="material-icons-round mi" style="font-size:14px">delete</span></button>
+        </div>
       </div>
-      <div class="form-card-acts">
-        <button class="btn btn-outline btn-sm" onclick="openFormEditor('${f.slug}')"><span class="material-icons-round mi">edit</span> Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteForm('${f.slug}','${escHtml(f.name)}')"><span class="material-icons-round mi">delete</span></button>
-      </div>
+      ${analyticsRow}
     </div>`;
   }).join('');
+}
+
+function selectFormPreview(slug){
+  _formsPreviewSlug=slug;
+  renderFormsList();
+  const wrap=document.getElementById('forms-prev-frame-wrap');
+  const placeholder=document.getElementById('forms-preview-placeholder');
+  const frame=document.getElementById('forms-preview-frame');
+  if(wrap)wrap.style.display='flex';
+  if(placeholder)placeholder.style.display='none';
+  if(frame)frame.src='/'+slug+'?_preview=1';
+  _applyFormsPreviewSize();
+}
+
+function setFormsPreviewSize(size,btn){
+  _formsPreviewSizeCls=size;
+  document.querySelectorAll('#forms-prev-toolbar .psz').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  _applyFormsPreviewSize();
+}
+
+function _applyFormsPreviewSize(){
+  const frame=document.getElementById('forms-preview-frame');if(!frame)return;
+  const sizes={desktop:{w:'100%',h:'700px'},tablet:{w:'768px',h:'700px'},mobile:{w:'390px',h:'700px'}};
+  const s=sizes[_formsPreviewSizeCls]||sizes.desktop;
+  frame.style.width=s.w;frame.style.height=s.h;
 }
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -6862,6 +6929,7 @@ function switchTab(tab,btn){
   // Hide form sub-nav when in Branding/Help/Forms — only show for form-specific tabs
   const fsn=document.getElementById('form-subnav');
   if(fsn&&currentFormSlug)fsn.style.display=(tab==='design'||tab==='help'||tab==='forms'||tab==='global-settings')?'none':'flex';
+  if(tab==='forms'&&_formsPreviewSlug){const wrap=document.getElementById('forms-prev-frame-wrap');const ph=document.getElementById('forms-preview-placeholder');if(wrap)wrap.style.display='flex';if(ph)ph.style.display='none';_applyFormsPreviewSize();}
   if(tab==='subscribers')loadSubscribers(1);
   if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
