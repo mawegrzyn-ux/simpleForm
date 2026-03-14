@@ -7243,9 +7243,9 @@ function _injectHelpPrintBtns(containerSel){
     btn.className='help-print-btn';btn.title='Print this section';
     btn.setAttribute('onclick','printHelpSection(this,event)');
     btn.innerHTML='<span class="material-icons-round">print</span>';
-    // Insert after the chevron so it sits at the far right alongside it
+    // Insert before the chevron so arrow stays pinned at far-right and never shifts
     const chevron=head.querySelector('.help-chevron');
-    if(chevron)chevron.after(btn);else head.appendChild(btn);
+    if(chevron)chevron.before(btn);else head.appendChild(btn);
   });
 }
 
