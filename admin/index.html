@@ -3287,7 +3287,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
     </div>
     <div id="media-picker-foot">
-      <button class="tbtn tbtn-ghost" onclick="closeMediaPicker()">Cancel</button>
+      <button class="tbtn tbtn-ghost" onclick="closeMediaPicker()">Close</button>
       <button class="tbtn tbtn-primary" id="media-insert-btn" onclick="insertSelectedMedia()" disabled>
         <span class="material-icons-round mi">check</span> Insert selected
       </button>
@@ -3745,9 +3745,17 @@ async function loadMediaLibrary(){
 }
 function _populateFormFilter(){
   const sel=document.getElementById('media-form-filter');if(!sel)return;
-  // Collect unique form slugs from items that have a formSlug (non-shared)
   const slugs=[...new Set(_mediaItems.filter(i=>i.formSlug).map(i=>i.formSlug))].sort();
-  sel.innerHTML='<option value="">All forms</option>'+slugs.map(s=>`<option value="${escHtml(s)}"${s===_mediaFormFilter?' selected':''}>${escHtml(s)}</option>`).join('');
+  // Compute orphaned: formSlug set but that form no longer exists in the known forms list
+  const knownSlugs=new Set((formsIndex||[]).map(f=>f.slug));
+  const orphanedSlugs=knownSlugs.size?slugs.filter(s=>!knownSlugs.has(s)):[];
+  const hasNoForm=_mediaItems.some(i=>!i.formSlug);
+  let html='<option value="">All forms</option>';
+  if(hasNoForm)html+=`<option value="__noform__"${_mediaFormFilter==='__noform__'?' selected':''}>— No form assigned</option>`;
+  if(orphanedSlugs.length)html+=`<option value="__orphaned__"${_mediaFormFilter==='__orphaned__'?' selected':''}>⚠ Orphaned (form deleted)</option>`;
+  if(slugs.length&&(hasNoForm||orphanedSlugs.length))html+='<option disabled>──────────</option>';
+  html+=slugs.map(s=>`<option value="${escHtml(s)}"${s===_mediaFormFilter?' selected':''}>${escHtml(s)}</option>`).join('');
+  sel.innerHTML=html;
 }
 function setMediaFormFilter(slug){
   _mediaFormFilter=slug;_applyMediaFilter();
@@ -3786,7 +3794,9 @@ function _applyMediaFilter(){
   let items=_mediaItems;
   if(_mediaScope==='folder')items=items.filter(i=>(i.folder||'')===_mediaFolder);
   else if(_mediaScope==='nofolder')items=items.filter(i=>!(i.folder||''));
-  if(_mediaFormFilter)items=items.filter(i=>i.formSlug===_mediaFormFilter);
+  if(_mediaFormFilter==='__noform__')items=items.filter(i=>!i.formSlug);
+  else if(_mediaFormFilter==='__orphaned__'){const known=new Set((formsIndex||[]).map(f=>f.slug));items=items.filter(i=>i.formSlug&&(!known.size||!known.has(i.formSlug)));}
+  else if(_mediaFormFilter)items=items.filter(i=>i.formSlug===_mediaFormFilter);
   if(q)items=items.filter(i=>(i.name||'').toLowerCase().includes(q));
   _mediaFiltered=[...items];
   renderMediaGrid(_mediaFiltered);
@@ -3835,11 +3845,6 @@ function renderMediaGrid(items){
 }
 function renderMediaList(items,grid){
   grid.className='media-list-view';
-  const cols=[
-    {key:'name',label:'File name'},
-    {key:'size',label:'Size'},
-    {key:'uploadedAt',label:'Uploaded'},
-  ];
   const sortArrow=k=>{
     if(_mediaListSort!==k)return '<span class="material-icons-round" style="font-size:13px;opacity:.3;vertical-align:middle">unfold_more</span>';
     return `<span class="material-icons-round" style="font-size:13px;vertical-align:middle">${_mediaListSortDir==='asc'?'arrow_upward':'arrow_downward'}</span>`;
@@ -3848,26 +3853,31 @@ function renderMediaList(items,grid){
     let va,vb;
     if(_mediaListSort==='size'){va=a.size||0;vb=b.size||0;}
     else if(_mediaListSort==='uploadedAt'){va=a.uploadedAt||'';vb=b.uploadedAt||'';}
+    else if(_mediaListSort==='folder'){va=(a.folder||'').toLowerCase();vb=(b.folder||'').toLowerCase();}
     else{va=(a.name||'').toLowerCase();vb=(b.name||'').toLowerCase();}
     if(va<vb)return _mediaListSortDir==='asc'?-1:1;
     if(va>vb)return _mediaListSortDir==='asc'?1:-1;
     return 0;
   });
+  const allSel=items.length>0&&items.every(i=>_mediaMultiSel.has(i.id));
   grid.innerHTML=`<table class="ml-table">
     <thead><tr>
-      <th style="width:36px"></th>
+      <th style="width:36px;text-align:center"><span class="material-icons-round ml-check" onclick="toggleSelectAllMedia(event)" title="${allSel?'Deselect all':'Select all'}" style="font-size:18px;cursor:pointer;display:block;text-align:center;opacity:.7">${allSel?'check_box':'check_box_outline_blank'}</span></th>
       <th onclick="sortMediaList('name')" style="cursor:pointer">File name ${sortArrow('name')}</th>
+      <th onclick="sortMediaList('folder')" style="cursor:pointer;width:100px">Category ${sortArrow('folder')}</th>
       <th onclick="sortMediaList('size')" style="cursor:pointer;width:70px">Size ${sortArrow('size')}</th>
       <th onclick="sortMediaList('uploadedAt')" style="cursor:pointer;width:90px">Uploaded ${sortArrow('uploadedAt')}</th>
     </tr></thead>
     <tbody>${sorted.map(item=>{
       const sel=_mediaMultiSel.has(item.id);
       const nm=(item.name||item.url.split('/').pop()).replace(/</g,'&lt;');
+      const cat=item.folder?item.folder.replace(/</g,'&lt;'):'<span style="color:var(--ink3)">—</span>';
       const sz=item.size?fmtBytes(item.size):'—';
       const d=item.uploadedAt?new Date(item.uploadedAt).toLocaleDateString():'—';
       return `<tr class="ml-row${sel?' selected':''}" data-id="${item.id}" onclick="clickMediaItem('${item.id}')">
-        <td><span class="material-icons-round ml-check" onclick="toggleMediaItemCheck('${item.id}',event)">${sel?'check_box':'check_box_outline_blank'}</span></td>
+        <td style="text-align:center"><span class="material-icons-round ml-check" onclick="toggleMediaItemCheck('${item.id}',event)">${sel?'check_box':'check_box_outline_blank'}</span></td>
         <td style="display:flex;align-items:center;gap:7px"><img src="${item.url}" style="width:28px;height:28px;object-fit:cover;border-radius:3px;flex-shrink:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</span></td>
+        <td style="color:var(--ink3);font-size:0.8rem">${cat}</td>
         <td style="color:var(--ink3)">${sz}</td>
         <td style="color:var(--ink3)">${d}</td>
       </tr>`;
@@ -3878,6 +3888,20 @@ function sortMediaList(col){
   if(_mediaListSort===col)_mediaListSortDir=_mediaListSortDir==='asc'?'desc':'asc';
   else{_mediaListSort=col;_mediaListSortDir='asc';}
   renderMediaGrid(_mediaFiltered);
+}
+function toggleSelectAllMedia(e){
+  if(e)e.stopPropagation();
+  const items=_mediaFiltered;if(!items.length)return;
+  const allSel=items.every(i=>_mediaMultiSel.has(i.id));
+  if(allSel){
+    items.forEach(i=>_mediaMultiSel.delete(i.id));
+    _mediaMultiMode=false;_mediaSelected=null;
+  }else{
+    items.forEach(i=>_mediaMultiSel.add(i.id));
+    _mediaMultiMode=items.length>1;
+    _mediaSelected=items.length===1?items[0]:null;
+  }
+  _syncMediaSelUI();
 }
 // Click on item body — single-select unless _mediaMultiMode is active
 function clickMediaItem(id){
@@ -3968,7 +3992,7 @@ function _updateBulkBar(){
     const acts=document.getElementById('media-detail-actions');if(acts)acts.style.display='none';
     document.getElementById('media-detail-none').style.display='none';
     if(multi){multi.style.display='flex';}
-    if(cnt){const s=cnt.querySelector('span');if(s)s.textContent=`${_mediaMultiSel.size} selected`;}
+    if(cnt){const s=cnt.querySelector('span');if(s)s.textContent=`${_mediaMultiSel.size} selected (click to deselect)`;}
     if(ins)ins.disabled=true;
   }else{
     if(multi)multi.style.display='none';
