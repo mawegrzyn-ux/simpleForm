@@ -2568,9 +2568,8 @@ function renderFormField(f, cfg) {
     <input type="email" id="sf_${f.id}" name="${f.id}" placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="email" maxlength="254" ${f.required ? 'required' : ''}></div>`;
   }
 
-  // ── prizedraw — renders in confirmation container at the position the admin placed it;
-  //    CSS (#sf-form .sf-prizedraw) hides it inside the main form ──
-  if (f.type === 'prizedraw') return renderPrizeDrawWidget(f, cfg);
+  // ── prizedraw — rendered by renderCntItem when in a confirmation container ──
+  if (f.type === 'prizedraw') return '';
 
   // ── default (text, number, textarea handled above, etc.) ──
   return `<div class="sf-field"${condAttr}>
@@ -2582,8 +2581,6 @@ function renderFormField(f, cfg) {
 // ── Slider + picker CSS (injected into page <style>) ─────────────────────────
 function sliderPickerCSS(accent) {
   return `
-  /* Prize draw — hidden inside the main form, visible in confirmation */
-  #sf-form .sf-prizedraw{display:none!important;}
   /* Picker (year / yearmonth / yearmonthday) */
   .sf-field--picker .sf-picker-wrap{position:relative;height:var(--sf-picker-h,120px);overflow:hidden;border:2px solid #e0e0e0;border-radius:8px;background:#fafafa;user-select:none;}
   .sf-picker-dual,.sf-picker-triple{display:flex;}
@@ -2965,7 +2962,7 @@ function renderBlockElement(el, cfg) {
 }
 
 // ── Section block renderer (renders any section type) ────────────────────────
-function renderSectionBlock(section, cfg, formSection, formFields) {
+function renderSectionBlock(section, cfg, formSection, formFields, opts = {}) {
   if (section.visible === false) return '';
   const d = cfg.design;
   const s = cfg.site;
@@ -3138,6 +3135,11 @@ function renderSectionBlock(section, cfg, formSection, formFields) {
       if (item.type === 'field') {
         const f = (cfg.fields||[]).find(fd => fd.id === item.fieldId);
         if (!f) return '';
+        // prizedraw widget has its own canvas+script — only render in confirmation context
+        // to avoid duplicate canvas IDs (main form also iterates cfg.fields)
+        if (f.type === 'prizedraw') {
+          return opts.confirmationCtx ? renderPrizeDrawWidget(f, cfg) : '';
+        }
         const st = item.style || {};
         const vars = [
           st.labelColor ? `--sf-lbl:${st.labelColor}` : '',
@@ -3301,7 +3303,7 @@ function renderPublicPage(cfg, sharedFonts = [], templates = []) {
     ? `background: linear-gradient(rgba(${overlayRgb},${d.backgroundOverlay}),rgba(${overlayRgb},${d.backgroundOverlay})), url('${d.backgroundImage}') center/cover no-repeat fixed; color: #fff;`
     : `background: ${d.backgroundColor};`;
 
-  const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '')).join('\n  ');
+  const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '', {confirmationCtx: true})).join('\n  ');
   // Find prizedraw fields already placed inside a confirmation container so we don't double-render them
   const _pdPlaced = new Set();
   (cfg.confirmation || []).forEach(sec => {
@@ -3938,7 +3940,7 @@ function renderEmbedPage(cfg, sharedFonts = [], templates = []) {
   const formSection = cfg.sections.find(sec => sec.id === 'form');
 
   const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
-  const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '')).join('\n  ');
+  const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '', {confirmationCtx: true})).join('\n  ');
   const _pdPlaced = new Set();
   (cfg.confirmation || []).forEach(sec => {
     if (sec.type === 'container') (sec.items || []).forEach(it => { if (it.type === 'field') _pdPlaced.add(it.fieldId); });
