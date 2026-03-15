@@ -1350,7 +1350,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <p>Every form can be embedded on any external website via a single script tag, or accessed as a standalone page. Subscriber lists are exportable at any time as CSV or JSON — the data is always retrievable in full, with no export fees or gating. The platform is built to grow alongside the business: new field types, integrations, and audience segments can be added without structural changes to the system.</p>
 
         <h3>3. Security</h3>
-        <p>Security is built in at every layer, not retrofitted. Admin access requires authentication through Auth0 (an industry-standard identity provider) with role-based access control — only credentialed administrators can reach the admin panel. All state-changing admin actions are protected against cross-site request forgery (CSRF), all user-submitted content is sanitised before storage or display, and rate limiting is applied per form and per IP to prevent abuse of the public signup endpoints.</p>
+        <p>Security is built in at every layer, not retrofitted. Admin access requires authentication through Auth0 (an industry-standard identity provider) — only credentialed administrators can reach the admin panel. Inside the panel, a full <strong>RBAC + Markets</strong> system controls what each admin can see and do: the platform owner is a super-admin with unrestricted access; other users are assigned to one or more Markets (geographic or regional groupings) with per-market roles of Admin, Editor, or Viewer. All state-changing admin actions are protected against cross-site request forgery (CSRF), all user-submitted content is sanitised before storage or display, and rate limiting is applied per form and per IP to prevent abuse of the public signup endpoints. Every significant admin action is recorded in an immutable audit log.</p>
         <p>Subscriber data is stored in a private, encrypted PostgreSQL database on AWS — not in shared cloud services or accessible flat files. Media uploads go directly to a private Amazon S3 bucket. No subscriber data is shared with advertising networks, analytics platforms, or any third party beyond the transactional email provider configured by WingVibes.</p>
 
         <h3>4. Enterprise-Grade Architecture</h3>
@@ -1362,8 +1362,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <p>On the data side, the primary risk is a breach of the subscriber database. Mitigations include encrypted storage at rest (Lightsail managed DB default), private network access only (no public database endpoint), strong session secrets, strict input validation on all subscriber-facing routes, and Content Security Policy headers that block injection of unauthorised scripts. GDPR compliance obligations — right to erasure, consent audit logging, data export, and a three-category cookie consent manager with script blocking — are fully implemented in the current codebase.</p>
 
         <h3>6. Roadmap</h3>
-        <p>The initial build phase is now complete. The platform has a fully functional multi-form builder with a wide variety of field types (icon/tile selector, drum date pickers, sliders, spin wheel), a rich media library with categories, multi-select, bulk operations and a client-side image editor, a redesigned unsubscribe/preference flow, sortable subscriber tables, a GDPR-compliant cookie consent manager, and GA4 + Meta Pixel integration. Security hardening (CSRF, sanitize-html, Joi validation, per-slug rate limiting, embed domain allowlist) is complete.</p>
-        <p>Near-term priorities are adding CAPTCHA to the public signup route and automated dependency vulnerability scanning. Medium-term, the platform will gain webhook and API integrations — enabling subscriber data to flow automatically into email service providers (Mailchimp, Klaviyo) or CRM platforms (HubSpot) without manual exports. Longer term the roadmap includes a full REST API, multi-user admin access with role-based permissions, double opt-in confirmation flows, and configurable data retention policies — all extending the current architecture, not replacing it.</p>
+        <p>Phases 0–3 of the enterprise roadmap are substantially complete. The platform has a fully functional multi-form builder with a wide field-type library (icon/tile selector, drum date pickers, sliders, spin wheel), a rich media library with categories, multi-select, bulk operations and a client-side image editor, a redesigned unsubscribe/preference flow, sortable subscriber tables with double opt-in support, email open and click tracking, a GDPR-compliant cookie consent manager, GA4 + Meta Pixel integration, and a comprehensive RBAC + Markets access control system with a full audit log. Security hardening (CSRF, XSS sanitisation, Joi validation, per-slug rate limiting, embed domain allowlist, 5-layer anti-bot, optional hCaptcha) is complete. Platform Settings are organised into tabbed sections: Security, Markets, Users, and Logs.</p>
+        <p>Active priorities include REST API / webhook integrations to push subscriber data into email platforms (Mailchimp, Klaviyo) and CRMs (HubSpot), and scoped API keys for machine-to-machine access. Longer-term the roadmap covers configurable data retention policies, IAB TCF 2.2 consent compliance, A/B testing, edge rendering, and an E2E test suite — all extending the current architecture, not replacing it.</p>
 
         <h3>7. GDPR &amp; Data Protection</h3>
         <p>SignFlow is built with data protection as a first-class requirement. Every subscriber signup captures a consent timestamp and IP address as a permanent audit record — evidence that consent was freely given at a specific moment in time. Each subscriber receives a unique, private token granting them direct self-service access to update their preferences, unsubscribe from individual newsletters, or request complete deletion of their data — with no need to contact WingVibes directly. All deletion requests result in a hard, permanent removal from the database, satisfying the right to erasure under UK and EU GDPR.</p>
@@ -1689,10 +1689,10 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <table class="help-table">
           <tr><th>Method + Path</th><th>Description</th></tr>
           <tr><td><code>GET /api/admin/csrf-token</code></td><td>Returns CSRF token for current session; lazy-creates if missing</td></tr>
-          <tr><td><code>GET /api/admin/forms</code></td><td>List all forms (slug, name, subscriber count, analytics, sizes)</td></tr>
-          <tr><td><code>POST /api/admin/forms</code></td><td>Create new form (Joi-validated name + slug)</td></tr>
-          <tr><td><code>GET /api/admin/forms/:slug</code></td><td>Get full form config JSONB</td></tr>
-          <tr><td><code>POST /api/admin/forms/:slug</code></td><td>Save full form config JSONB</td></tr>
+          <tr><td><code>GET /api/admin/forms</code></td><td>List forms visible to the current user (market-filtered for non-super-admins); each entry includes <code>markets[]</code> array</td></tr>
+          <tr><td><code>POST /api/admin/forms</code></td><td>Create new form; body may include <code>marketIds[]</code> to assign markets immediately; non-super-admins must include a market they administrate</td></tr>
+          <tr><td><code>GET /api/admin/forms/:slug</code></td><td>Get full form config JSONB (market access enforced)</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug</code></td><td>Save full form config JSONB; requires Editor role or above on the form's markets</td></tr>
           <tr><td><code>PATCH /api/admin/forms/:slug/meta</code></td><td>Rename form or change slug</td></tr>
           <tr><td><code>DELETE /api/admin/forms/:slug</code></td><td>Delete form + all subscribers + all media + all analytics (cascade, irreversible)</td></tr>
           <tr><td><code>GET /api/admin/forms/:slug/subscribers</code></td><td>Paginated subscriber list with search, status filter, sort</td></tr>
@@ -1730,6 +1730,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>DELETE /api/admin/ip-flags/:ipHash</code></td><td>Clear a single IP flag</td></tr>
           <tr><td><code>DELETE /api/admin/ip-flags</code></td><td>Clear all active IP flags</td></tr>
           <tr><td><code>POST /api/admin/forms/:slug/subscribers/:id/resend-confirm</code></td><td>Resend double opt-in confirmation email to a pending subscriber</td></tr>
+          <tr><td><code>GET /api/admin/forms/:slug/email-log</code></td><td>Paginated email send log for a form; <code>?page=&amp;status=</code> (all|sent|failed)</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/email-log/:id/resend</code></td><td>Retry a failed welcome email send immediately</td></tr>
           <tr><td><code>GET /api/admin/audit-log</code></td><td>Paginated admin audit log (50/page); <code>?page=</code> param. Accessible to market admins (read-only).</td></tr>
           <tr><td><code>GET /api/admin/me</code></td><td>Returns current user's <code>dbId</code>, <code>systemRole</code>, <code>markets</code>, <code>email</code>, <code>name</code>, <code>picture</code></td></tr>
           <tr><td><code>GET /api/admin/markets</code></td><td>List all markets with <code>form_count</code> and <code>user_count</code></td></tr>
@@ -2225,14 +2227,21 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-15 — Platform Settings reorganised into tabs; tiles modal + highlight colour fixes; nav identity moved to dropdown</h3>
+        <ul>
+          <li>✅ <strong>Platform Settings sub-tabs</strong> — the single-page Platform Settings panel is now split into four tabs accessible from a sub-nav bar: <strong>Security</strong> (IP Flagging + Anti-Bot config), <strong>Markets</strong> (market management, super-admin only), <strong>Users</strong> (user management, super-admin only), <strong>Logs</strong> (Admin Audit Log). Each tab lazy-loads its data on first visit.</li>
+          <li>✅ <strong>Tiles modal layout fixed</strong> — <em>Selected style</em> dropdown moved to the first position in row 2 (before Highlight colour). Row 2 is now 4 columns (Selected style, Highlight colour, Tile background, Tile border colour); Row 3 is 4 columns (Tile size, Size mode, Border width, Alignment).</li>
+          <li>✅ <strong>Highlight colour bug fixed</strong> — tile colour pickers (Highlight, Tile background, Tile border) were incorrectly using <code>buildBrandColorPicker</code> (brand swatches only, empty if none defined). Now correctly use <code>_buildIselColorPicker</code>, which shows the full design palette: Primary, Accent, Background, Text, Button, brand colours, Black, White.</li>
+          <li>✅ <strong>Nav bar identity cleanup</strong> — name and role badge removed from the persistent top nav bar. Clicking the avatar button now shows a user info card at the top of the dropdown containing name, email, and role badge, followed by the Sign out button. Cleaner top-bar at all viewport widths.</li>
+        </ul>
         <h3>2026-03-15 — RBAC + Market dimension</h3>
         <ul>
-          <li>✅ <strong>Markets</strong> — new geographic/regional access dimension; super-admin creates and manages markets (countries, states, regions) in Platform Settings. 4 new PostgreSQL tables: <code>markets</code>, <code>sf_users</code>, <code>user_markets</code>, <code>form_markets</code>.</li>
-          <li>✅ <strong>User provisioning</strong> — any Auth0 <code>signflow-admin</code> login is auto-registered in <code>sf_users</code>; first-ever user becomes super-admin automatically. Users table in Platform Settings shows all users with system role and market assignments.</li>
-          <li>✅ <strong>Roles</strong> — three per-market roles: <strong>Admin</strong> (full CRUD), <strong>Editor</strong> (edit config and view subscribers, no delete/create), <strong>Viewer</strong> (read-only, no export). System role <em>super-admin</em> bypasses all market restrictions.</li>
-          <li>✅ <strong>Form-market assignment</strong> — forms can belong to multiple markets; unassigned forms are visible to all admins. Super-admin assigns markets via the Markets card in Form Settings sidebar. Non-super-admin admins pick market(s) during form creation.</li>
+          <li>✅ <strong>Markets</strong> — new geographic/regional access dimension; super-admin creates and manages markets (countries, states, regions) in Platform Settings → Markets tab. 4 new PostgreSQL tables: <code>markets</code>, <code>sf_users</code>, <code>user_markets</code>, <code>form_markets</code>.</li>
+          <li>✅ <strong>User provisioning</strong> — any Auth0 <code>signflow-admin</code> login is auto-registered in <code>sf_users</code>; first-ever user becomes super-admin automatically. Users table in Platform Settings → Users tab shows all users with system role and market assignments.</li>
+          <li>✅ <strong>Roles</strong> — three per-market roles: <strong>Admin</strong> (full CRUD within market), <strong>Editor</strong> (edit config and view subscribers, no delete/create), <strong>Viewer</strong> (read-only, no export). System role <em>super-admin</em> bypasses all market restrictions.</li>
+          <li>✅ <strong>Form-market assignment</strong> — forms can belong to multiple markets; unassigned forms are visible to all admins. Super-admin assigns markets via the Market assignment card in Form Settings sidebar. Non-super-admin admins pick market(s) during form creation.</li>
           <li>✅ <strong>Server enforcement</strong> — all admin routes check market access and role: form list filtered, form config save requires editor+, form delete requires admin, subscriber delete requires admin, export blocked for viewer, global settings edit requires super-admin.</li>
-          <li>✅ <strong>Admin UI gating</strong> — market badges on form cards; Delete button hidden for non-admins; nav user pill shows name + role; Markets and Users cards visible to super-admin only; Anti-Bot / Global Settings cards are read-only for market admins.</li>
+          <li>✅ <strong>Admin UI gating</strong> — market badges on form cards; Delete button hidden for non-admins; user identity shown in avatar dropdown; Markets and Users tabs visible to super-admin only; Security tab settings are read-only for market admins.</li>
         </ul>
         <h3>2026-03-15 — Double opt-in, Email tracking, Admin audit log</h3>
         <ul>
@@ -2573,7 +2582,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li>✅ <strong>Client-side image editor (E2)</strong> — Canvas API: rotate, resize (aspect-lock), crop with draggable handles; save-as-copy with filename prompt</li>
           <li>✅ <strong>Subscriber sortable columns (F1)</strong> — sortable Email / Status / Subscribed columns; <code>ORDER BY</code> with allowlisted columns on server</li>
           <li>✅ <strong>Media library full redesign</strong> — all media globally shared; categories (renamed from folders); multi-select state machine (single click = single, checkmark = multi-mode); grid/list toggle with sortable columns; form indicator in header; bulk move/delete; file rename; drag-to-category; form filter dropdown</li>
-          <li>✅ <strong>Tiles modal layout cleanup</strong> — row reorder; batch section removed; brand-only colour dropdowns; column widths fixed; fullscreen column expansion via CSS class; Save &amp; Done footer button</li>
+          <li>✅ <strong>Tiles modal layout cleanup + highlight colour fix</strong> — row reorder (Selected style now first in row 2, before colour pickers); batch section removed; colour pickers switched from brand-only to full design palette (Primary, Accent, Background, Text, Button, brand colours, Black, White); highlight colour bug fixed; column widths fixed; fullscreen column expansion via CSS class; Save &amp; Done footer button</li>
           <li>✅ <strong>Documentation cleanup (G1)</strong> — duplicate Enterprise Roadmap removed from Help tab; Help tab content updated to reflect all new features; System tab changelog kept as single authoritative source</li>
         </ul>
         <h3>Phase 1 — Security Hardening</h3>
@@ -2604,9 +2613,9 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <ul>
           <li><strong>SSO / SAML 2.0</strong> — Okta, Azure AD, Google Workspace</li>
           <li><strong>SCIM provisioning</strong> — auto-provision users from corporate IdP</li>
-          <li>✅ <strong>RBAC + Markets</strong> — super-admin, admin, editor, viewer roles; Market dimension (country/state/region); users and forms assigned to markets; server-enforced access control; UI gating; nav user pill; Markets + Users management in Platform Settings</li>
+          <li>✅ <strong>RBAC + Markets</strong> — super-admin, admin, editor, viewer roles; Market dimension (country/state/region); users and forms assigned to markets; server-enforced access control; UI gating; user identity in avatar dropdown; Markets and Users management in Platform Settings (dedicated tabs); Platform Settings reorganised into Security / Markets / Users / Logs tabs</li>
+          <li>✅ <strong>Audit log</strong> — all admin actions (form CRUD, subscriber delete, global settings, market/user changes) recorded in <code>audit_log</code> table; paginated UI in Platform Settings → Logs tab</li>
           <li><strong>API keys</strong> — scoped machine-to-machine keys with expiry</li>
-          <li>✅ <strong>Audit log</strong> — all admin actions (form CRUD, subscriber delete, global settings, market/user changes) recorded in <code>audit_log</code> table; paginated UI in Platform Settings</li>
         </ul>
         <h3>Phase 4 — GDPR Tooling</h3>
         <ul>
@@ -2729,6 +2738,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li>Deploy the action and drag it into the Login flow.</li>
           <li>Go to <strong>User Management → Roles → Create role</strong>. Name: <code>signflow-admin</code>. Assign it to your admin user(s).</li>
         </ol>
+        <p style="font-size:0.82rem;color:var(--ink3)">ℹ️ <strong>No additional Auth0 roles are needed</strong> for the Markets / RBAC system. The <code>signflow-admin</code> role simply grants admin panel entry. Fine-grained roles (Admin / Editor / Viewer per market) are managed inside SignFlow via Platform Settings → Users.</p>
 
         <h3>Step 5 — Connect to the server &amp; install dependencies</h3>
         <div class="info-box"><code># SSH into your Lightsail instance<br>ssh -i ~/.ssh/your-key.pem ubuntu@YOUR-STATIC-IP<br><br># Update packages<br>sudo apt update &amp;&amp; sudo apt upgrade -y<br><br># Install Node.js 20 LTS<br>curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -<br>sudo apt install -y nodejs<br>node -v  # should print v20.x.x<br><br># Install PM2, git, nginx, certbot<br>sudo npm install -g pm2<br>sudo apt install -y nginx python3-certbot-nginx git</code></div>
@@ -2812,24 +2822,49 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
 
     <!-- PLATFORM SETTINGS -->
-    <div class="help-group" data-tags="platform global settings cogwheel gear ip flags branding templates fonts captcha antibot hcaptcha">
+    <div class="help-group" data-tags="platform global settings cogwheel gear ip flags captcha antibot hcaptcha markets users audit log rbac roles">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">settings</span> Platform Settings
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
-        <p>The <strong>Platform Settings</strong> panel (⚙ icon, top-right of the navigation bar) contains global configuration that applies across all forms. Click the cogwheel at any time — you do not need to have a form selected.</p>
-        <h3>Currently available</h3>
+        <p>The <strong>Platform Settings</strong> panel (⚙ cogwheel icon, top-right of the navigation bar) contains global configuration that applies across all forms and users. Click the cogwheel at any time — you do not need to have a form selected. Platform Settings is organised into four tabs:</p>
+        <h3>Security tab</h3>
+        <p>Bot detection and CAPTCHA configuration — visible to all admin users.</p>
         <ul>
-          <li><strong>Anti-Bot Protection</strong> — choose CAPTCHA mode (Built-in only or hCaptcha) and enter hCaptcha API keys if using external CAPTCHA (see Anti-Bot Protection section)</li>
-          <li><strong>IP Flagging</strong> — view and clear active bot flags; see flag level, strike count, reason, and time until expiry</li>
+          <li><strong>IP Flagging card</strong> — shows all currently active bot flags with IP hash (truncated for privacy), flag level (1–3), strike count, reason, and time until expiry. Click <em>Refresh</em> to load the current list. Buttons to clear individual flags or clear all flags at once. Clearing a flag immediately allows that IP to submit again without challenges.</li>
+          <li><strong>Anti-Bot Protection card</strong> — choose the platform-wide CAPTCHA mode: <em>Built-in only</em> (honeypot + PoW + math challenge, the default) or <em>hCaptcha</em> (adds a visible third-party CAPTCHA widget). When hCaptcha is selected, enter your site key (public) and secret key (private). The secret key can alternatively be set via the <code>SF_HCAPTCHA_SECRET</code> environment variable. Editing this card requires market Admin role or super-admin; other roles see it read-only.</li>
         </ul>
+        <h3>Markets tab <span style="font-size:0.75rem;font-weight:400;color:var(--ink3)">(super-admin only)</span></h3>
+        <p>Markets are geographic or regional access dimensions — countries, states, brand regions, etc. Forms and users are assigned to one or more markets to scope what each user can see and manage.</p>
+        <ul>
+          <li><strong>Markets table</strong> — shows every market with its auto-generated slug, the number of forms assigned to it, and the number of users assigned to it.</li>
+          <li><strong>Create market</strong> — type a name (e.g. <em>United Kingdom</em>) and click <em>Add market</em>. The slug is auto-generated (lowercase, hyphens). Markets can be deleted; deletion cascades — all user and form assignments for that market are removed.</li>
+          <li><strong>Assigning a form to a market</strong> — open the form's Settings tab → <em>Market assignment</em> card (super-admin only). Add or remove markets from there. Forms with no market assignment are visible to <em>all</em> authenticated admin users.</li>
+          <li><strong>Non-super-admin admins</strong> — when creating a form, non-super-admins who have the <em>Admin</em> role in one or more markets are prompted to pick which of their admin-role markets the form belongs to.</li>
+        </ul>
+        <h3>Users tab <span style="font-size:0.75rem;font-weight:400;color:var(--ink3)">(super-admin only)</span></h3>
+        <p>Every person who has logged in via Auth0 is automatically registered in the <code>sf_users</code> table. The first user to ever log in is automatically promoted to super-admin.</p>
+        <ul>
+          <li><strong>Users table</strong> — shows email, display name, system role, and assigned markets with their per-market roles.</li>
+          <li><strong>System role</strong> — <em>Super Admin</em> (bypasses all market restrictions, full platform access) or <em>Viewer</em> (market-scoped access only). Change via the dropdown in the System role column.</li>
+          <li><strong>Market assignments</strong> — click <em>Edit markets</em> on a user row to open the assignment panel. Tick markets and set per-market role (Admin / Editor / Viewer). Save to apply.</li>
+        </ul>
+        <table class="help-table">
+          <tr><th>Role</th><th>See forms &amp; subscribers</th><th>Edit config</th><th>Create / delete forms</th><th>Delete subscribers</th><th>Export</th><th>Security settings</th><th>Markets &amp; users</th></tr>
+          <tr><td><strong>Super Admin</strong></td><td>✅ All</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅ Edit</td><td>✅ Full</td></tr>
+          <tr><td><strong>Admin</strong> <em>(per market)</em></td><td>✅ Shared markets</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>Read-only</td><td>❌</td></tr>
+          <tr><td><strong>Editor</strong> <em>(per market)</em></td><td>✅ Shared markets</td><td>✅</td><td>❌</td><td>❌</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td><strong>Viewer</strong> <em>(per market)</em></td><td>✅ Shared markets</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+        </table>
+        <p style="font-size:0.8rem;color:var(--ink3);margin-top:4px">When a user has multiple markets the highest role across shared markets applies. Unassigned forms (no markets set) are visible to all roles.</p>
+        <h3>Logs tab</h3>
+        <p>Paginated <strong>Admin Audit Log</strong> — every significant admin action is recorded: form create/delete/save, subscriber delete, global settings save, market and user management changes. Columns: time, user email, action type, target type, target ID, and detail JSONB. Click <em>Refresh</em> to load the latest entries. Accessible to market Admins and super-admins (read-only for Admins).</p>
         <h3>Planned additions</h3>
         <ul>
-          <li>Global rate limit configuration</li>
-          <li>Admin audit log</li>
-          <li>API key management</li>
-          <li>Webhook endpoints</li>
+          <li>API key management — scoped machine-to-machine keys with expiry</li>
+          <li>Webhook endpoint configuration</li>
+          <li>Global rate limit override (per-form overrides coming later)</li>
         </ul>
       </div>
     </div>
@@ -2843,6 +2878,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <div class="help-group-body">
         <h3>Admin authentication</h3>
         <p>SignFlow uses <strong>Auth0 OIDC</strong> for admin access. Only users with the <code>signflow-admin</code> role (configured in your Auth0 namespace <code>https://signflow/roles</code>) can access the admin panel. Visit <code>/auth/login</code> to sign in.</p>
+        <p>On first login, each user is automatically registered in the <code>sf_users</code> table. The very first user to log in is promoted to <strong>super-admin</strong> automatically. All subsequent users start as <em>Viewer</em> and must be assigned markets and roles by a super-admin via <strong>Platform Settings → Users tab</strong>. No additional Auth0 roles are needed for the market/role system.</p>
         <h3>Required environment variables</h3>
         <table class="help-table">
           <tr><th>Variable</th><th>Description</th></tr>
@@ -3372,6 +3408,50 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
     </div>
 
+    <!-- USERS & ACCESS (RBAC) -->
+    <div class="help-group" data-tags="users access rbac roles markets permissions super admin editor viewer market assignment">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">manage_accounts</span> Users &amp; Access Control
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <p>SignFlow uses a two-level access model: <strong>Auth0</strong> gates who can reach the admin panel at all (anyone with the <code>signflow-admin</code> role in your Auth0 tenant), and <strong>Markets + Roles</strong> control what each person can see and do once inside.</p>
+        <h3>System roles</h3>
+        <table class="help-table">
+          <tr><th>System role</th><th>Who should have it</th><th>What it grants</th></tr>
+          <tr><td><strong>Super Admin</strong></td><td>Platform owners; the first person to ever log in is automatically promoted</td><td>Full access to everything — all forms regardless of market, all Platform Settings tabs including Markets and Users management, no restrictions</td></tr>
+          <tr><td><strong>Viewer</strong> (default)</td><td>All other users on first login</td><td>Access scoped entirely by their market assignments and per-market role; super-admin must assign markets before they can do anything useful</td></tr>
+        </table>
+        <h3>Markets</h3>
+        <p>A <strong>Market</strong> is any grouping that makes sense for your organisation — a country, a region, a brand, a team. Super-admin creates markets in <strong>Platform Settings → Markets tab</strong>.</p>
+        <ul>
+          <li>Forms can be assigned to one or more markets (<em>Market assignment</em> card in Form Settings sidebar)</li>
+          <li>Forms with <em>no market</em> are visible to all authenticated admin users</li>
+          <li>Users can be assigned to one or more markets, each with a different role</li>
+          <li>When a user has access through multiple markets, the <strong>highest role</strong> across shared markets applies to that form</li>
+        </ul>
+        <h3>Per-market roles</h3>
+        <table class="help-table">
+          <tr><th>Role</th><th>View forms &amp; subscribers</th><th>Edit form config</th><th>Create forms</th><th>Delete forms</th><th>Delete subscribers</th><th>Export subscribers</th><th>Security settings</th></tr>
+          <tr><td><strong>Admin</strong></td><td>✅ Shared markets</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>Read-only</td></tr>
+          <tr><td><strong>Editor</strong></td><td>✅ Shared markets</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td><td>✅</td><td>❌</td></tr>
+          <tr><td><strong>Viewer</strong></td><td>✅ Shared markets</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+        </table>
+        <h3>Assigning users to markets</h3>
+        <ol>
+          <li>Go to <strong>Platform Settings → Users tab</strong> (⚙ cogwheel, top-right) — super-admin only</li>
+          <li>Find the user in the table and click <em>Edit markets</em></li>
+          <li>Tick each market and set the role for that market</li>
+          <li>Click <em>Save</em></li>
+        </ol>
+        <p>Changes take effect the next time that user loads a page or refreshes (session is re-read on each navigation).</p>
+        <h3>Viewing your own role</h3>
+        <p>Click the <strong>avatar button</strong> (top-right, next to the ⚙ icon) to open the user menu. Your display name, email, and system role badge are shown at the top of the dropdown.</p>
+        <h3>Do I need to configure anything in Auth0?</h3>
+        <p>No new Auth0 roles are needed for the Market system. The existing <code>signflow-admin</code> Auth0 role simply controls admin panel entry. All fine-grained roles (Admin / Editor / Viewer per market) are managed entirely within SignFlow via Platform Settings → Users.</p>
+      </div>
+    </div>
+
     <!-- EMBED -->
     <div class="help-group" data-tags="embed iframe widget code snippet javascript">
       <div class="help-group-head" onclick="toggleHelp(this)">
@@ -3488,7 +3568,9 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <h3>Deleting a form</h3>
         <p>Deleting a form from the Forms tab is <strong>irreversible</strong>. It permanently removes: the form configuration, all subscribers, all analytics, and all media that was uploaded exclusively for that form. Export your subscriber list before deleting if you need the data.</p>
         <h3>Anti-Bot &amp; CAPTCHA</h3>
-        <p>SignFlow's built-in bot protection (honeypot, timing check, proof-of-work, math challenge, IP flagging) runs automatically on every form — no configuration needed. Optionally layer in <strong>hCaptcha</strong> as a visible external challenge. CAPTCHA mode is a <strong>platform-wide</strong> setting configured in <strong>Platform Settings → Anti-Bot Protection</strong> (⚙ icon, top-right) rather than per-form. See the <strong>Anti-Bot Protection</strong> section for full details.</p>
+        <p>SignFlow's built-in bot protection (honeypot, timing check, proof-of-work, math challenge, IP flagging) runs automatically on every form — no configuration needed. Optionally layer in <strong>hCaptcha</strong> as a visible external challenge. CAPTCHA mode is a <strong>platform-wide</strong> setting configured in <strong>Platform Settings → Security tab → Anti-Bot Protection</strong> (⚙ icon, top-right) rather than per-form. See the <strong>Anti-Bot Protection</strong> section for full details.</p>
+        <h3>Market assignment <span style="font-size:0.8rem;font-weight:400;color:var(--ink3)">(super-admin only)</span></h3>
+        <p>The <em>Market assignment</em> card in the Form Settings sidebar lets super-admins control which markets this form belongs to. Forms with no market assigned are visible to all authenticated admin users. Adding a market restricts the form (and its subscribers) to users who share at least one of those markets. Use the dropdown to add a market and the ✕ button on each chip to remove one.</p>
         <h3>Analytics &amp; Tracking (GA4 + Meta Pixel)</h3>
         <p>Two tracking methods are supported:</p>
         <ul>
@@ -3535,11 +3617,11 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <tr><td><strong>3</strong></td><td>6+</td><td>Hard blocked — all submissions rejected</td><td>7 days</td></tr>
         </table>
         <h3>Managing flagged IPs</h3>
-        <p>View and manage active flags in <strong>Platform Settings</strong> (⚙ icon, top-right). The IP Flagging card shows all currently active flags — IP hash (truncated), flag level, strike count, reason, and time until expiry. You can clear individual flags or clear all flags at once. Clearing a flag immediately allows that IP to submit without challenges again.</p>
+        <p>View and manage active flags in <strong>Platform Settings → Security tab</strong> (⚙ icon, top-right). The IP Flagging card shows all currently active flags — IP hash (truncated), flag level, strike count, reason, and time until expiry. You can clear individual flags or clear all flags at once. Clearing a flag immediately allows that IP to submit without challenges again.</p>
         <p>IP addresses are never stored in plain text — only an HMAC-SHA256 hash is recorded (privacy-by-design, GDPR-compliant).</p>
         <h3>Optional Layer 6 — hCaptcha (external visible CAPTCHA)</h3>
         <p>For environments requiring a third-party CAPTCHA (e.g. compliance or SECOPS policy), SignFlow supports <strong>hCaptcha</strong> as an optional sixth layer. When enabled, a visible CAPTCHA widget appears above the submit button and the token is verified server-side before any form data is processed.</p>
-        <p>Configure in <strong>Platform Settings → Anti-Bot Protection</strong> (⚙ icon, top-right). Set the mode to <em>hCaptcha</em> and enter your site key and secret key from <a href="https://dashboard.hcaptcha.com" target="_blank">dashboard.hcaptcha.com</a>. The secret key can alternatively be set via the <code>SF_HCAPTCHA_SECRET</code> environment variable (the DB value takes precedence).</p>
+        <p>Configure in <strong>Platform Settings → Security tab → Anti-Bot Protection</strong> (⚙ icon, top-right). Set the mode to <em>hCaptcha</em> and enter your site key and secret key from <a href="https://dashboard.hcaptcha.com" target="_blank">dashboard.hcaptcha.com</a>. The secret key can alternatively be set via the <code>SF_HCAPTCHA_SECRET</code> environment variable (the DB value takes precedence).</p>
         <table class="help-table">
           <tr><th>Mode</th><th>What runs</th></tr>
           <tr><td><strong>Built-in only</strong> (default)</td><td>Layers 1–5 (honeypot, timing, IP gate, PoW, math challenge) — invisible to legitimate users</td></tr>
