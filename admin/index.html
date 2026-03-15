@@ -726,107 +726,138 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 
 <!-- PLATFORM SETTINGS TAB -->
 <div id="tab-global-settings" class="page">
-  <div class="page-body" style="max-width:720px">
-    <div class="page-head">
-      <h2>Platform Settings</h2>
-      <p>Global configuration that applies across all forms and visitors.</p>
-    </div>
 
-    <!-- Markets (super-admin only) -->
-    <div class="card super-admin-only" style="padding:16px" id="markets-card">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">public</span> Markets</div>
-      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">Markets define access dimensions (e.g. countries, regions). Assign users and forms to markets to restrict who can see and manage them.</p>
-      <div style="overflow-x:auto;margin-bottom:12px">
-        <table class="ml-table" style="font-size:0.78rem;width:100%">
-          <thead><tr><th>Name</th><th>Slug</th><th style="text-align:center">Forms</th><th style="text-align:center">Users</th><th style="width:40px"></th></tr></thead>
-          <tbody id="markets-tbody"><tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem">Loading…</td></tr></tbody>
-        </table>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="new-market-name" class="inp" placeholder="Market name (e.g. United Kingdom)" style="flex:1;font-size:0.82rem">
-        <button class="btn btn-primary btn-sm" onclick="createMarket()"><span class="material-icons-round mi">add</span> Add</button>
-      </div>
-    </div>
-
-    <!-- Users (super-admin only) -->
-    <div class="card super-admin-only" style="padding:16px" id="users-card">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">manage_accounts</span> Users</div>
-      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">All users who have logged in. Set system roles and market assignments. Auth0 <code>signflow-admin</code> role is still required to access the admin panel at all.</p>
-      <div style="overflow-x:auto">
-        <table class="ml-table" style="font-size:0.78rem;width:100%">
-          <thead><tr><th>Email</th><th>Name</th><th style="width:130px">System role</th><th>Markets</th><th style="width:40px"></th></tr></thead>
-          <tbody id="users-tbody"><tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- IP Flagging -->
-    <div class="card" style="padding:16px" id="ip-flags-card">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:4px"><span class="material-icons-round mi">gpp_bad</span> IP Flagging</div>
-      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">Visitors who trigger honeypot, timing, or bot-detection checks are flagged with escalating challenges. Level 1 = invisible proof-of-work; Level 2 = visible math challenge; Level 3 = blocked. Flags expire automatically.</p>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <button class="tbtn tbtn-ghost" onclick="loadIpFlags()" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
-        <button class="tbtn" id="ip-flags-clear-all-btn" onclick="clearAllIpFlags()" style="gap:4px;color:var(--danger);display:none"><span class="material-icons-round mi" style="font-size:15px">delete_sweep</span> Clear all</button>
-        <span id="ip-flags-status" style="font-size:0.75rem;color:var(--ink3)">Click Refresh to load</span>
-      </div>
-      <div id="ip-flags-table-wrap" style="overflow-x:auto;display:none">
-        <table class="ml-table" style="font-size:0.75rem">
-          <thead><tr>
-            <th style="width:110px">IP hash</th>
-            <th style="width:60px;text-align:center">Level</th>
-            <th style="width:60px;text-align:center">Strikes</th>
-            <th>Reason</th>
-            <th style="width:110px">Expires</th>
-            <th style="width:60px"></th>
-          </tr></thead>
-          <tbody id="ip-flags-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Anti-Bot Protection -->
-    <div class="card admin-readonly" style="padding:16px" id="antibot-card">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">security</span> Anti-Bot Protection</div>
-      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:12px">SignFlow always runs invisible bot-detection on every form (honeypot, timing token, proof-of-work, math challenge, IP flagging). Optionally layer in hCaptcha as a visible external challenge.</p>
-      <div class="cg">
-        <label class="cl">CAPTCHA mode</label>
-        <select id="gs-captcha-mode" onchange="gsOnCaptchaModeChange(this.value)">
-          <option value="builtin">Built-in only (honeypot + PoW + math challenge)</option>
-          <option value="hcaptcha">hCaptcha — add a visible external CAPTCHA widget</option>
-        </select>
-      </div>
-      <div id="gs-hcaptcha-fields" style="display:none;margin-top:10px">
-        <div class="cg"><label class="cl">hCaptcha site key <span style="font-weight:400;color:var(--ink3)">(public)</span></label><input type="text" id="gs-hcaptcha-site-key" placeholder="10000000-ffff-ffff-ffff-000000000001"></div>
-        <div class="cg"><label class="cl">hCaptcha secret key <span style="font-weight:400;color:var(--ink3)">(private — stored encrypted)</span></label><input type="password" id="gs-hcaptcha-secret-key" placeholder="0x0000000000000000000000000000000000000000"></div>
-        <p class="card-desc" style="font-size:0.71rem;color:var(--ink3);margin-top:4px">Get your keys at <a href="https://dashboard.hcaptcha.com" target="_blank" style="color:var(--accent)">dashboard.hcaptcha.com</a>. The secret key can also be set via the <code>SF_HCAPTCHA_SECRET</code> environment variable (env takes lowest priority; DB value wins).</p>
-      </div>
-      <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="saveGlobalSettings()"><span class="material-icons-round mi">save</span> Save</button>
-    </div>
-
-    <!-- Audit Log -->
-    <div class="card" style="padding:16px" id="audit-log-card">
-      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">manage_history</span> Admin Audit Log</div>
-      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">All admin actions — form create/delete/save, subscriber deletions, global settings changes — are recorded here.</p>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <button class="tbtn tbtn-ghost" onclick="loadAuditLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
-        <span id="audit-log-count" style="font-size:0.75rem;color:var(--ink3);margin-left:auto"></span>
-      </div>
-      <div class="tscroll" style="max-height:400px">
-        <table>
-          <thead><tr>
-            <th style="width:140px">Time</th>
-            <th style="width:160px">User</th>
-            <th style="width:160px">Action</th>
-            <th style="width:100px">Target type</th>
-            <th>Target ID / Detail</th>
-          </tr></thead>
-          <tbody id="audit-log-tbody"><tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
-        </table>
-      </div>
-      <div class="table-foot"><div class="pagination" id="audit-log-pagination"></div></div>
-    </div>
-
+  <!-- Platform Settings sub-nav -->
+  <div class="f-nav" style="flex-shrink:0;padding:3px 16px">
+    <span class="f-nav-label">Platform</span>
+    <button class="f-tab active" id="gst-security-btn" onclick="switchGsTab('security')"><span class="material-icons-round mi">shield</span> Security</button>
+    <button class="f-tab super-admin-only" id="gst-markets-btn" onclick="switchGsTab('markets')"><span class="material-icons-round mi">public</span> Markets</button>
+    <button class="f-tab super-admin-only" id="gst-users-btn" onclick="switchGsTab('users')"><span class="material-icons-round mi">manage_accounts</span> Users</button>
+    <button class="f-tab" id="gst-logs-btn" onclick="switchGsTab('logs')"><span class="material-icons-round mi">manage_history</span> Logs</button>
   </div>
+
+  <!-- Security panel (default) -->
+  <div id="gsp-security" class="gs-panel" style="flex:1;overflow:auto">
+    <div class="page-body" style="max-width:720px">
+      <div class="page-head">
+        <h2>Security</h2>
+        <p>Bot detection, IP flagging, and CAPTCHA configuration.</p>
+      </div>
+
+      <!-- IP Flagging -->
+      <div class="card" style="padding:16px" id="ip-flags-card">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:4px"><span class="material-icons-round mi">gpp_bad</span> IP Flagging</div>
+        <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">Visitors who trigger honeypot, timing, or bot-detection checks are flagged with escalating challenges. Level 1 = invisible proof-of-work; Level 2 = visible math challenge; Level 3 = blocked. Flags expire automatically.</p>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <button class="tbtn tbtn-ghost" onclick="loadIpFlags()" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+          <button class="tbtn" id="ip-flags-clear-all-btn" onclick="clearAllIpFlags()" style="gap:4px;color:var(--danger);display:none"><span class="material-icons-round mi" style="font-size:15px">delete_sweep</span> Clear all</button>
+          <span id="ip-flags-status" style="font-size:0.75rem;color:var(--ink3)">Click Refresh to load</span>
+        </div>
+        <div id="ip-flags-table-wrap" style="overflow-x:auto;display:none">
+          <table class="ml-table" style="font-size:0.75rem">
+            <thead><tr>
+              <th style="width:110px">IP hash</th>
+              <th style="width:60px;text-align:center">Level</th>
+              <th style="width:60px;text-align:center">Strikes</th>
+              <th>Reason</th>
+              <th style="width:110px">Expires</th>
+              <th style="width:60px"></th>
+            </tr></thead>
+            <tbody id="ip-flags-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Anti-Bot Protection -->
+      <div class="card admin-readonly" style="padding:16px" id="antibot-card">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">security</span> Anti-Bot Protection</div>
+        <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:12px">SignFlow always runs invisible bot-detection on every form (honeypot, timing token, proof-of-work, math challenge, IP flagging). Optionally layer in hCaptcha as a visible external challenge.</p>
+        <div class="cg">
+          <label class="cl">CAPTCHA mode</label>
+          <select id="gs-captcha-mode" onchange="gsOnCaptchaModeChange(this.value)">
+            <option value="builtin">Built-in only (honeypot + PoW + math challenge)</option>
+            <option value="hcaptcha">hCaptcha — add a visible external CAPTCHA widget</option>
+          </select>
+        </div>
+        <div id="gs-hcaptcha-fields" style="display:none;margin-top:10px">
+          <div class="cg"><label class="cl">hCaptcha site key <span style="font-weight:400;color:var(--ink3)">(public)</span></label><input type="text" id="gs-hcaptcha-site-key" placeholder="10000000-ffff-ffff-ffff-000000000001"></div>
+          <div class="cg"><label class="cl">hCaptcha secret key <span style="font-weight:400;color:var(--ink3)">(private — stored encrypted)</span></label><input type="password" id="gs-hcaptcha-secret-key" placeholder="0x0000000000000000000000000000000000000000"></div>
+          <p class="card-desc" style="font-size:0.71rem;color:var(--ink3);margin-top:4px">Get your keys at <a href="https://dashboard.hcaptcha.com" target="_blank" style="color:var(--accent)">dashboard.hcaptcha.com</a>. The secret key can also be set via the <code>SF_HCAPTCHA_SECRET</code> environment variable (env takes lowest priority; DB value wins).</p>
+        </div>
+        <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="saveGlobalSettings()"><span class="material-icons-round mi">save</span> Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Markets panel -->
+  <div id="gsp-markets" class="gs-panel" style="flex:1;overflow:auto;display:none">
+    <div class="page-body" style="max-width:720px">
+      <div class="page-head">
+        <h2>Markets</h2>
+        <p>Geographic or regional access dimensions. Assign users and forms to markets to scope visibility and permissions.</p>
+      </div>
+      <div class="card super-admin-only" style="padding:16px" id="markets-card">
+        <div style="overflow-x:auto;margin-bottom:12px">
+          <table class="ml-table" style="font-size:0.78rem;width:100%">
+            <thead><tr><th>Name</th><th>Slug</th><th style="text-align:center">Forms</th><th style="text-align:center">Users</th><th style="width:40px"></th></tr></thead>
+            <tbody id="markets-tbody"><tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="new-market-name" class="inp" placeholder="Market name (e.g. United Kingdom)" style="flex:1;font-size:0.82rem">
+          <button class="btn btn-primary btn-sm" onclick="createMarket()"><span class="material-icons-round mi">add</span> Add market</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users panel -->
+  <div id="gsp-users" class="gs-panel" style="flex:1;overflow:auto;display:none">
+    <div class="page-body" style="max-width:720px">
+      <div class="page-head">
+        <h2>Users</h2>
+        <p>Everyone who has logged in via Auth0. Set system roles and assign market access.</p>
+      </div>
+      <div class="card super-admin-only" style="padding:16px" id="users-card">
+        <div style="overflow-x:auto">
+          <table class="ml-table" style="font-size:0.78rem;width:100%">
+            <thead><tr><th>Email</th><th>Name</th><th style="width:130px">System role</th><th>Markets</th><th style="width:40px"></th></tr></thead>
+            <tbody id="users-tbody"><tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logs panel -->
+  <div id="gsp-logs" class="gs-panel" style="flex:1;overflow:auto;display:none">
+    <div class="page-body" style="max-width:860px">
+      <div class="page-head">
+        <h2>Audit Log</h2>
+        <p>All admin actions — form create/delete/save, subscriber deletions, settings changes — are recorded here.</p>
+      </div>
+      <div class="card" style="padding:16px" id="audit-log-card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <button class="tbtn tbtn-ghost" onclick="loadAuditLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+          <span id="audit-log-count" style="font-size:0.75rem;color:var(--ink3);margin-left:auto"></span>
+        </div>
+        <div class="tscroll" style="max-height:calc(100vh - 280px)">
+          <table>
+            <thead><tr>
+              <th style="width:140px">Time</th>
+              <th style="width:160px">User</th>
+              <th style="width:160px">Action</th>
+              <th style="width:100px">Target type</th>
+              <th>Target ID / Detail</th>
+            </tr></thead>
+            <tbody id="audit-log-tbody"><tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><div class="pagination" id="audit-log-pagination"></div></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- BUILD TAB -->
@@ -3756,25 +3787,25 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <label class="tgl-lbl" style="font-size:0.75rem">Scroll arrows</label>
         </div>
       </div>
-      <!-- Row 2: colour pickers (swatch + name, no hex) -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+      <!-- Row 2: selected style + colour pickers -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+        <div><label class="cl" style="font-size:0.65rem">Selected style</label>
+          <select id="modal-isel-selstyle" style="font-size:0.78rem">
+            <option value="border">Border highlight</option>
+            <option value="fill">Fill background</option>
+          </select>
+        </div>
         <div><label class="cl" style="font-size:0.65rem">Highlight colour</label><div id="modal-isel-color"></div></div>
         <div><label class="cl" style="font-size:0.65rem">Tile background</label><div id="modal-isel-tilebg"></div></div>
         <div><label class="cl" style="font-size:0.65rem">Tile border colour</label><div id="modal-isel-tileborder"></div></div>
       </div>
-      <!-- Row 3: tile size / size mode / selected style / border width / alignment -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
+      <!-- Row 3: tile size / size mode / border width / alignment -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
         <div><label class="cl" style="font-size:0.65rem">Tile size (px)</label><input type="number" id="modal-isel-size" value="64" min="40" max="300" style="font-size:0.78rem"></div>
         <div><label class="cl" style="font-size:0.65rem">Size mode</label>
           <select id="modal-isel-size-mode" style="font-size:0.78rem">
             <option value="fixed">Fixed px</option>
             <option value="fill">Fill width</option>
-          </select>
-        </div>
-        <div><label class="cl" style="font-size:0.65rem">Selected style</label>
-          <select id="modal-isel-selstyle" style="font-size:0.78rem">
-            <option value="border">Border highlight</option>
-            <option value="fill">Fill background</option>
           </select>
         </div>
         <div><label class="cl" style="font-size:0.65rem">Border width (px)</label><input type="number" id="modal-isel-borderw" value="2" min="0" max="8" style="font-size:0.78rem"></div>
@@ -4486,12 +4517,21 @@ function applyRoleUI() {
       }
     }
   });
-  // Nav user pill
+  // Nav user pill — keep empty (name+role shown in dropdown instead)
   const pill = document.getElementById('nav-user-pill');
-  if (pill) {
-    const label = me.systemRole === 'super-admin' ? 'Super Admin' : me.systemRole === 'viewer' ? 'Viewer' : me.systemRole;
+  if (pill) pill.innerHTML = '';
+  // Inject user identity + role into the top of the user-menu dropdown
+  const menu = document.getElementById('user-menu');
+  if (menu) {
+    const existing = menu.querySelector('.rbac-user-info');
+    if (existing) existing.remove();
+    const roleLabel = me.systemRole === 'super-admin' ? 'Super Admin' : me.systemRole === 'viewer' ? 'Viewer' : (me.systemRole||'Viewer');
     const badgeClass = me.systemRole === 'super-admin' ? 'active' : 'pending';
-    pill.innerHTML = `<span style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(me.name||me.email||'')}</span><span class="badge ${badgeClass}" style="font-size:0.7rem;flex-shrink:0">${escH(label)}</span>`;
+    const info = document.createElement('div');
+    info.className = 'rbac-user-info';
+    info.style.cssText = 'padding:10px 14px 8px;border-bottom:1px solid var(--border);margin-bottom:4px';
+    info.innerHTML = `<div style="font-size:0.82rem;font-weight:600;color:var(--ink1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${escH(me.name||me.email||'')}</div><div style="font-size:0.73rem;color:var(--ink3);margin-top:2px">${escH(me.email||'')}</div><span class="badge ${badgeClass}" style="font-size:0.7rem;margin-top:6px;display:inline-block">${escH(roleLabel)}</span>`;
+    menu.insertBefore(info, menu.firstChild);
   }
 }
 
@@ -7955,9 +7995,9 @@ function _buildIselColorDropdowns(selColor,tileBg,tileBorder){
   _iselSelColor=selColor||'';
   _iselTileBg=tileBg||'';
   _iselTileBorder=tileBorder||'';
-  buildBrandColorPicker('modal-isel-color',  _iselSelColor,  v=>{_iselSelColor=v;});
-  buildBrandColorPicker('modal-isel-tilebg', _iselTileBg,    v=>{_iselTileBg=v;});
-  buildBrandColorPicker('modal-isel-tileborder',_iselTileBorder,v=>{_iselTileBorder=v;});
+  _buildIselColorPicker('modal-isel-color',       _iselSelColor,    v=>{_iselSelColor=v;});
+  _buildIselColorPicker('modal-isel-tilebg',      _iselTileBg,      v=>{_iselTileBg=v;});
+  _buildIselColorPicker('modal-isel-tileborder',  _iselTileBorder,  v=>{_iselTileBorder=v;});
 }
 
 // ── Material Icon Picker ──
@@ -8173,6 +8213,23 @@ function filterNotes(q){
     el.classList.toggle('help-hidden',!text.includes(term));
   });
 }
+// ── Platform Settings sub-tab switcher ──
+let _gsTab = 'security';
+function switchGsTab(name) {
+  _gsTab = name;
+  document.querySelectorAll('[id^="gst-"][id$="-btn"]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.gs-panel').forEach(p => { p.style.display = 'none'; });
+  const btn = document.getElementById('gst-' + name + '-btn');
+  if (btn) btn.classList.add('active');
+  const panel = document.getElementById('gsp-' + name);
+  if (panel) panel.style.display = '';
+  // Lazy-load data for each tab
+  if (name === 'security') { loadIpFlags(); loadGlobalSettings(); applyRoleUI(); }
+  if (name === 'markets')  { loadMarketsAdmin(); applyRoleUI(); }
+  if (name === 'users')    { loadUsersAdmin(); applyRoleUI(); }
+  if (name === 'logs')     { loadAuditLog(1); }
+}
+
 function switchInnerTab(name,btn){
   document.querySelectorAll('.docs-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.docs-panel').forEach(p=>p.classList.remove('active'));
@@ -8294,7 +8351,7 @@ function switchTab(tab,btn){
   if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help'){switchInnerTab('help');renderUserNotes();}
-  if(tab==='global-settings'){loadIpFlags();loadGlobalSettings();loadMarketsAdmin();loadUsersAdmin();applyRoleUI();}
+  if(tab==='global-settings'){switchGsTab(_gsTab||'security');}
   if(tab==='design'){
     // Clicking Branding always exits template editing back to list
     if(_editingTpl)exitTplEdit();
