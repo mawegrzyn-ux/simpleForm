@@ -266,6 +266,12 @@ tr:hover td{background:#FAFAF8;}
 #etpl-wysi{outline:none;min-height:200px;font-size:0.9rem;line-height:1.7;color:#333;}
 #etpl-wysi:empty:before{content:'Click here to start writing your email…';color:#aaa;pointer-events:none;}
 .etpl-unsub-preview{font-size:0.78rem;color:#aaa;border-top:1px solid #eee;padding-top:12px;margin-top:16px;text-align:center;}
+#etpl-img-bar{display:none;padding:5px 10px;border-bottom:1px solid var(--border);background:var(--bg2);align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap;}
+#etpl-img-bar.open{display:flex;}
+#etpl-img-bar button{padding:3px 6px;border-radius:4px;border:1px solid transparent;background:none;cursor:pointer;font-size:0.78rem;font-family:var(--font);color:var(--ink);display:inline-flex;align-items:center;gap:2px;transition:all 100ms;}
+#etpl-img-bar button:hover,#etpl-img-bar button.active{background:var(--border);}
+#etpl-img-bar select,#etpl-img-bar input[type=number]{font-size:0.78rem;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--panel);color:var(--ink);height:26px;}
+#etpl-img-bar input[type=number]{width:64px;}
 .etpl-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-shrink:0;}
 .etpl-draft-note{font-size:0.78rem;color:var(--success);opacity:0;transition:opacity .3s;margin-right:auto;}
 .etpl-draft-note.show{opacity:1;}
@@ -980,6 +986,17 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           </select>
         </div>
       </div>
+      <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">manage_accounts</span> Preferences link</div>
+        <div class="cg" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <label class="cl" style="margin:0">Show footer link</label>
+          <label class="tgl"><input type="checkbox" id="etpl-pref-show" checked onchange="etplUpdatePrefLink()"><span class="tgl-s"></span></label>
+        </div>
+        <div id="etpl-pref-fields">
+          <div class="cg"><label class="cl">Surrounding text</label><input type="text" id="etpl-pref-label" placeholder="Don't want these emails?" oninput="etplUpdatePrefLink()"></div>
+          <div class="cg"><label class="cl">Link text</label><input type="text" id="etpl-pref-linktext" placeholder="Manage preferences" oninput="etplUpdatePrefLink()"></div>
+        </div>
+      </div>
     </div>
   </div>
   <div id="bl-resize-handle"></div>
@@ -991,11 +1008,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <input type="text" id="etpl-subject" placeholder="Thanks for subscribing!" oninput="cfg.site.emailSubject=this.value" style="flex:1">
         <button class="btn btn-outline btn-sm" style="font-size:0.72rem;flex-shrink:0" onclick="toggleEtplTagMenu('subject')">+ Merge tag</button>
       </div>
-      <div id="etpl-tag-menu-subject" class="etpl-tag-menu" style="margin:4px 12px">
-        <button class="etpl-tag-chip" onclick="etplInsertMergeTag('email','subject')">{{email}}</button>
-        <button class="etpl-tag-chip" onclick="etplInsertMergeTag('firstName','subject')">{{firstName}}</button>
-        <button class="etpl-tag-chip" onclick="etplInsertMergeTag('formName','subject')">{{formName}}</button>
-      </div>
+      <div id="etpl-tag-menu-subject" class="etpl-tag-menu" style="margin:4px 12px"></div>
       <div class="etpl-toolbar" onmousedown="event.target.tagName!=='INPUT'&&event.preventDefault()">
         <button onclick="etplFmt('bold')" title="Bold"><b style="font-family:serif">B</b></button>
         <button onclick="etplFmt('italic')" title="Italic"><i style="font-family:serif">I</i></button>
@@ -1026,16 +1039,30 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <div class="t-sep"></div>
         <button onclick="etplFmt('removeFormat')" title="Clear formatting"><span class="material-icons-round mi">format_clear</span></button>
       </div>
-      <div id="etpl-tag-menu-body" class="etpl-tag-menu" style="margin:6px 10px 0">
-        <button class="etpl-tag-chip" onmousedown="event.preventDefault()" onclick="etplInsertMergeTag('email','body')">{{email}}</button>
-        <button class="etpl-tag-chip" onmousedown="event.preventDefault()" onclick="etplInsertMergeTag('firstName','body')">{{firstName}}</button>
-        <button class="etpl-tag-chip" onmousedown="event.preventDefault()" onclick="etplInsertMergeTag('formName','body')">{{formName}}</button>
-        <button class="etpl-tag-chip" onmousedown="event.preventDefault()" onclick="etplInsertMergeTag('unsubscribeUrl','body')">{{unsubscribeUrl}}</button>
+      <div id="etpl-img-bar">
+        <span class="material-icons-round mi" style="font-size:15px;color:var(--ink2)">photo_size_select_large</span>
+        <span style="font-size:0.73rem;color:var(--ink2);font-weight:600;margin-right:2px">Image:</span>
+        <select id="etpl-img-width-sel" onchange="etplImgSetWidth(this.value)">
+          <option value="">Auto width</option>
+          <option value="25%">25%</option>
+          <option value="33%">33%</option>
+          <option value="50%">50%</option>
+          <option value="66%">66%</option>
+          <option value="75%">75%</option>
+          <option value="100%">Full width</option>
+          <option value="custom">Custom px…</option>
+        </select>
+        <input type="number" id="etpl-img-px" min="10" max="1200" step="10" placeholder="px" style="display:none" oninput="etplImgSetPx(this.value)">
+        <div class="t-sep"></div>
+        <button id="etpl-img-al" onclick="etplImgAlign('left')" title="Align left"><span class="material-icons-round mi" style="font-size:15px">format_align_left</span></button>
+        <button id="etpl-img-ac" onclick="etplImgAlign('center')" title="Align centre"><span class="material-icons-round mi" style="font-size:15px">format_align_center</span></button>
+        <button id="etpl-img-ar" onclick="etplImgAlign('right')" title="Align right"><span class="material-icons-round mi" style="font-size:15px">format_align_right</span></button>
       </div>
+      <div id="etpl-tag-menu-body" class="etpl-tag-menu" style="margin:6px 10px 0"></div>
       <div class="etpl-preview">
         <div id="etpl-outer">
           <div id="etpl-card">
-            <div id="etpl-wysi" contenteditable="true"></div>
+            <div id="etpl-wysi" contenteditable="true" onclick="etplCheckImgClick(event)"></div>
             <div class="etpl-unsub-preview">Don't want these emails? <a href="#" style="color:#aaa">Manage preferences</a></div>
           </div>
         </div>
@@ -4548,9 +4575,20 @@ async function previewSaveJpg(frameId,btnId){
   if(!f||!f.contentDocument||!f.contentDocument.body){toast('Preview not loaded','error');return;}
   const btn=document.getElementById(btnId||'prev-jpg-btn');
   if(btn){btn.disabled=true;btn.querySelector('.mi').textContent='hourglass_empty';}
+  // Swap cross-origin S3 image src → admin proxy so html2canvas can draw them without tainting the canvas
+  const imgs=[...f.contentDocument.querySelectorAll('img[src]')];
+  const origSrcs=imgs.map(img=>img.src);
+  await Promise.all(imgs.map((img,i)=>new Promise(resolve=>{
+    const src=origSrcs[i];
+    if(!src||src.startsWith('data:')||src.startsWith(location.origin)){resolve();return;}
+    const m=src.match(/\/(uploads\/[^?#]+|fonts\/[^?#]+)$/);
+    if(!m){resolve();return;}
+    img.onload=img.onerror=resolve;
+    img.src='/api/admin/media/img-proxy?key='+encodeURIComponent(m[1]);
+  })));
   try{
     const canvas=await html2canvas(f.contentDocument.body,{
-      useCORS:true,allowTaint:true,
+      useCORS:true,allowTaint:false,
       width:f.contentDocument.body.scrollWidth,
       height:f.contentDocument.body.scrollHeight,
       windowWidth:f.contentDocument.body.scrollWidth,
@@ -4564,6 +4602,7 @@ async function previewSaveJpg(frameId,btnId){
     toast('JPG saved');
   }catch(e){toast('Could not capture preview: '+e.message,'error');}
   finally{
+    imgs.forEach((img,i)=>{img.src=origSrcs[i];});
     if(btn){btn.disabled=false;btn.querySelector('.mi').textContent='image';}
   }
 }
@@ -8330,8 +8369,32 @@ function openUnsubPageWysiwyg(){
 }
 
 // ── Email tab populate ──
+function _rebuildMergeTagMenus(){
+  // Fixed tags always available
+  const fixed=[
+    {key:'email',label:'{{email}}'},
+    {key:'firstName',label:'{{firstName}}'},
+    {key:'formName',label:'{{formName}}'},
+    {key:'unsubscribeUrl',label:'{{unsubscribeUrl}}'},
+  ];
+  // Add a chip for every non-system custom field (skip email which is already above)
+  const fieldTags=(cfg.fields||[])
+    .filter(f=>!f.system&&f.type!=='prizedraw')
+    .map(f=>({key:f.id,label:`{{${f.id}}}`,title:f.label}));
+  const allTags=[...fixed,...fieldTags];
+  ['subject','body'].forEach(ctx=>{
+    const menu=document.getElementById('etpl-tag-menu-'+ctx);
+    if(!menu)return;
+    const md=ctx==='body'?'onmousedown="event.preventDefault()" ':'';
+    menu.innerHTML=allTags.map(t=>
+      `<button class="etpl-tag-chip" ${md}onclick="etplInsertMergeTag('${t.key}','${ctx}')" title="${t.title||t.label}">${t.label}</button>`
+    ).join('');
+  });
+}
+
 function populateEmailTab(){
   if(!cfg||!cfg.site)return;
+  _rebuildMergeTagMenus();
   const ee=document.getElementById('email-enabled');if(ee)ee.checked=!!cfg.site.emailEnabled;
   const sv2=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};
   sv2('email-from-name',cfg.site.emailFromName);
@@ -8355,6 +8418,14 @@ function populateEmailTab(){
   toggleEmailFields();
   document.getElementById('etpl-tag-menu-subject')?.classList.remove('open');
   document.getElementById('etpl-tag-menu-body')?.classList.remove('open');
+  etplHideImgBar();_etplSelImg=null;
+  // Preferences link
+  const pl=cfg.site.emailPrefLink||{};
+  const plShow=document.getElementById('etpl-pref-show');
+  if(plShow)plShow.checked=!pl.hide;
+  sv2('etpl-pref-label',pl.label||'');
+  sv2('etpl-pref-linktext',pl.linkText||'');
+  etplUpdatePrefLink();
 }
 function _renderEtplBrandSwatches(){
   if(!cfg?.design)return;
@@ -8433,6 +8504,74 @@ function etplInsertImage(){
     document.getElementById('etpl-wysi')?.focus();
     document.execCommand('insertHTML',false,`<img src="${url}" style="max-width:100%;height:auto;display:block;margin:12px auto">`);
   });
+}
+// ── Email image toolbar ──
+let _etplSelImg=null;
+function etplCheckImgClick(e){
+  if(e.target.tagName==='IMG'){_etplSelImg=e.target;etplShowImgBar(e.target);}
+  else{etplHideImgBar();_etplSelImg=null;}
+}
+function etplShowImgBar(img){
+  const bar=document.getElementById('etpl-img-bar');
+  if(!bar)return;
+  bar.classList.add('open');
+  const wSel=document.getElementById('etpl-img-width-sel');
+  const pxIn=document.getElementById('etpl-img-px');
+  const w=img.style.width||'';
+  const known=['','25%','33%','50%','66%','75%','100%'];
+  if(known.includes(w)){if(wSel)wSel.value=w;if(pxIn)pxIn.style.display='none';}
+  else{if(wSel)wSel.value='custom';if(pxIn){pxIn.style.display='';pxIn.value=parseInt(w)||'';}}
+  ['al','ac','ar'].forEach(id=>document.getElementById('etpl-img-'+id)?.classList.remove('active'));
+  const fl=img.style.float;const ml=img.style.marginLeft;
+  if(fl==='left')document.getElementById('etpl-img-al')?.classList.add('active');
+  else if(fl==='right')document.getElementById('etpl-img-ar')?.classList.add('active');
+  else if(ml==='auto')document.getElementById('etpl-img-ac')?.classList.add('active');
+}
+function etplHideImgBar(){document.getElementById('etpl-img-bar')?.classList.remove('open');}
+function etplImgSetWidth(val){
+  if(!_etplSelImg)return;
+  const pxIn=document.getElementById('etpl-img-px');
+  if(val==='custom'){if(pxIn)pxIn.style.display='';return;}
+  if(pxIn)pxIn.style.display='none';
+  _etplSelImg.style.width=val||'';_etplSelImg.style.maxWidth='100%';
+}
+function etplImgSetPx(val){
+  if(!_etplSelImg||!val)return;
+  _etplSelImg.style.width=val+'px';_etplSelImg.style.maxWidth='100%';
+}
+function etplImgAlign(dir){
+  if(!_etplSelImg)return;
+  ['al','ac','ar'].forEach(id=>document.getElementById('etpl-img-'+id)?.classList.remove('active'));
+  _etplSelImg.style.float='';_etplSelImg.style.display='block';
+  if(dir==='left'){
+    _etplSelImg.style.float='left';_etplSelImg.style.margin='0 16px 8px 0';
+    document.getElementById('etpl-img-al')?.classList.add('active');
+  } else if(dir==='right'){
+    _etplSelImg.style.float='right';_etplSelImg.style.margin='0 0 8px 16px';
+    document.getElementById('etpl-img-ar')?.classList.add('active');
+  } else {
+    _etplSelImg.style.margin='12px auto';
+    document.getElementById('etpl-img-ac')?.classList.add('active');
+  }
+}
+// ── Preferences link ──
+function etplUpdatePrefLink(){
+  const show=document.getElementById('etpl-pref-show')?.checked!==false;
+  const label=document.getElementById('etpl-pref-label')?.value||'';
+  const linkText=document.getElementById('etpl-pref-linktext')?.value||'';
+  cfg.site.emailPrefLink={hide:!show,label,linkText};
+  const prev=document.querySelector('.etpl-unsub-preview');
+  if(prev){
+    if(!show){prev.style.display='none';}
+    else{
+      prev.style.display='';
+      const lbl=label||"Don't want these emails?";
+      const lt=linkText||'Manage preferences';
+      prev.innerHTML=escapeHtml(lbl)+' <a href="#" style="color:#aaa">'+escapeHtml(lt)+'</a>';
+    }
+  }
+  const fields=document.getElementById('etpl-pref-fields');
+  if(fields)fields.style.display=show?'':'none';
 }
 function etplInsertMergeTag(tag,target){
   if(target==='subject'){

@@ -142,9 +142,15 @@ function replaceMergeTags(text, cfg, subscriber, unsubUrl) {
     '{{formName}}':       (cfg.site && cfg.site.title) || 'SignFlow',
     '{{unsubscribeUrl}}': unsubUrl,
   };
+  // Add all custom field values as {{fieldId}} tags
+  if (subscriber.customFields) {
+    Object.entries(subscriber.customFields).forEach(([k, v]) => {
+      map[`{{${k}}}`] = v != null ? String(v) : '';
+    });
+  }
   // Strip editor merge-tag spans (keep inner text which is the {{tag}}) then replace
   let out = text.replace(/<span[^>]*class="etpl-merge"[^>]*>([\s\S]*?)<\/span>/g, '$1');
-  return out.replace(/\{\{[a-zA-Z]+\}\}/g, t => (map[t] !== undefined ? map[t] : t));
+  return out.replace(/\{\{[a-zA-Z0-9_]+\}\}/g, t => (map[t] !== undefined ? map[t] : t));
 }
 
 async function sendWelcomeEmail(cfg, subscriber) {
@@ -188,8 +194,11 @@ async function sendWelcomeEmail(cfg, subscriber) {
     }
   }
   // Auto-append unsubscribe footer only if {{unsubscribeUrl}} not already used in body
-  const footer = rawBody.includes('{{unsubscribeUrl}}') ? '' :
-    `<p style="margin-top:32px;font-size:0.8rem;color:#aaa;border-top:1px solid #eee;padding-top:16px">Don't want these emails? <a href="${prefUrl}" style="color:#aaa">Manage preferences</a></p>`;
+  const prefLink = s.emailPrefLink || {};
+  const prefLinkLabel = prefLink.label || "Don't want these emails?";
+  const prefLinkText  = prefLink.linkText || 'Manage preferences';
+  const footer = (prefLink.hide || rawBody.includes('{{unsubscribeUrl}}')) ? '' :
+    `<p style="margin-top:32px;font-size:0.8rem;color:#aaa;border-top:1px solid #eee;padding-top:16px">${escapeHtml(prefLinkLabel)} <a href="${prefUrl}" style="color:#aaa">${escapeHtml(prefLinkText)}</a></p>`;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(bodyFont)}:wght@400;600&display=swap" rel="stylesheet">
 </head><body style="margin:0;padding:0;background:${bgColor}">
