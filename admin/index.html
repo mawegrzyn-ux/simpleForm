@@ -657,6 +657,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     <button class="tbtn tbtn-primary" id="save-btn" onclick="saveConfig()" style="display:none"><span class="material-icons-round mi">save</span> Save</button>
     <button class="tbtn tbtn-ghost t-icon-btn" id="global-settings-btn" onclick="switchTab('global-settings',null)" title="Platform settings"><span class="material-icons-round mi" style="font-size:18px">settings</span></button>
     <button class="tbtn tbtn-ghost t-icon-btn" id="help-nav-btn" onclick="switchTab('help',null)" title="Help"><span class="material-icons-round mi" style="font-size:18px">help_outline</span></button>
+    <div id="nav-user-pill" style="display:flex;align-items:center;gap:5px;font-size:0.78rem;color:var(--ink3);max-width:200px;overflow:hidden;padding:0 4px"></div>
     <div id="user-badge">
       <button class="t-user-btn" onclick="toggleUserMenu()">
         <img id="user-avatar" src="" alt="">
@@ -731,6 +732,34 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <p>Global configuration that applies across all forms and visitors.</p>
     </div>
 
+    <!-- Markets (super-admin only) -->
+    <div class="card super-admin-only" style="padding:16px" id="markets-card">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">public</span> Markets</div>
+      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">Markets define access dimensions (e.g. countries, regions). Assign users and forms to markets to restrict who can see and manage them.</p>
+      <div style="overflow-x:auto;margin-bottom:12px">
+        <table class="ml-table" style="font-size:0.78rem;width:100%">
+          <thead><tr><th>Name</th><th>Slug</th><th style="text-align:center">Forms</th><th style="text-align:center">Users</th><th style="width:40px"></th></tr></thead>
+          <tbody id="markets-tbody"><tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="new-market-name" class="inp" placeholder="Market name (e.g. United Kingdom)" style="flex:1;font-size:0.82rem">
+        <button class="btn btn-primary btn-sm" onclick="createMarket()"><span class="material-icons-round mi">add</span> Add</button>
+      </div>
+    </div>
+
+    <!-- Users (super-admin only) -->
+    <div class="card super-admin-only" style="padding:16px" id="users-card">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">manage_accounts</span> Users</div>
+      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">All users who have logged in. Set system roles and market assignments. Auth0 <code>signflow-admin</code> role is still required to access the admin panel at all.</p>
+      <div style="overflow-x:auto">
+        <table class="ml-table" style="font-size:0.78rem;width:100%">
+          <thead><tr><th>Email</th><th>Name</th><th style="width:130px">System role</th><th>Markets</th><th style="width:40px"></th></tr></thead>
+          <tbody id="users-tbody"><tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- IP Flagging -->
     <div class="card" style="padding:16px" id="ip-flags-card">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:4px"><span class="material-icons-round mi">gpp_bad</span> IP Flagging</div>
@@ -756,7 +785,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     </div>
 
     <!-- Anti-Bot Protection -->
-    <div class="card" style="padding:16px" id="antibot-card">
+    <div class="card admin-readonly" style="padding:16px" id="antibot-card">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">security</span> Anti-Bot Protection</div>
       <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:12px">SignFlow always runs invisible bot-detection on every form (honeypot, timing token, proof-of-work, math challenge, IP flagging). Optionally layer in hCaptcha as a visible external challenge.</p>
       <div class="cg">
@@ -1670,7 +1699,16 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>DELETE /api/admin/ip-flags/:ipHash</code></td><td>Clear a single IP flag</td></tr>
           <tr><td><code>DELETE /api/admin/ip-flags</code></td><td>Clear all active IP flags</td></tr>
           <tr><td><code>POST /api/admin/forms/:slug/subscribers/:id/resend-confirm</code></td><td>Resend double opt-in confirmation email to a pending subscriber</td></tr>
-          <tr><td><code>GET /api/admin/audit-log</code></td><td>Paginated admin audit log (50/page); <code>?page=</code> param</td></tr>
+          <tr><td><code>GET /api/admin/audit-log</code></td><td>Paginated admin audit log (50/page); <code>?page=</code> param. Accessible to market admins (read-only).</td></tr>
+          <tr><td><code>GET /api/admin/me</code></td><td>Returns current user's <code>dbId</code>, <code>systemRole</code>, <code>markets</code>, <code>email</code>, <code>name</code>, <code>picture</code></td></tr>
+          <tr><td><code>GET /api/admin/markets</code></td><td>List all markets with <code>form_count</code> and <code>user_count</code></td></tr>
+          <tr><td><code>POST /api/admin/markets</code></td><td>Create a market (super-admin only); body: <code>{ name }</code>; slug auto-generated</td></tr>
+          <tr><td><code>DELETE /api/admin/markets/:id</code></td><td>Delete a market (super-admin only); cascades to <code>user_markets</code> and <code>form_markets</code></td></tr>
+          <tr><td><code>GET /api/admin/users</code></td><td>List all <code>sf_users</code> with their market assignments (super-admin only)</td></tr>
+          <tr><td><code>PATCH /api/admin/users/:id</code></td><td>Update a user's <code>system_role</code> (super-admin only)</td></tr>
+          <tr><td><code>PUT /api/admin/users/:id/markets</code></td><td>Replace a user's market assignments; body: <code>{ markets: [{market_id, role}] }</code> (super-admin only)</td></tr>
+          <tr><td><code>GET /api/admin/forms/:slug/markets</code></td><td>List markets assigned to a form</td></tr>
+          <tr><td><code>PUT /api/admin/forms/:slug/markets</code></td><td>Replace a form's market assignments; body: <code>{ marketIds: [] }</code> (super-admin only)</td></tr>
           <tr><td><code>GET /branding-preview</code></td><td>Render a standalone branding preview iframe (uses generic demo content)</td></tr>
         </table>
       </div>
@@ -1834,7 +1872,11 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>isel_presets</code></td><td><code>id</code> UUID</td><td>Saved icon/tile selector presets; <code>name</code> UNIQUE; <code>items</code> JSONB tile array</td></tr>
           <tr><td><code>ip_flags</code></td><td><code>ip_hash</code> text</td><td>Bot IP flags; <code>ip_hash</code> = HMAC-SHA256(ip, salt); <code>level</code> 1–3; <code>strike_count</code>; <code>expires_at</code> timestamptz; auto-indexed</td></tr>
           <tr><td><code>email_log</code></td><td><code>id</code> UUID</td><td>Welcome + confirmation email send log; FK → <code>forms.slug</code> CASCADE; <code>status</code> = <code>sent</code>|<code>failed</code>; <code>open_count</code>, <code>click_count</code>, <code>first_opened_at</code>, <code>last_clicked_at</code> for engagement tracking; indexed on <code>(form_slug, sent_at DESC)</code></td></tr>
-          <tr><td><code>audit_log</code></td><td><code>id</code> UUID</td><td>Admin action log; <code>user_email</code>, <code>action</code> (e.g. <code>form.create</code>), <code>target_type</code>, <code>target_id</code>, <code>detail</code> JSONB; indexed on <code>timestamp DESC</code></td></tr>
+          <tr><td><code>audit_log</code></td><td><code>id</code> UUID</td><td>Admin action log; <code>user_email</code>, <code>action</code> (e.g. <code>form.create</code>, <code>market.create</code>, <code>user.role_change</code>), <code>target_type</code>, <code>target_id</code>, <code>detail</code> JSONB; indexed on <code>timestamp DESC</code></td></tr>
+          <tr><td><code>markets</code></td><td><code>id</code> UUID</td><td>Geographic/regional access groups; <code>name</code>, <code>slug</code> (unique, auto-generated from name), <code>created_at</code></td></tr>
+          <tr><td><code>sf_users</code></td><td><code>id</code> UUID</td><td>Admin users auto-registered on Auth0 login; <code>auth0_sub</code> (unique), <code>email</code>, <code>name</code>, <code>system_role</code> (<code>super-admin</code> | <code>viewer</code>), <code>last_seen</code>. First-ever user promoted to super-admin.</td></tr>
+          <tr><td><code>user_markets</code></td><td><code>(user_id, market_id)</code> PK</td><td>Junction table: which markets a user belongs to and their per-market <code>role</code> (<code>admin</code> | <code>editor</code> | <code>viewer</code>)</td></tr>
+          <tr><td><code>form_markets</code></td><td><code>(form_slug, market_id)</code> PK</td><td>Junction table: which markets a form is assigned to. Forms with no rows here are unassigned (visible to all admins).</td></tr>
           <tr><td><code>global_settings</code></td><td><code>id</code> int (always 1)</td><td>Single-row platform config; <code>value</code> JSONB holds <code>captchaMode</code>, <code>hcaptchaSiteKey</code>, <code>hcaptchaSecretKey</code></td></tr>
           <tr><td><code>session</code></td><td><code>sid</code></td><td>Auto-created by <code>connect-pg-simple</code>; stores Express sessions</td></tr>
         </table>
@@ -2152,6 +2194,15 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-15 — RBAC + Market dimension</h3>
+        <ul>
+          <li>✅ <strong>Markets</strong> — new geographic/regional access dimension; super-admin creates and manages markets (countries, states, regions) in Platform Settings. 4 new PostgreSQL tables: <code>markets</code>, <code>sf_users</code>, <code>user_markets</code>, <code>form_markets</code>.</li>
+          <li>✅ <strong>User provisioning</strong> — any Auth0 <code>signflow-admin</code> login is auto-registered in <code>sf_users</code>; first-ever user becomes super-admin automatically. Users table in Platform Settings shows all users with system role and market assignments.</li>
+          <li>✅ <strong>Roles</strong> — three per-market roles: <strong>Admin</strong> (full CRUD), <strong>Editor</strong> (edit config and view subscribers, no delete/create), <strong>Viewer</strong> (read-only, no export). System role <em>super-admin</em> bypasses all market restrictions.</li>
+          <li>✅ <strong>Form-market assignment</strong> — forms can belong to multiple markets; unassigned forms are visible to all admins. Super-admin assigns markets via the Markets card in Form Settings sidebar. Non-super-admin admins pick market(s) during form creation.</li>
+          <li>✅ <strong>Server enforcement</strong> — all admin routes check market access and role: form list filtered, form config save requires editor+, form delete requires admin, subscriber delete requires admin, export blocked for viewer, global settings edit requires super-admin.</li>
+          <li>✅ <strong>Admin UI gating</strong> — market badges on form cards; Delete button hidden for non-admins; nav user pill shows name + role; Markets and Users cards visible to super-admin only; Anti-Bot / Global Settings cards are read-only for market admins.</li>
+        </ul>
         <h3>2026-03-15 — Double opt-in, Email tracking, Admin audit log</h3>
         <ul>
           <li>✅ <strong>Double opt-in</strong> — per-form toggle (Settings → Double opt-in). When enabled, new subscribers are inserted with <code>status='pending'</code> and receive a branded confirmation email. Clicking the link in that email activates the subscription and fires the welcome email. Re-submitting while pending resends the confirmation. Confirmation page is fully branded. Subscriber table shows amber <em>pending</em> badge, a "Resend confirmation" button, and a new <em>Pending confirmation</em> status filter. API: <code>POST /api/admin/forms/:slug/subscribers/:id/resend-confirm</code>.</li>
@@ -2522,9 +2573,9 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <ul>
           <li><strong>SSO / SAML 2.0</strong> — Okta, Azure AD, Google Workspace</li>
           <li><strong>SCIM provisioning</strong> — auto-provision users from corporate IdP</li>
-          <li><strong>RBAC roles</strong> — super-admin, admin, editor, viewer; per-form scoping</li>
+          <li>✅ <strong>RBAC + Markets</strong> — super-admin, admin, editor, viewer roles; Market dimension (country/state/region); users and forms assigned to markets; server-enforced access control; UI gating; nav user pill; Markets + Users management in Platform Settings</li>
           <li><strong>API keys</strong> — scoped machine-to-machine keys with expiry</li>
-          <li>✅ <strong>Audit log</strong> — all admin actions (form CRUD, subscriber delete, global settings) recorded in <code>audit_log</code> table; paginated UI in Platform Settings</li>
+          <li>✅ <strong>Audit log</strong> — all admin actions (form CRUD, subscriber delete, global settings, market/user changes) recorded in <code>audit_log</code> table; paginated UI in Platform Settings</li>
         </ul>
         <h3>Phase 4 — GDPR Tooling</h3>
         <ul>
@@ -2980,6 +3031,19 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <div class="cg"><label class="cl">Meta Pixel ID</label>
         <input type="text" id="pf-pixel-id" placeholder="1234567890123" oninput="cfg.site.metaPixelId=this.value.trim()"></div>
     </div>
+    <div class="card super-admin-only" style="padding:16px" id="form-markets-card">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">public</span> Market assignment</div>
+      <p class="card-desc" style="font-size:0.78rem;margin-bottom:10px">Assign this form to markets to restrict which users can see and manage it. Leave unassigned to make it visible to all admins.</p>
+      <div id="form-market-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:24px">
+        <span style="font-size:0.78rem;color:var(--ink3)">Loading…</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="form-market-add-select" class="inp" style="flex:1;font-size:0.82rem">
+          <option value="">— Add a market —</option>
+        </select>
+        <button class="btn btn-sm" onclick="addFormMarket()">Add</button>
+      </div>
+    </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:8px"><span class="material-icons-round mi">mark_email_read</span> Double opt-in</div>
       <p class="card-desc" style="font-size:0.78rem;margin-bottom:10px">When enabled, subscribers receive a confirmation email first and must click a link to activate. Requires email sending to be enabled.</p>
@@ -3034,6 +3098,13 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <input type="text" id="new-form-slug" placeholder="e.g. newsletter" oninput="validateSlug(this.value)">
       <div id="slug-hint" style="font-size:0.76rem;color:var(--ink3);margin-top:4px">yourdomain.com/<span id="slug-preview">…</span></div>
       <div id="slug-error" style="font-size:0.76rem;color:var(--danger);margin-top:4px;display:none"></div>
+    </div>
+    <div class="cg" id="create-market-group">
+      <label class="cl">Assign to market(s) <span style="font-weight:400;color:var(--ink3)">(optional)</span></label>
+      <div id="create-market-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;min-height:24px">
+        <span style="font-size:0.78rem;color:var(--ink3);align-self:center">Loading markets…</span>
+      </div>
+      <p style="font-size:0.76rem;color:var(--ink3);margin-top:4px">Leave unchecked to make this form unassigned (visible to all admins).</p>
     </div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeNewFormModal()">Cancel</button>
@@ -4387,10 +4458,64 @@ async function checkSession(){
   }
 }
 
+// ── Current user (RBAC) ──
+let me = { systemRole: 'viewer', markets: [] };
+
+async function loadMe() {
+  try {
+    const r = await adminFetch('/api/admin/me');
+    if (r.ok) { me = await r.json(); applyRoleUI(); }
+  } catch(_) {}
+}
+
+function applyRoleUI() {
+  // Show super-admin-only elements
+  document.querySelectorAll('.super-admin-only').forEach(el => {
+    el.style.display = me.systemRole === 'super-admin' ? '' : 'none';
+  });
+  // Disable inputs in admin-readonly sections for non-super-admins
+  document.querySelectorAll('.admin-readonly').forEach(el => {
+    if (me.systemRole !== 'super-admin') {
+      el.querySelectorAll('input,select,textarea,button:not(.readonly-ok)').forEach(i => { i.disabled = true; });
+      if (!el.querySelector('.rbac-readonly-banner')) {
+        const banner = document.createElement('p');
+        banner.className = 'rbac-readonly-banner';
+        banner.style.cssText = 'font-size:0.78rem;color:#856404;background:#fff3cd;border-radius:6px;padding:6px 10px;margin-top:8px';
+        banner.textContent = 'Read-only — super-admin access required to edit these settings.';
+        el.appendChild(banner);
+      }
+    }
+  });
+  // Nav user pill
+  const pill = document.getElementById('nav-user-pill');
+  if (pill) {
+    const label = me.systemRole === 'super-admin' ? 'Super Admin' : me.systemRole === 'viewer' ? 'Viewer' : me.systemRole;
+    const badgeClass = me.systemRole === 'super-admin' ? 'active' : 'pending';
+    pill.innerHTML = `<span style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(me.name||me.email||'')}</span><span class="badge ${badgeClass}" style="font-size:0.7rem;flex-shrink:0">${escH(label)}</span>`;
+  }
+}
+
+// Client-side helper: resolve user's effective role for a form (from form's markets array)
+function myRoleForForm(formMarkets) {
+  if (me.systemRole === 'super-admin') return 'admin';
+  const RANK = { viewer: 1, editor: 2, admin: 3 };
+  let best = null;
+  const myMktMap = {};
+  for (const um of (me.markets || [])) myMktMap[um.market_id] = um.role;
+  for (const m of (formMarkets || [])) {
+    const role = myMktMap[m.id || m.market_id];
+    if (role && (!best || RANK[role] > RANK[best])) best = role;
+  }
+  // Unassigned form (no markets) → all users have full access
+  if (!best && (!formMarkets || formMarkets.length === 0)) best = 'admin';
+  return best;
+}
+
 // ── Forms index ──
 async function loadFormsIndex(){
   // Fetch CSRF token first (one request per session load)
   try{const ct=await adminFetch('/api/admin/csrf-token').then(r=>r.json());if(ct.token)_csrfToken=ct.token;}catch(_){}
+  await loadMe();
   const r=await adminFetch('/api/admin/forms');
   if(r.status===401){window.location='/auth/login';return;}
   formsIndex=await r.json();
@@ -4438,10 +4563,11 @@ function renderFormsList(){
           <div class="form-card-meta">
             <span class="slug-pill">/${f.slug}</span>
             ${hasPayload?`<span class="size-pill" title="${payloadBreakdown}"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">data_usage</span> ${fmtBytes(totalPayload)}</span>`:''}
+            ${(f.markets&&f.markets.length)?f.markets.map(m=>`<span class="badge" style="background:#e8f0fe;color:#1a56db;font-size:0.68rem">${escHtml(m.name)}</span>`).join(''):`<span class="badge" style="background:#f3f4f6;color:#6b7280;font-size:0.68rem">Unassigned</span>`}
           </div>
         </div>
         <div class="form-card-acts">
-          <button class="tbtn" style="padding:4px 6px;color:var(--danger)" onclick="event.stopPropagation();deleteForm('${f.slug}','${escHtml(f.name)}')" title="Delete form"><span class="material-icons-round mi" style="font-size:14px">delete</span></button>
+          ${myRoleForForm(f.markets)==='admin'?`<button class="tbtn" style="padding:4px 6px;color:var(--danger)" onclick="event.stopPropagation();deleteForm('${f.slug}','${escHtml(f.name)}')" title="Delete form"><span class="material-icons-round mi" style="font-size:14px">delete</span></button>`:''}
         </div>
       </div>
       ${analyticsRow}
@@ -4476,6 +4602,7 @@ function _applyFormsPreviewSize(){
 }
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+const escH=escHtml; // alias used by RBAC UI helpers
 
 async function openFormEditor(slug){
   currentFormSlug=slug;
@@ -4534,6 +4661,7 @@ function populateControls(){
   if(cookiePrev)cookiePrev.innerHTML=cfg.site.cookieBannerText||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit cookie banner text…</span>';
   sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);sv('c-description',cfg.site.description||'');
   const doiChk=document.getElementById('doi-enabled');if(doiChk)doiChk.checked=!!cfg.site.doubleOptIn;
+  if(me.systemRole==='super-admin')loadFormMarketsCard();
   const dupChk=document.getElementById('dup-allow-email');if(dupChk){dupChk.checked=!!cfg.site.allowDuplicateEmail;toggleDupKeyFields();_dupSnapshotState();}
   if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=cfg.design.backgroundImage;e.style.display='block';}}
   const ov=document.getElementById('c-overlay');if(ov)ov.value=cfg.design.backgroundOverlay;
@@ -8166,7 +8294,7 @@ function switchTab(tab,btn){
   if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help'){switchInnerTab('help');renderUserNotes();}
-  if(tab==='global-settings'){loadIpFlags();loadGlobalSettings();}
+  if(tab==='global-settings'){loadIpFlags();loadGlobalSettings();loadMarketsAdmin();loadUsersAdmin();applyRoleUI();}
   if(tab==='design'){
     // Clicking Branding always exits template editing back to list
     if(_editingTpl)exitTplEdit();
@@ -8755,6 +8883,195 @@ async function loadAuditLog(page){
   }catch(e){tbody.innerHTML=`<tr><td colspan="5" style="color:var(--danger);padding:16px">${e.message}</td></tr>`;}
 }
 
+// ── Form markets card (Settings tab) ──
+let _formMarketsCurrent = [];
+async function loadFormMarketsCard(){
+  const chips=document.getElementById('form-market-chips');
+  const sel=document.getElementById('form-market-add-select');
+  if(!chips||!currentFormSlug)return;
+  // Load form's current markets
+  const [fmR, allR] = await Promise.all([
+    adminFetch(`/api/admin/forms/${currentFormSlug}/markets`),
+    _allMarkets.length ? Promise.resolve({ok:true,json:()=>_allMarkets}) : adminFetch('/api/admin/markets')
+  ]);
+  _formMarketsCurrent = fmR.ok ? await fmR.json() : [];
+  const allMkts = allR.ok ? (typeof allR.json === 'function' ? await allR.json() : _allMarkets) : _allMarkets;
+  if(!_allMarkets.length) _allMarkets = allMkts;
+  // Render chips
+  if(!_formMarketsCurrent.length){
+    chips.innerHTML='<span class="badge" style="background:#f3f4f6;color:#6b7280">Unassigned — visible to all admins</span>';
+  } else {
+    chips.innerHTML=_formMarketsCurrent.map(m=>`<span class="badge" style="background:#e8f0fe;color:#1a56db;display:flex;align-items:center;gap:3px">${escH(m.name)}<button onclick="removeFormMarket('${escH(m.id)}')" style="background:none;border:none;cursor:pointer;color:#1a56db;padding:0;font-size:11px;line-height:1" title="Remove">✕</button></span>`).join('');
+  }
+  // Populate add-select with markets not already assigned
+  const assignedIds=new Set(_formMarketsCurrent.map(m=>m.id));
+  const available=allMkts.filter(m=>!assignedIds.has(m.id));
+  sel.innerHTML='<option value="">— Add a market —</option>'+available.map(m=>`<option value="${escH(m.id)}">${escH(m.name)}</option>`).join('');
+}
+
+async function addFormMarket(){
+  const sel=document.getElementById('form-market-add-select');
+  const marketId=sel?.value;
+  if(!marketId){toast('Select a market first','error');return;}
+  const newIds=[..._formMarketsCurrent.map(m=>m.id),marketId];
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/markets`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({marketIds:newIds})});
+  if(r.ok){toast('Market added','success');loadFormMarketsCard();renderFormsList();}
+  else toast('Failed to add market','error');
+}
+
+async function removeFormMarket(marketId){
+  const newIds=_formMarketsCurrent.filter(m=>m.id!==marketId).map(m=>m.id);
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/markets`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({marketIds:newIds})});
+  if(r.ok){toast('Market removed','success');loadFormMarketsCard();renderFormsList();}
+  else toast('Failed to remove market','error');
+}
+
+// ── Markets admin ──
+async function loadMarketsAdmin(){
+  if(me.systemRole!=='super-admin')return;
+  const tbody=document.getElementById('markets-tbody');
+  if(!tbody)return;
+  tbody.innerHTML='<tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem">Loading…</td></tr>';
+  try{
+    const r=await adminFetch('/api/admin/markets');
+    const markets=r.ok?await r.json():[];
+    _allMarkets=markets;
+    if(!markets.length){
+      tbody.innerHTML='<tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem;padding:10px 0">No markets yet. Add one below.</td></tr>';
+      return;
+    }
+    tbody.innerHTML=markets.map(m=>`<tr>
+      <td style="font-size:0.82rem;font-weight:500">${escHtml(m.name)}</td>
+      <td style="font-size:0.78rem;color:var(--ink3);font-family:monospace">${escHtml(m.slug)}</td>
+      <td style="text-align:center;font-size:0.78rem">${m.form_count||0}</td>
+      <td style="text-align:center;font-size:0.78rem">${m.user_count||0}</td>
+      <td><button class="tbtn" style="padding:2px 4px;color:var(--danger)" onclick="deleteMarket('${escH(m.id)}','${escH(m.name)}')" title="Delete market"><span class="material-icons-round mi" style="font-size:14px">delete</span></button></td>
+    </tr>`).join('');
+  }catch(e){tbody.innerHTML=`<tr><td colspan="5" style="color:var(--danger)">${escHtml(e.message)}</td></tr>`;}
+}
+
+async function createMarket(){
+  const nameEl=document.getElementById('new-market-name');
+  const name=(nameEl?.value||'').trim();
+  if(!name){toast('Enter a market name','error');return;}
+  const r=await adminFetch('/api/admin/markets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  const j=await r.json();
+  if(!r.ok){toast(j.error||'Failed','error');return;}
+  nameEl.value='';
+  toast(`Market "${name}" created`,'success');
+  loadMarketsAdmin();
+}
+
+async function deleteMarket(id,name){
+  if(!confirm(`Delete market "${name}"? This will remove it from all forms and users. This cannot be undone.`))return;
+  const r=await adminFetch(`/api/admin/markets/${id}`,{method:'DELETE'});
+  if(r.ok){toast(`Market "${name}" deleted`,'success');loadMarketsAdmin();loadUsersAdmin();}
+  else toast('Delete failed','error');
+}
+
+// ── Users admin ──
+async function loadUsersAdmin(){
+  if(me.systemRole!=='super-admin')return;
+  const tbody=document.getElementById('users-tbody');
+  if(!tbody)return;
+  tbody.innerHTML='<tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem">Loading…</td></tr>';
+  try{
+    const r=await adminFetch('/api/admin/users');
+    const users=r.ok?await r.json():[];
+    if(!users.length){
+      tbody.innerHTML='<tr><td colspan="5" style="color:var(--ink3);font-size:0.78rem;padding:10px 0">No users have logged in yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML=users.map(u=>{
+      const mktChips=(u.markets||[]).map(m=>`<span class="badge" style="background:#e8f0fe;color:#1a56db;font-size:0.68rem">${escHtml(m.name)}<span style="color:#888;margin-left:2px">(${escHtml(m.role)})</span></span>`).join(' ');
+      const isMe=u.id===me.dbId;
+      return`<tr>
+        <td style="font-size:0.78rem">${escHtml(u.email)}</td>
+        <td style="font-size:0.78rem;color:var(--ink3)">${escHtml(u.name||'—')}</td>
+        <td>
+          <select style="font-size:0.75rem;padding:2px 4px;border-radius:4px;border:1px solid var(--border);background:var(--bg)"
+            ${isMe?'disabled title="Cannot change your own role"':''}
+            onchange="setUserSystemRole('${escH(u.id)}',this.value)">
+            <option value="viewer"${u.system_role==='viewer'?' selected':''}>Viewer</option>
+            <option value="super-admin"${u.system_role==='super-admin'?' selected':''}>Super Admin</option>
+          </select>
+        </td>
+        <td style="font-size:0.78rem">${mktChips||'<span style="color:var(--ink3);font-size:0.75rem">None</span>'}</td>
+        <td><button class="tbtn" style="padding:2px 4px;font-size:0.72rem;white-space:nowrap" onclick="openEditUserMarkets('${escH(u.id)}','${escH(u.email)}')" title="Edit market assignments"><span class="material-icons-round mi" style="font-size:13px">edit</span></button></td>
+      </tr>`;
+    }).join('');
+  }catch(e){tbody.innerHTML=`<tr><td colspan="5" style="color:var(--danger)">${escHtml(e.message)}</td></tr>`;}
+}
+
+async function setUserSystemRole(userId,systemRole){
+  const r=await adminFetch(`/api/admin/users/${userId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({systemRole})});
+  if(r.ok)toast('Role updated','success');
+  else toast('Failed to update role','error');
+}
+
+let _editingUserId=null,_editingUserEmail='',_editingUserMarkets=[];
+async function openEditUserMarkets(userId,email){
+  _editingUserId=userId;_editingUserEmail=email;
+  // Load current user's markets
+  const r=await adminFetch('/api/admin/users');
+  if(!r.ok){toast('Failed to load users','error');return;}
+  const users=await r.json();
+  const user=users.find(u=>u.id===userId);
+  _editingUserMarkets=user?[...(user.markets||[])]:[];
+  // Build modal-like inline panel in users card
+  const allMkts=_allMarkets.length?_allMarkets:(await adminFetch('/api/admin/markets').then(r=>r.json()));
+  const panel=document.getElementById('user-markets-editor');
+  if(!panel){
+    const card=document.getElementById('users-card');
+    const div=document.createElement('div');
+    div.id='user-markets-editor';
+    div.style.cssText='border:1.5px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;background:var(--bg2)';
+    card.appendChild(div);
+  }
+  const p2=document.getElementById('user-markets-editor');
+  p2.innerHTML=`<div style="font-size:0.82rem;font-weight:600;margin-bottom:10px">Market assignments for <span style="color:var(--accent)">${escHtml(email)}</span></div>
+    <div id="umed-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+      ${allMkts.map(m=>{
+        const existing=_editingUserMarkets.find(um=>um.market_id===m.id);
+        return`<div style="display:flex;align-items:center;gap:8px;font-size:0.82rem">
+          <input type="checkbox" id="umed-${escH(m.id)}" value="${escH(m.id)}" ${existing?'checked':''}
+            onchange="umedToggle('${escH(m.id)}',this.checked)" style="accent-color:var(--accent)">
+          <label for="umed-${escH(m.id)}" style="flex:1;cursor:pointer">${escHtml(m.name)}</label>
+          <select id="umed-role-${escH(m.id)}" style="font-size:0.75rem;padding:2px 4px;border-radius:4px;border:1px solid var(--border)"
+            ${existing?'':'disabled'}>
+            <option value="viewer"${existing?.role==='viewer'?' selected':''}>Viewer</option>
+            <option value="editor"${existing?.role==='editor'?' selected':''}>Editor</option>
+            <option value="admin"${existing?.role==='admin'?' selected':''}>Admin</option>
+          </select>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveUserMarkets()">Save</button>
+      <button class="btn btn-sm btn-outline" onclick="document.getElementById('user-markets-editor').remove()">Cancel</button>
+    </div>`;
+}
+function umedToggle(marketId,checked){
+  const roleEl=document.getElementById(`umed-role-${marketId}`);
+  if(roleEl)roleEl.disabled=!checked;
+  if(checked&&!_editingUserMarkets.find(m=>m.market_id===marketId)){
+    _editingUserMarkets.push({market_id:marketId,role:'viewer'});
+  } else if(!checked){
+    _editingUserMarkets=_editingUserMarkets.filter(m=>m.market_id!==marketId);
+  }
+}
+async function saveUserMarkets(){
+  // Collect current state from the form
+  const markets=[];
+  document.querySelectorAll('#umed-list input[type=checkbox]:checked').forEach(chk=>{
+    const roleEl=document.getElementById(`umed-role-${chk.value}`);
+    markets.push({market_id:chk.value,role:roleEl?roleEl.value:'viewer'});
+  });
+  const r=await adminFetch(`/api/admin/users/${_editingUserId}/markets`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({markets})});
+  if(r.ok){toast('Market assignments saved','success');document.getElementById('user-markets-editor')?.remove();loadUsersAdmin();}
+  else toast('Failed to save','error');
+}
+
 // ── IP Flags ──
 async function loadIpFlags(){
   const tbody=document.getElementById('ip-flags-tbody');
@@ -9139,12 +9456,35 @@ async function updateDesignTemplate(id){
 
 // ── Forms management ──
 const RESERVED_SLUGS_CLIENT=new Set(['admin','auth','api','privacy','unsubscribe','delete-data','preferences','embed','public','uploads','assets']);
+let _allMarkets = [];
+async function loadMarketsForCreateModal() {
+  try {
+    const r = await adminFetch('/api/admin/markets');
+    _allMarkets = r.ok ? await r.json() : [];
+  } catch(_) { _allMarkets = []; }
+  const el = document.getElementById('create-market-list');
+  if (!el) return;
+  // Filter to markets user can administer (or all for super-admin)
+  const available = me.systemRole === 'super-admin' ? _allMarkets
+    : _allMarkets.filter(m => (me.markets||[]).some(um => um.market_id === m.id && um.role === 'admin'));
+  if (!available.length) {
+    el.innerHTML = '<span style="font-size:0.78rem;color:var(--ink3)">No markets defined yet.</span>';
+    return;
+  }
+  el.innerHTML = available.map(m =>
+    `<label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer">
+      <input type="checkbox" class="create-market-chk" value="${escH(m.id)}" style="accent-color:var(--accent)">
+      ${escH(m.name)}
+    </label>`
+  ).join('');
+}
 function openNewFormModal(){
   document.getElementById('new-form-name').value='';
   document.getElementById('new-form-slug').value='';
   document.getElementById('slug-preview').textContent='…';
   document.getElementById('slug-error').style.display='none';
   document.getElementById('new-form-modal').classList.add('open');
+  loadMarketsForCreateModal();
   setTimeout(()=>document.getElementById('new-form-name').focus(),50);
 }
 function closeNewFormModal(){document.getElementById('new-form-modal').classList.remove('open');}
@@ -9169,9 +9509,10 @@ async function createForm(){
   const slug=document.getElementById('new-form-slug').value.trim();
   if(!name){toast('Form name is required','error');return;}
   if(!validateSlug(slug))return;
+  const marketIds=[...document.querySelectorAll('.create-market-chk:checked')].map(c=>c.value);
   const btn=document.getElementById('create-form-btn');btn.disabled=true;
   try{
-    const r=await adminFetch('/api/admin/forms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,name})});
+    const r=await adminFetch('/api/admin/forms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,name,marketIds})});
     const j=await r.json();
     if(!r.ok){toast(j.error||'Failed to create form','error');btn.disabled=false;return;}
     closeNewFormModal();

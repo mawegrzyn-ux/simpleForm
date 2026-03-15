@@ -317,6 +317,62 @@ async function logAudit(req, action, targetType, targetId, detail = {}) {
   }
 }
 
+// ── RBAC helpers ──────────────────────────────────────────────────────────────
+
+function isSuperAdmin(req) {
+  return req.session?.user?.systemRole === 'super-admin';
+}
+
+function requireSuperAdmin(req, res, next) {
+  if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!isSuperAdmin(req)) return res.status(403).json({ error: 'Super-admin required' });
+  next();
+}
+
+// Returns array of market UUIDs the user belongs to, or null (= all) for super-admin
+function getUserMarketIds(req) {
+  if (isSuperAdmin(req)) return null;
+  return (req.session.user?.markets || []).map(m => m.market_id);
+}
+
+// Returns highest role across markets shared between user and form.
+// Returns 'admin' for super-admin; null if user has no shared market with the form.
+function userEffectiveRole(req, formMarketIds) {
+  if (isSuperAdmin(req)) return 'admin';
+  const RANK = { viewer: 1, editor: 2, admin: 3 };
+  let best = null;
+  for (const um of (req.session.user?.markets || [])) {
+    if (formMarketIds.includes(um.market_id)) {
+      if (!best || RANK[um.role] > RANK[best]) best = um.role;
+    }
+  }
+  return best;
+}
+
+async function getFormMarketIds(slug) {
+  const { rows } = await pool.query(
+    'SELECT market_id FROM form_markets WHERE form_slug=$1', [slug]);
+  return rows.map(r => r.market_id);
+}
+
+// Unassigned forms (no markets) are visible to all authenticated admin users.
+async function canUserAccessForm(req, slug) {
+  if (isSuperAdmin(req)) return true;
+  const fmIds = await getFormMarketIds(slug);
+  if (fmIds.length === 0) return true;
+  const userMktIds = getUserMarketIds(req);
+  return fmIds.some(id => userMktIds.includes(id));
+}
+
+// Allows market-level admins read-only access to platform settings
+function requireAdminOrSuperAdmin(req, res, next) {
+  if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (isSuperAdmin(req)) return next();
+  const hasAdminRole = (req.session.user.markets || []).some(m => m.role === 'admin');
+  if (!hasAdminRole) return res.status(403).json({ error: 'Forbidden' });
+  next();
+}
+
 // ── Paths (data/ kept for import script; uploads now in S3) ───────────────────
 const DATA_DIR         = path.join(__dirname, 'data');
 const CONFIG_FILE      = path.join(DATA_DIR, 'config.json');       // legacy — used only by import script
@@ -802,6 +858,39 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_audit_log_ts ON audit_log(timestamp DESC);
 
+    CREATE TABLE IF NOT EXISTS markets (
+      id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name       TEXT NOT NULL,
+      slug       TEXT UNIQUE NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_markets_slug ON markets(slug);
+
+    CREATE TABLE IF NOT EXISTS sf_users (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      auth0_sub   TEXT UNIQUE NOT NULL,
+      email       TEXT NOT NULL,
+      name        TEXT,
+      system_role TEXT NOT NULL DEFAULT 'viewer',
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen   TIMESTAMPTZ
+    );
+
+    CREATE TABLE IF NOT EXISTS user_markets (
+      user_id    UUID REFERENCES sf_users(id) ON DELETE CASCADE,
+      market_id  UUID REFERENCES markets(id)  ON DELETE CASCADE,
+      role       TEXT NOT NULL DEFAULT 'viewer',
+      PRIMARY KEY (user_id, market_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_markets_user ON user_markets(user_id);
+
+    CREATE TABLE IF NOT EXISTS form_markets (
+      form_slug  VARCHAR(100) REFERENCES forms(slug) ON DELETE CASCADE,
+      market_id  UUID         REFERENCES markets(id) ON DELETE CASCADE,
+      PRIMARY KEY (form_slug, market_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_form_markets_slug ON form_markets(form_slug);
+
     CREATE TABLE IF NOT EXISTS global_settings (
       id    INTEGER PRIMARY KEY DEFAULT 1,
       value JSONB   NOT NULL DEFAULT '{}'
@@ -1054,6 +1143,29 @@ app.get('/auth/callback', authLimiter, async (req, res) => {
     delete req.session.authState;
     delete req.session.authCodeVerifier;
 
+    // Upsert sf_users — first ever user becomes super-admin
+    let { rows: [dbUser] } = await pool.query(
+      'SELECT * FROM sf_users WHERE auth0_sub=$1', [claims.sub]);
+    if (!dbUser) {
+      const { rows: [{ c }] } = await pool.query('SELECT COUNT(*) AS c FROM sf_users');
+      const systemRole = (parseInt(c, 10) === 0) ? 'super-admin' : 'viewer';
+      ({ rows: [dbUser] } = await pool.query(
+        'INSERT INTO sf_users (auth0_sub,email,name,system_role) VALUES ($1,$2,$3,$4) RETURNING *',
+        [claims.sub, claims.email || '', claims.name || '', systemRole]
+      ));
+    } else {
+      await pool.query(
+        'UPDATE sf_users SET last_seen=NOW(),email=$1,name=$2 WHERE auth0_sub=$3',
+        [claims.email || '', claims.name || '', claims.sub]);
+    }
+    const { rows: userMarkets } = await pool.query(
+      `SELECT um.market_id, um.role, m.name, m.slug
+       FROM user_markets um JOIN markets m ON m.id=um.market_id
+       WHERE um.user_id=$1`, [dbUser.id]);
+    // Augment session — keeps existing Auth0 claims intact for backward compat
+    req.session.user = { ...claims, dbId: dbUser.id,
+      systemRole: dbUser.system_role, markets: userMarkets };
+
     const returnTo = req.session.returnTo || '/admin';
     delete req.session.returnTo;
     res.redirect(returnTo);
@@ -1134,7 +1246,16 @@ app.get('/api/admin/csrf-token', adminAuth, (req, res) => {
 app.get('/api/admin/forms', adminAuth, async (req, res) => {
   try {
     const origin = `${req.protocol}://${req.get('host')}`;
-    const idx = await readFormsIndex();
+    let idx = await readFormsIndex();
+    // Market-based filtering for non-super-admins
+    if (!isSuperAdmin(req)) {
+      const userMktIds = new Set(getUserMarketIds(req));
+      const access = await Promise.all(idx.map(async f => {
+        const fmIds = await getFormMarketIds(f.slug);
+        return fmIds.length === 0 || fmIds.some(id => userMktIds.has(id));
+      }));
+      idx = idx.filter((_, i) => access[i]);
+    }
     const [sharedFonts, templates] = await Promise.all([readSharedFonts(), readDesignTemplates()]);
     const result = await Promise.all(idx.map(async f => {
       const entry = { ...f, subscriberCount: 0, embedPageSize: null, embedJsSize: null, mediaSize: null };
@@ -1150,6 +1271,11 @@ app.get('/api/admin/forms', adminAuth, async (req, res) => {
         entry.mediaSize     = await getFormMediaSize(f.slug);
       } catch(_) { /* skip if config unreadable */ }
       entry.analytics = await readAnalytics(f.slug);
+      // Attach market list to each form entry
+      entry.markets = await pool.query(
+        `SELECT m.id, m.name, m.slug FROM form_markets fm
+         JOIN markets m ON m.id=fm.market_id WHERE fm.form_slug=$1`, [f.slug]
+      ).then(r => r.rows);
       return entry;
     }));
     res.json(result);
@@ -1161,16 +1287,30 @@ app.post('/api/admin/forms', adminAuth, async (req, res) => {
   try {
     const { error: valErr, value: body } = Joi.object({
       name: Joi.string().min(1).max(100).required(),
-      slug: Joi.string().min(1).max(60).pattern(/^[a-z0-9-]+$/).required()
+      slug: Joi.string().min(1).max(60).pattern(/^[a-z0-9-]+$/).required(),
+      marketIds: Joi.array().items(Joi.string().uuid()).default([])
     }).validate(req.body);
     if (valErr) return res.status(400).json({ error: valErr.details[0].message });
-    const { slug, name } = body;
+    const { slug, name, marketIds } = body;
     if (RESERVED_SLUGS.has(slug)) return res.status(400).json({ error: 'Slug is reserved' });
+    // Non-super-admins must assign to at least one market they administer
+    if (!isSuperAdmin(req)) {
+      const userAdminMktIds = new Set(
+        (req.session.user?.markets || []).filter(m => m.role === 'admin').map(m => m.market_id));
+      if (!marketIds.some(id => userAdminMktIds.has(id)))
+        return res.status(403).json({ error: 'Assign form to at least one market you administer' });
+    }
     await pool.query(
       'INSERT INTO forms(slug, name, created_at, config) VALUES($1, $2, NOW(), $3)',
       [slug, name, defaultFormConfig(slug, name)]
     );
-    logAudit(req, 'form.create', 'form', slug, { name });
+    // Assign form to selected markets
+    for (const mId of marketIds) {
+      await pool.query(
+        'INSERT INTO form_markets(form_slug,market_id) VALUES($1,$2) ON CONFLICT DO NOTHING',
+        [slug, mId]);
+    }
+    logAudit(req, 'form.create', 'form', slug, { name, marketIds });
     res.json({ success: true, slug });
   } catch(e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Slug already in use' });
@@ -1182,6 +1322,10 @@ app.post('/api/admin/forms', adminAuth, async (req, res) => {
 app.delete('/api/admin/forms/:slug', adminAuth, async (req, res) => {
   try {
     const { slug } = req.params;
+    // Role check — only admin or super-admin can delete
+    const fmIds = await getFormMarketIds(slug);
+    if (!isSuperAdmin(req) && userEffectiveRole(req, fmIds) !== 'admin')
+      return res.status(403).json({ error: 'Admin role required to delete this form' });
     const idx = await readFormsIndex();
     if (idx.length <= 1) return res.status(400).json({ error: 'Cannot delete the last form' });
     // Delete associated S3 media files before removing the DB record (cascade doesn't cover S3)
@@ -1189,7 +1333,7 @@ app.delete('/api/admin/forms/:slug', adminAuth, async (req, res) => {
     await Promise.all(mediaRows.map(r =>
       s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: r.s3_key })).catch(() => {})
     ));
-    // Delete form — cascades to subscribers, analytics, media (DB rows)
+    // Delete form — cascades to subscribers, analytics, media, form_markets (DB rows)
     await pool.query('DELETE FROM forms WHERE slug=$1', [slug]);
     logAudit(req, 'form.delete', 'form', slug, {});
     res.json({ success: true });
@@ -1225,6 +1369,11 @@ app.get('/api/admin/forms/:slug', adminAuth, async (req, res) => {
 app.post('/api/admin/forms/:slug', adminAuth, async (req, res) => {
   try {
     const slug = req.params.slug;
+    // Role check — editor or above required
+    const fmIds = await getFormMarketIds(slug);
+    const role = userEffectiveRole(req, fmIds);
+    if (!isSuperAdmin(req) && !['admin', 'editor'].includes(role))
+      return res.status(403).json({ error: 'Editor role or above required to save config' });
     // If name changed, also update the name column
     const updates = req.body.name
       ? await pool.query('UPDATE forms SET config=$1, name=$2 WHERE slug=$3', [req.body, req.body.name, slug])
@@ -1515,6 +1664,10 @@ app.get('/api/admin/forms/:slug/subscribers', adminAuth, async (req, res) => {
 // Delete subscriber (GDPR)
 app.delete('/api/admin/forms/:slug/subscribers/:id', adminAuth, async (req, res) => {
   try {
+    // Role check — only admin can delete subscribers
+    const fmIds = await getFormMarketIds(req.params.slug);
+    if (!isSuperAdmin(req) && userEffectiveRole(req, fmIds) !== 'admin')
+      return res.status(403).json({ error: 'Admin role required to delete subscribers' });
     const { rowCount } = await pool.query(
       'DELETE FROM subscribers WHERE id=$1 AND form_slug=$2', [req.params.id, req.params.slug]);
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
@@ -1527,6 +1680,10 @@ app.delete('/api/admin/forms/:slug/subscribers/:id', adminAuth, async (req, res)
 app.get('/api/admin/forms/:slug/export', adminAuth, async (req, res) => {
   try {
     const slug = req.params.slug;
+    // Role check — viewer cannot export
+    const fmIds = await getFormMarketIds(slug);
+    if (!isSuperAdmin(req) && userEffectiveRole(req, fmIds) === 'viewer')
+      return res.status(403).json({ error: 'Viewer role cannot export subscribers' });
     const cfg  = await readFormConfig(slug);
     const fmt  = req.query.format || 'csv';
     // Mark every record as exported and fetch updated rows in one query
@@ -1823,7 +1980,7 @@ app.delete('/api/admin/ip-flags', adminAuth, async (req, res) => {
 });
 
 // ── Global settings API ───────────────────────────────────────────────────────
-app.get('/api/admin/global-settings', adminAuth, async (req, res) => {
+app.get('/api/admin/global-settings', requireAdminOrSuperAdmin, async (req, res) => {
   // Return current in-memory cache (no secret key exposed — return masked placeholder)
   res.json({
     captchaMode:      globalSettings.captchaMode,
@@ -1835,6 +1992,7 @@ app.get('/api/admin/global-settings', adminAuth, async (req, res) => {
 
 app.post('/api/admin/global-settings', adminAuth, async (req, res) => {
   try {
+    if (!isSuperAdmin(req)) return res.status(403).json({ error: 'Super-admin required' });
     const { captchaMode, hcaptchaSiteKey, hcaptchaSecretKey } = req.body;
     // If secret key is the masked placeholder, keep existing value
     const secretToSave = (hcaptchaSecretKey && hcaptchaSecretKey !== '••••••••')
@@ -1856,7 +2014,7 @@ app.post('/api/admin/global-settings', adminAuth, async (req, res) => {
 });
 
 // Audit log API
-app.get('/api/admin/audit-log', adminAuth, async (req, res) => {
+app.get('/api/admin/audit-log', requireAdminOrSuperAdmin, async (req, res) => {
   try {
     const page  = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
@@ -1871,6 +2029,113 @@ app.get('/api/admin/audit-log', adminAuth, async (req, res) => {
     ]);
     const total = parseInt(countRows[0].count);
     res.json({ entries: rows, total, page, pages: Math.ceil(total / limit) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Current user context ──────────────────────────────────────────────────────
+app.get('/api/admin/me', adminAuth, (req, res) => {
+  const { dbId, systemRole, markets, email, name, picture } = req.session.user || {};
+  res.json({ dbId, systemRole: systemRole || 'viewer', markets: markets || [], email, name, picture });
+});
+
+// ── Markets CRUD ──────────────────────────────────────────────────────────────
+app.get('/api/admin/markets', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT m.*, COUNT(DISTINCT fm.form_slug) AS form_count,
+              COUNT(DISTINCT um.user_id) AS user_count
+       FROM markets m
+       LEFT JOIN form_markets fm ON fm.market_id=m.id
+       LEFT JOIN user_markets um ON um.market_id=m.id
+       GROUP BY m.id ORDER BY m.name`);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/markets', requireSuperAdmin, async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Name required' });
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const { rows: [m] } = await pool.query(
+      'INSERT INTO markets(name,slug) VALUES($1,$2) RETURNING *', [name, slug]);
+    logAudit(req, 'market.create', 'market', m.id, { name, slug });
+    res.json(m);
+  } catch(e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Market name/slug already exists' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/markets/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM markets WHERE id=$1', [req.params.id]);
+    logAudit(req, 'market.delete', 'market', req.params.id, {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Users CRUD ────────────────────────────────────────────────────────────────
+app.get('/api/admin/users', requireSuperAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.email, u.name, u.system_role, u.created_at, u.last_seen,
+         COALESCE(json_agg(
+           json_build_object('market_id',um.market_id,'role',um.role,'name',m.name,'slug',m.slug)
+         ) FILTER (WHERE um.market_id IS NOT NULL), '[]') AS markets
+       FROM sf_users u
+       LEFT JOIN user_markets um ON um.user_id=u.id
+       LEFT JOIN markets m ON m.id=um.market_id
+       GROUP BY u.id ORDER BY u.created_at`);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/admin/users/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const { systemRole } = req.body;
+    if (!['super-admin', 'viewer'].includes(systemRole))
+      return res.status(400).json({ error: 'Invalid system_role' });
+    await pool.query('UPDATE sf_users SET system_role=$1 WHERE id=$2', [systemRole, req.params.id]);
+    logAudit(req, 'user.role_change', 'user', req.params.id, { systemRole });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/users/:id/markets', requireSuperAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM user_markets WHERE user_id=$1', [req.params.id]);
+    for (const { market_id, role } of (req.body.markets || [])) {
+      if (!['admin', 'editor', 'viewer'].includes(role)) continue;
+      await pool.query(
+        'INSERT INTO user_markets(user_id,market_id,role) VALUES($1,$2,$3)',
+        [req.params.id, market_id, role]);
+    }
+    logAudit(req, 'user.markets_update', 'user', req.params.id, { count: req.body.markets?.length || 0 });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Form Markets ──────────────────────────────────────────────────────────────
+app.get('/api/admin/forms/:slug/markets', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT m.* FROM form_markets fm JOIN markets m ON m.id=fm.market_id
+       WHERE fm.form_slug=$1 ORDER BY m.name`, [req.params.slug]);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/forms/:slug/markets', requireSuperAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM form_markets WHERE form_slug=$1', [req.params.slug]);
+    for (const id of (req.body.marketIds || [])) {
+      await pool.query(
+        'INSERT INTO form_markets(form_slug,market_id) VALUES($1,$2)',
+        [req.params.slug, id]);
+    }
+    logAudit(req, 'form.markets_update', 'form', req.params.slug, { count: req.body.marketIds?.length || 0 });
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
