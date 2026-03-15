@@ -3231,6 +3231,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <button class="docs-tab active" id="docs-tab-help-btn" onclick="switchInnerTab('help',this)"><span class="material-icons-round mi" style="font-size:14px">help_outline</span> Help</button>
       <button class="docs-tab" id="docs-tab-system-btn" onclick="switchInnerTab('system',this)"><span class="material-icons-round mi" style="font-size:14px">dns</span> System</button>
       <button class="docs-tab" id="docs-tab-notes-btn" onclick="switchInnerTab('notes',this)"><span class="material-icons-round mi" style="font-size:14px">sticky_note_2</span> Notes</button>
+      <button class="docs-tab" id="docs-tab-bugs-btn" onclick="switchInnerTab('bugs',this)"><span class="material-icons-round mi" style="font-size:14px">feedback</span> Feedback <span id="bugs-tab-count" style="display:none;margin-left:3px;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:0.68rem;font-weight:700"></span></button>
       <button class="docs-tab" style="margin-left:auto;color:var(--ink3)" onclick="printCurrentDocsPanel()" title="Print current tab"><span class="material-icons-round mi" style="font-size:14px">print</span> Print</button>
     </div>
     <div id="docs-panel-help" class="docs-panel active">
@@ -3856,6 +3857,36 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <p id="notes-empty-msg" style="display:none;color:var(--ink3);font-size:0.83rem;font-style:italic;margin-top:4px">No notes yet — click <strong>+ Add note</strong> to create the first one.</p>
       <p id="notes-no-form-msg" style="display:none;color:var(--ink3);font-size:0.83rem;font-style:italic;margin-top:4px">Open a form first to view and add per-form notes.</p>
     </div><!-- /docs-panel-notes -->
+
+    <!-- FEEDBACK PANEL -->
+    <div id="docs-panel-bugs" class="docs-panel">
+      <div class="page-head">
+        <h2>Feedback</h2>
+        <p>Bugs, change requests, and feature ideas logged via the AI assistant.</p>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="bugs-filter-btns">
+          <span style="font-size:0.74rem;color:var(--ink3);align-self:center;margin-right:2px">Type:</span>
+          <button class="ibtn" onclick="setBugFilter('type','all')" id="bugf-type-all" style="background:var(--accent);color:#fff;border-color:var(--accent)">All</button>
+          <button class="ibtn" onclick="setBugFilter('type','bug')" id="bugf-type-bug">🐛 Bug</button>
+          <button class="ibtn" onclick="setBugFilter('type','change')" id="bugf-type-change">🔄 Change</button>
+          <button class="ibtn" onclick="setBugFilter('type','feature')" id="bugf-type-feature">✨ Feature</button>
+        </div>
+        <button class="tbtn tbtn-ghost" style="margin-left:auto;display:flex;align-items:center;gap:5px;font-size:0.82rem;flex-shrink:0" onclick="loadBugReports()">
+          <span class="material-icons-round mi" style="font-size:14px">refresh</span> Refresh
+        </button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px" id="bugs-status-btns">
+        <span style="font-size:0.74rem;color:var(--ink3);align-self:center;margin-right:2px">Status:</span>
+        <button class="ibtn" onclick="setBugFilter('status','all')" id="bugf-status-all" style="background:var(--accent);color:#fff;border-color:var(--accent)">All</button>
+        <button class="ibtn" onclick="setBugFilter('status','open')" id="bugf-status-open">Open</button>
+        <button class="ibtn" onclick="setBugFilter('status','in-progress')" id="bugf-status-in-progress">In progress</button>
+        <button class="ibtn" onclick="setBugFilter('status','resolved')" id="bugf-status-resolved">Resolved</button>
+        <button class="ibtn" onclick="setBugFilter('status','wont-fix')" id="bugf-status-wont-fix">Won't fix</button>
+      </div>
+      <div id="bugs-list"></div>
+      <p id="bugs-empty-msg" style="display:none;color:var(--ink3);font-size:0.83rem;font-style:italic;margin-top:4px">Nothing here yet. Use the AI assistant — try "report a bug", "request a change", or "suggest a feature".</p>
+    </div><!-- /docs-panel-bugs -->
 
     <div id="docs-system-slot"></div><!-- system panel moved here by JS -->
   </div>
@@ -8569,6 +8600,7 @@ function switchInnerTab(name,btn){
   if(panel)panel.classList.add('active');
   if(name==='help')_initHelp();
   if(name==='notes')renderUserNotes();
+  if(name==='bugs')loadBugReports();
 }
 // ── Shared print CSS used by both whole-panel and per-section print ──
 const _PRINT_CSS=`*{box-sizing:border-box;margin:0;padding:0;}
@@ -9967,6 +9999,117 @@ document.getElementById('item-edit-modal').addEventListener('click',e=>{if(e.tar
   function onUp(){handle.classList.remove('dragging');document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
 })();
 checkSession();
+
+// ── Bug Reports ──────────────────────────────────────────────────────────────
+let _bugReports = [];
+let _bugFilterType = 'all';
+let _bugFilterStatus = 'all';
+
+const _FEEDBACK_TYPE = {
+  'bug':     { label: '🐛 Bug',     color: '#ef4444', bg: '#fef2f2' },
+  'change':  { label: '🔄 Change',  color: '#6366f1', bg: '#eef2ff' },
+  'feature': { label: '✨ Feature', color: '#10b981', bg: '#ecfdf5' }
+};
+const _BUG_STATUS = {
+  'open':        { label: 'Open',        color: '#ef4444', bg: '#fef2f2' },
+  'in-progress': { label: 'In progress', color: '#f59e0b', bg: '#fffbeb' },
+  'resolved':    { label: 'Resolved',    color: '#10b981', bg: '#ecfdf5' },
+  'wont-fix':    { label: "Won't fix",   color: '#6b7280', bg: '#f3f4f6' }
+};
+
+async function loadBugReports() {
+  try {
+    const r = await adminFetch('/api/admin/bug-reports');
+    if (!r.ok) return;
+    _bugReports = await r.json();
+    renderBugReports();
+    const open = _bugReports.filter(b => b.status === 'open').length;
+    const badge = document.getElementById('bugs-tab-count');
+    if (badge) { badge.textContent = open; badge.style.display = open ? '' : 'none'; }
+  } catch(e) {}
+}
+
+function setBugFilter(dimension, val) {
+  if (dimension === 'type') _bugFilterType = val;
+  else _bugFilterStatus = val;
+  // Update button styles for the changed dimension
+  const prefix = dimension === 'type' ? 'bugf-type-' : 'bugf-status-';
+  document.querySelectorAll(`[id^="${prefix}"]`).forEach(b => {
+    const active = b.id === prefix + val;
+    b.style.background = active ? 'var(--accent)' : '';
+    b.style.color = active ? '#fff' : '';
+    b.style.borderColor = active ? 'var(--accent)' : '';
+  });
+  renderBugReports();
+}
+
+function renderBugReports() {
+  const list = document.getElementById('bugs-list');
+  const empty = document.getElementById('bugs-empty-msg');
+  if (!list) return;
+  const filtered = _bugReports.filter(b =>
+    (_bugFilterType === 'all' || b.type === _bugFilterType) &&
+    (_bugFilterStatus === 'all' || b.status === _bugFilterStatus)
+  );
+  if (!filtered.length) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  list.innerHTML = filtered.map(b => {
+    const sm = _BUG_STATUS[b.status] || _BUG_STATUS.open;
+    const tm = _FEEDBACK_TYPE[b.type] || _FEEDBACK_TYPE.bug;
+    const ctx = b.context || {};
+    const ctxStr = [ctx.currentTab && `Tab: ${ctx.currentTab}`, ctx.currentFormSlug && `Form: ${ctx.currentFormSlug}`].filter(Boolean).join(' · ');
+    const date = new Date(b.created_at).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
+    const stepsLabel = b.type === 'bug' ? 'Steps to reproduce' : 'Details / acceptance criteria';
+    return `<div style="border:1px solid var(--brd);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#fff">
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+            <span style="padding:1px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;background:${tm.bg};color:${tm.color}">${tm.label}</span>
+            <span style="font-weight:600;font-size:0.88rem">${escHtml(b.title)}</span>
+          </div>
+          <div style="font-size:0.75rem;color:var(--ink3)">${date}${b.reported_by ? ' · ' + escHtml(b.reported_by) : ''}${ctxStr ? ' · ' + escHtml(ctxStr) : ''}</div>
+        </div>
+        <span style="padding:2px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;flex-shrink:0;background:${sm.bg};color:${sm.color}">${sm.label}</span>
+      </div>
+      <p style="font-size:0.82rem;color:var(--ink2);margin:0 0 6px;white-space:pre-wrap">${escHtml(b.description)}</p>
+      ${b.steps ? `<details style="font-size:0.78rem;color:var(--ink3);margin-top:4px"><summary style="cursor:pointer">${stepsLabel}</summary><pre style="margin:6px 0 0;white-space:pre-wrap;font-family:inherit">${escHtml(b.steps)}</pre></details>` : ''}
+      <div style="display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:0.74rem;color:var(--ink3);margin-right:2px">Status:</span>
+        ${Object.entries(_BUG_STATUS).map(([s,m]) =>
+          `<button class="ibtn" onclick="updateBugStatus('${b.id}','${s}')"
+            style="font-size:0.72rem;padding:2px 8px;${b.status===s?`background:${m.color};color:#fff;border-color:${m.color}`:''}">${m.label}</button>`
+        ).join('')}
+        <button class="ibtn" onclick="deleteBugReport('${b.id}')"
+          style="margin-left:auto;font-size:0.72rem;padding:2px 8px;color:#ef4444;border-color:#fca5a5">
+          <span class="material-icons-round mi" style="font-size:12px">delete</span>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function updateBugStatus(id, status) {
+  try {
+    const r = await adminFetch(`/api/admin/bug-reports/${id}/status`, {
+      method: 'PATCH', body: JSON.stringify({ status })
+    });
+    if (r.ok) { await loadBugReports(); }
+    else { const e = await r.json(); toast(e.error || 'Failed', 'error'); }
+  } catch(e) { toast('Network error', 'error'); }
+}
+
+async function deleteBugReport(id) {
+  if (!confirm('Delete this item?')) return;
+  try {
+    const r = await adminFetch(`/api/admin/bug-reports/${id}`, { method: 'DELETE' });
+    if (r.ok) { await loadBugReports(); toast('Deleted', 'success'); }
+    else { const e = await r.json(); toast(e.error || 'Failed', 'error'); }
+  } catch(e) { toast('Network error', 'error'); }
+}
 
 // ── AI Chat Assistant ─────────────────────────────────────────────────────────
 let _aiHistory = [];

@@ -940,6 +940,22 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS testing_pin CHAR(4);
     UPDATE forms SET testing_pin = LPAD((FLOOR(RANDOM()*9000)+1000)::TEXT, 4, '0')
       WHERE testing_pin IS NULL;
+
+    CREATE TABLE IF NOT EXISTS bug_reports (
+      id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      type         TEXT        NOT NULL DEFAULT 'bug',
+      title        TEXT        NOT NULL,
+      description  TEXT        NOT NULL,
+      steps        TEXT,
+      context      JSONB       NOT NULL DEFAULT '{}',
+      reported_by  TEXT,
+      status       TEXT        NOT NULL DEFAULT 'open',
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'bug';
+    CREATE INDEX IF NOT EXISTS idx_bug_reports_status ON bug_reports(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_bug_reports_type   ON bug_reports(type, created_at DESC);
   `);
   console.log('✔ Database tables ready');
 }
@@ -2234,6 +2250,20 @@ const _AI_TOOLS = [
     name: 'get_form_list',
     description: 'Return all form slugs and names. Use when the question is not form-specific or the user asks what forms exist.',
     input_schema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'submit_feedback',
+    description: 'Save a bug report, change request, or feature request. Use ONLY after collecting a clear title and description from the user. Do not call speculatively.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        type:        { type: 'string', enum: ['bug', 'change', 'feature'], description: 'bug = something broken; change = improve existing behaviour; feature = new capability' },
+        title:       { type: 'string', description: 'Short one-line summary' },
+        description: { type: 'string', description: 'What the issue/request is and why it matters' },
+        steps:       { type: 'string', description: 'Steps to reproduce (bugs) or acceptance criteria (change/feature), or empty string' }
+      },
+      required: ['type', 'title', 'description']
+    }
   }
 ];
 
@@ -2259,6 +2289,21 @@ async function _executeAiTool(name, input) {
     ]);
     return { counts: counts.rows, recent: recent.rows };
   }
+  if (name === 'submit_feedback') {
+    const VALID_TYPES = ['bug', 'change', 'feature'];
+    const type = VALID_TYPES.includes(input.type) ? input.type : 'bug';
+    const title = (input.title || '').substring(0, 255);
+    const description = (input.description || '').substring(0, 4000);
+    const steps = (input.steps || '').substring(0, 2000);
+    if (!title || !description) return { error: 'title and description are required' };
+    const ctx = JSON.stringify(input._context || {});
+    const { rows } = await pool.query(
+      `INSERT INTO bug_reports (type, title, description, steps, context, reported_by)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6) RETURNING id, created_at`,
+      [type, title, description, steps || null, ctx, input._reportedBy || null]
+    );
+    return { ok: true, id: rows[0].id, type, created_at: rows[0].created_at };
+  }
   return { error: 'Unknown tool' };
 }
 
@@ -2278,7 +2323,8 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     `You are a concise, knowledgeable SignFlow admin assistant. ` +
     `Answer in 2–4 sentences unless complexity genuinely requires more. ` +
     `Always reference exact UI locations (tab names, button labels, setting names). ` +
-    `Never guess live data — use tools to fetch it first.\n\n` +
+    `Never guess live data — use tools to fetch it first. ` +
+    `If the user wants to report a bug, request a change, or suggest a feature: ask for (1) a short title, (2) a description. For bugs also ask for steps to reproduce. Then call submit_feedback with the correct type (bug/change/feature). Tell them to check the Feedback tab in Help.\n\n` +
     `Current admin context: tab="${context.currentTab || '?'}", ` +
     `form="${context.currentFormSlug || 'none'}", ` +
     `modal="${context.activeModal || 'none'}", panel="${context.panelTab || 'none'}".` +
@@ -2313,7 +2359,12 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
           if (block.type !== 'tool_use') continue;
           res.write(`data: ${JSON.stringify({ tool: block.name })}\n\n`);
           let result;
-          try { result = await _executeAiTool(block.name, block.input); }
+          try {
+            const toolInput = block.name === 'submit_feedback'
+              ? { ...block.input, _context: context, _reportedBy: req.session?.user?.email || null }
+              : block.input;
+            result = await _executeAiTool(block.name, toolInput);
+          }
           catch(e) { result = { error: e.message }; }
           toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
         }
@@ -2328,6 +2379,36 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
 
   res.write('data: [DONE]\n\n');
   res.end();
+});
+
+// ── Bug Reports ───────────────────────────────────────────────────────────────
+app.get('/api/admin/bug-reports', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, type, title, description, steps, context, reported_by, status, created_at, updated_at
+       FROM bug_reports ORDER BY created_at DESC LIMIT 200`);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/admin/bug-reports/:id/status', adminAuth, async (req, res) => {
+  const VALID = ['open', 'in-progress', 'resolved', 'wont-fix'];
+  const { status } = req.body;
+  if (!VALID.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE bug_reports SET status=$1, updated_at=NOW() WHERE id=$2`,
+      [status, req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/bug-reports/:id', adminAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM bug_reports WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Branding tab preview — standalone dummy form, no form slug required
