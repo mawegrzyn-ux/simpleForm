@@ -15,6 +15,7 @@ const nodemailer = require('nodemailer');
 const { Pool }   = require('pg');
 const { S3Client, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const multerS3   = require('multer-s3');
+const Anthropic  = require('@anthropic-ai/sdk');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -41,6 +42,38 @@ const ORIGIN      = process.env.ORIGIN      || `http://localhost:${process.env.P
 
 // ── PostgreSQL pool ────────────────────────────────────────────────────────────
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+
+// ── Anthropic AI ───────────────────────────────────────────────────────────────
+const _anthropic = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
+
+// Extract plain-text help content from admin/index.html at startup (cached in memory).
+// Phase 2: replace with pgvector semantic search (search_docs tool).
+let _helpContext = '';
+function _loadHelpContext() {
+  try {
+    const html = fs.readFileSync(path.join(__dirname, 'admin', 'index.html'), 'utf8');
+    const stripTags = s => s
+      .replace(/<pre[^>]*>[\s\S]*?<\/pre>/g, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ')
+      .replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    const chunks = [];
+    const re = /data-tags="([^"]+)"[\s\S]*?<div class="help-group-head"[^>]*>([\s\S]*?)<\/div>\s*<div class="help-group-body">([\s\S]*?)<\/div>\s*<\/div>/g;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const heading = stripTags(m[2]).replace(/expand_more/g, '').trim();
+      const body = stripTags(m[3]);
+      if (body.length > 40) chunks.push(`## ${heading}\n${body}`);
+    }
+    _helpContext = chunks.join('\n\n').substring(0, 80000);
+    console.log(`[AI] Help context: ${_helpContext.length} chars, ${chunks.length} sections`);
+  } catch(e) {
+    console.warn('[AI] Could not load help context:', e.message);
+  }
+}
+_loadHelpContext();
 
 // ── AWS S3 ─────────────────────────────────────────────────────────────────────
 const s3        = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -2178,6 +2211,123 @@ app.put('/api/admin/forms/:slug/markets', requireSuperAdmin, async (req, res) =>
     logAudit(req, 'form.markets_update', 'form', req.params.slug, { count: req.body.marketIds?.length || 0 });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── AI Chat ───────────────────────────────────────────────────────────────────
+const _AI_TOOLS = [
+  {
+    name: 'get_form',
+    description: 'Return the full config of a specific form (fields, design, email, embed). Use when the question is about a specific form\'s behaviour or settings.',
+    input_schema: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] }
+  },
+  {
+    name: 'get_analytics',
+    description: 'Return visit/submit/error counts for a form. Use for conversion or performance questions.',
+    input_schema: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] }
+  },
+  {
+    name: 'get_subscribers_summary',
+    description: 'Return subscriber counts by status plus 5 most recent subscriber emails. Never returns bulk PII.',
+    input_schema: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] }
+  },
+  {
+    name: 'get_form_list',
+    description: 'Return all form slugs and names. Use when the question is not form-specific or the user asks what forms exist.',
+    input_schema: { type: 'object', properties: {} }
+  }
+];
+
+async function _executeAiTool(name, input) {
+  const slug = (input.slug || '').replace(/[^a-z0-9-]/g, '');
+  if (name === 'get_form_list') {
+    const { rows } = await pool.query('SELECT slug, name FROM forms ORDER BY name');
+    return rows;
+  }
+  if (!slug) return { error: 'slug required' };
+  if (name === 'get_form') {
+    const { rows } = await pool.query('SELECT config FROM forms WHERE slug=$1', [slug]);
+    return rows.length ? rows[0].config : { error: 'Form not found' };
+  }
+  if (name === 'get_analytics') {
+    const { rows } = await pool.query('SELECT key, count FROM analytics WHERE form_slug=$1', [slug]);
+    return Object.fromEntries(rows.map(r => [r.key, Number(r.count)]));
+  }
+  if (name === 'get_subscribers_summary') {
+    const [counts, recent] = await Promise.all([
+      pool.query('SELECT status, COUNT(*)::int FROM subscribers WHERE form_slug=$1 GROUP BY status', [slug]),
+      pool.query('SELECT email, subscribed_at FROM subscribers WHERE form_slug=$1 ORDER BY subscribed_at DESC LIMIT 5', [slug])
+    ]);
+    return { counts: counts.rows, recent: recent.rows };
+  }
+  return { error: 'Unknown tool' };
+}
+
+app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
+  if (!_anthropic)
+    return res.status(503).json({ error: 'AI not configured — add ANTHROPIC_API_KEY to .env' });
+
+  const { message, context = {}, history = [] } = req.body;
+  if (!message || typeof message !== 'string' || message.length > 2000)
+    return res.status(400).json({ error: 'Invalid message' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const systemPrompt =
+    `You are a concise, knowledgeable SignFlow admin assistant. ` +
+    `Answer in 2–4 sentences unless complexity genuinely requires more. ` +
+    `Always reference exact UI locations (tab names, button labels, setting names). ` +
+    `Never guess live data — use tools to fetch it first.\n\n` +
+    `Current admin context: tab="${context.currentTab || '?'}", ` +
+    `form="${context.currentFormSlug || 'none'}", ` +
+    `modal="${context.activeModal || 'none'}", panel="${context.panelTab || 'none'}".` +
+    (_helpContext ? `\n\n--- SignFlow Documentation ---\n${_helpContext}` : '');
+
+  const messages = [
+    ...history.slice(-10),
+    { role: 'user', content: message }
+  ];
+
+  try {
+    while (true) {
+      const response = await _anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools: _AI_TOOLS,
+        messages
+      });
+
+      if (response.stop_reason === 'end_turn') {
+        for (const block of response.content)
+          if (block.type === 'text')
+            res.write(`data: ${JSON.stringify({ text: block.text })}\n\n`);
+        break;
+      }
+
+      if (response.stop_reason === 'tool_use') {
+        messages.push({ role: 'assistant', content: response.content });
+        const toolResults = [];
+        for (const block of response.content) {
+          if (block.type !== 'tool_use') continue;
+          res.write(`data: ${JSON.stringify({ tool: block.name })}\n\n`);
+          let result;
+          try { result = await _executeAiTool(block.name, block.input); }
+          catch(e) { result = { error: e.message }; }
+          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
+        }
+        messages.push({ role: 'user', content: toolResults });
+      } else {
+        break;
+      }
+    }
+  } catch(e) {
+    res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+  }
+
+  res.write('data: [DONE]\n\n');
+  res.end();
 });
 
 // Branding tab preview — standalone dummy form, no form slug required
