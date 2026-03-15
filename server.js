@@ -3017,8 +3017,9 @@ function renderFormField(f, cfg) {
       if (showArrows) wrapClass += ' sf-isel-has-arrows';
     }
     const sizeVar = sizeMode === 'fill' ? '' : `;--sf-isel-size:${tileSize}px`;
+    const tileShape = f.iselTileShape || 'square';
 
-    const wrapHtml = `<div class="${wrapClass}" data-multi="${multi}" data-sel-style="${selStyle}" data-min-sel="${minSel}" data-max-sel="${maxSel}" style="--sf-isel-accent:${selColor}${sizeVar};--sf-isel-tile-bg:${tileBg};--sf-isel-border:${tileBorderColor};--sf-isel-bw:${tileBorderWidth}px;--sf-isel-align:${alignVal}${gridVars}">
+    const wrapHtml = `<div class="${wrapClass}" data-multi="${multi}" data-sel-style="${selStyle}" data-min-sel="${minSel}" data-max-sel="${maxSel}" data-tile-shape="${tileShape}" style="--sf-isel-accent:${selColor}${sizeVar};--sf-isel-tile-bg:${tileBg};--sf-isel-border:${tileBorderColor};--sf-isel-bw:${tileBorderWidth}px;--sf-isel-align:${alignVal}${gridVars}">
         ${showArrows ? '<button type="button" class="sf-isel-arrow sf-isel-arrow-l" aria-label="Scroll left">&#8249;</button>' : ''}
         <div class="sf-isel-scroll"><div class="${trackClass}">${tilesHtml}</div></div>
         ${showArrows ? '<button type="button" class="sf-isel-arrow sf-isel-arrow-r" aria-label="Scroll right">&#8250;</button>' : ''}
@@ -3185,6 +3186,13 @@ function sliderPickerCSS(accent) {
   .sf-isel-txt{font-size:calc(var(--sf-isel-size,64px)*0.38);line-height:1;display:block;text-align:center;font-weight:600;color:inherit;}
   .sf-isel-lbl{font-size:11px;margin-top:3px;text-align:center;max-width:calc(var(--sf-isel-size,64px) - 6px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;line-height:1.2;}
   .sf-isel-lbl-hide{display:none;}
+  /* Tile shapes */
+  .sf-isel-wrap[data-tile-shape="rounded"] .sf-isel-tile{border-radius:12px!important}
+  .sf-isel-wrap[data-tile-shape="circle"] .sf-isel-tile{border-radius:50%!important}
+  .sf-isel-wrap[data-tile-shape="pill"] .sf-isel-tile{border-radius:100px!important}
+  .sf-isel-wrap[data-tile-shape="diamond"] .sf-isel-tile{clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);border-radius:0!important}
+  .sf-isel-wrap[data-tile-shape="octagon"] .sf-isel-tile{clip-path:polygon(30% 0%,70% 0%,100% 30%,100% 70%,70% 100%,30% 100%,0% 70%,0% 30%);border-radius:0!important}
+  .sf-isel-wrap[data-tile-shape="skewed"] .sf-isel-tile{clip-path:polygon(8% 0%,100% 0%,92% 100%,0% 100%);border-radius:0!important}
   /* Scroll arrows — positioned relative to sf-isel-wrap (non-scrolling) so they never drift */
   .sf-isel-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:24px;height:32px;background:rgba(255,255,255,0.88);border:1px solid #ddd;border-radius:6px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;color:#444;box-shadow:0 1px 4px rgba(0,0,0,.1);}
   .sf-isel-arrow:hover{background:#fff;color:#000;}
@@ -3602,11 +3610,12 @@ function renderSectionBlock(section, cfg, formSection, formFields, opts = {}) {
     var n=colors.length,TAU=Math.PI*2,arc=TAU/n,rot=0,spinning=false;
     var ctr=${ctr},rad=${rad};
     /* Pre-load segment images — each onload triggers a redraw */
-    var imgs=imageUrls.map(function(u){
+    var imgs=imageUrls.map(function(u,i_){
       if(!u)return null;
-      var m=new Image();m.crossOrigin='anonymous';m.src=u;
+      var m=new Image();
+      m.onerror=function(){imgs[i_]=null;draw(rot);};
       m.onload=function(){draw(rot);};
-      return m;
+      m.src=u;return m;
     });
     function draw(r){
       ctx.clearRect(0,0,C.width,C.height);
@@ -3672,7 +3681,8 @@ function renderSectionBlock(section, cfg, formSection, formFields, opts = {}) {
       style.bg ? `background:${style.bg}` : '',
       borderStr,
       style.shadow ? 'box-shadow:0 4px 20px rgba(0,0,0,.1)' : '',
-      hasStyle ? `border-radius:${radiusStr};padding:16px 20px` : '',
+      hasStyle ? `border-radius:${radiusStr}` : '',
+      style.padding != null ? `padding:${style.padding}px` : (hasStyle ? 'padding:16px 20px' : ''),
       'margin:12px 0',
       cols === 2 ? 'display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start' : '',
     ].filter(Boolean).join(';');
@@ -3790,9 +3800,10 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
   var sz=${sz},ctr=${ctr},rad=${rad},fid='${fid}',auto=${auto},presetIdx=${presetIdx};
   var imageOnly=${imageOnly},showRes=${showRes},resultTpl=${resultTpl};
   var rotation=0,spinning=false,n=labels.length;
-  var imgs=images_.map(function(src){
+  var imgs=images_.map(function(src,i_){
     if(!src)return null;
-    var img=new Image();img.crossOrigin='anonymous';
+    var img=new Image();
+    img.onerror=function(){imgs[i_]=null;if(!spinning)draw(rotation);};
     img.onload=function(){if(!spinning)draw(rotation);};
     img.src=src;return img;
   });

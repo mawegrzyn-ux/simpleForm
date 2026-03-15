@@ -416,7 +416,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #field-modal.modal-fullscreen .modal-box>*:last-child{flex:1;overflow-y:auto;}
 .modal-box{background:var(--panel);border-radius:var(--rlg);padding:26px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:fadeUp .18s var(--ease);}
 .modal-box--wide{width:700px;}
-.prize-row{display:grid;grid-template-columns:14px 28px 1fr 1fr 56px 46px 28px 28px 26px 26px;gap:4px;padding:4px 2px;border-bottom:1px solid var(--brd);align-items:center;}
+.prize-row{display:grid;grid-template-columns:14px 28px 1fr 1fr 56px 46px 28px 26px 26px;gap:4px;padding:4px 2px;border-bottom:1px solid var(--brd);align-items:center;}
 .prize-row .dh{font-size:14px!important;color:var(--ink3);cursor:grab;user-select:none;}
 .prize-row input[type=number]{text-align:center;}
 .prize-row-drag-over{outline:2px dashed var(--accent);border-radius:4px;}
@@ -3921,8 +3921,8 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <div><label class="cl" style="font-size:0.65rem">Tile background</label><div id="modal-isel-tilebg"></div></div>
         <div><label class="cl" style="font-size:0.65rem">Tile border colour</label><div id="modal-isel-tileborder"></div></div>
       </div>
-      <!-- Row 3: tile size / size mode / border width / alignment -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+      <!-- Row 3: tile size / size mode / border width / alignment / shape -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
         <div><label class="cl" style="font-size:0.65rem">Tile size (px)</label><input type="number" id="modal-isel-size" value="64" min="40" max="300" style="font-size:0.78rem"></div>
         <div><label class="cl" style="font-size:0.65rem">Size mode</label>
           <select id="modal-isel-size-mode" style="font-size:0.78rem">
@@ -3938,13 +3938,17 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
             <option value="right">Right</option>
           </select>
         </div>
-      </div>
-      <!-- Presets row -->
-      <div style="display:flex;align-items:center;gap:6px;padding-top:6px;border-top:1px solid var(--brd)">
-        <span style="font-size:0.68rem;color:var(--ink3);flex-shrink:0">Tile presets:</span>
-        <button class="ibtn" onclick="iselSavePreset()" style="font-size:0.7rem;padding:2px 8px"><span class="material-icons-round mi" style="font-size:13px">bookmark_add</span> Save</button>
-        <button class="ibtn" onclick="iselShowPresets()" style="font-size:0.7rem;padding:2px 8px"><span class="material-icons-round mi" style="font-size:13px">bookmarks</span> Load</button>
-        <div id="modal-isel-preset-list" style="display:none;flex:1;min-width:140px"></div>
+        <div><label class="cl" style="font-size:0.65rem">Tile shape</label>
+          <select id="modal-isel-shape" style="font-size:0.78rem">
+            <option value="square">Square</option>
+            <option value="rounded">Rounded</option>
+            <option value="circle">Circle</option>
+            <option value="pill">Pill</option>
+            <option value="diamond">Diamond</option>
+            <option value="octagon">Octagon</option>
+            <option value="skewed">Skewed</option>
+          </select>
+        </div>
       </div>
     </div>
     <!-- Column headers -->
@@ -4110,10 +4114,6 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <label class="tgl"><input type="checkbox" id="modal-pd-autospin" checked onchange="prizeOnAutoSpinChange()"><span class="tgl-s"></span></label>
         <label class="tgl-lbl">Auto-spin</label>
       </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <label class="tgl"><input type="checkbox" id="modal-pd-imageonly"><span class="tgl-s"></span></label>
-        <label class="tgl-lbl">Image only</label>
-      </div>
     </div>
     <!-- Spin button text (manual spin mode) -->
     <div class="cg" id="modal-pd-btn-row" style="display:none;margin-bottom:8px">
@@ -4162,14 +4162,52 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <label class="cl" style="margin:0">Prizes <span id="modal-pd-count-sub" style="font-size:0.72rem;color:var(--ink3)"></span></label>
       <button class="ibtn" onclick="prizeAddItem()" style="font-size:0.72rem;padding:2px 10px;display:flex;align-items:center;gap:3px"><span class="material-icons-round mi" style="font-size:13px">add</span> Add</button>
     </div>
-    <p style="font-size:0.68rem;color:var(--ink3);margin:0 0 6px">Images: square PNG/JPEG/WebP · recommended 80×80 px · transparent PNG works best on coloured segments.</p>
-    <!-- Column headers — matches .prize-row grid: 14|28|1fr|1fr|56|46|28|28|26|26 -->
-    <div style="font-size:0.65rem;color:var(--ink3);display:grid;grid-template-columns:14px 28px 1fr 1fr 56px 46px 28px 28px 26px 26px;gap:4px;padding:0 2px 2px">
-      <span></span><span>Color</span><span>Label</span><span>Value</span><span style="text-align:center">Wt</span><span style="text-align:center">Img</span><span style="text-align:center">Icon</span><span></span><span></span><span></span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <label class="tgl"><input type="checkbox" id="modal-pd-imageonly"><span class="tgl-s"></span></label>
+      <label class="tgl-lbl" style="font-size:0.82rem">Image only — hides labels, shows images/icons only on the wheel</label>
+    </div>
+    <p style="font-size:0.68rem;color:var(--ink3);margin:0 0 6px">Images: square PNG/JPEG/WebP · recommended 80×80 px · transparent PNG works best on coloured segments · max ~500 KB for best performance.</p>
+    <!-- Column headers — matches .prize-row grid: 14|28|1fr|1fr|56|46|28|26|26 -->
+    <div style="font-size:0.65rem;color:var(--ink3);display:grid;grid-template-columns:14px 28px 1fr 1fr 56px 46px 28px 26px 26px;gap:4px;padding:0 2px 2px">
+      <span></span><span>Color</span><span>Label</span><span>Value</span><span style="text-align:center">Wt</span><span style="text-align:center">Art</span><span></span><span></span><span></span>
     </div>
     <div id="modal-pd-rows" ondragover="prizeDragOver(event)" ondrop="prizeDrop(event)"></div>
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="closePrizesCfgModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Prize icon picker modal -->
+<div id="prize-icon-modal" class="modal-overlay" style="z-index:1400" onclick="if(event.target===this)closePrizeIconModal()">
+  <div class="modal-box" style="width:560px;max-height:82vh;display:flex;flex-direction:column">
+    <div class="modal-head">
+      <h2 id="pim-title">Prize icon</h2>
+      <button class="modal-close" onclick="closePrizeIconModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <div style="display:flex;gap:8px;padding:10px 16px 0;flex-shrink:0;align-items:center">
+      <label class="cl" style="margin:0;white-space:nowrap">Type:</label>
+      <div id="pim-type-btns" style="display:flex;gap:6px"></div>
+    </div>
+    <!-- Material icon section -->
+    <div id="pim-material-section" style="display:none;flex-direction:column;flex:1;overflow:hidden;padding:8px 16px 0">
+      <input type="search" id="pim-icon-search" placeholder="Search icons…" oninput="pimFilterIcons(this.value)"
+        style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.85rem;margin-bottom:8px">
+      <div id="pim-icon-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px;overflow-y:auto;flex:1;padding:4px 2px"></div>
+      <div id="pim-icon-empty" style="display:none;text-align:center;color:var(--ink3);padding:24px 0;font-size:0.85rem">No icons found</div>
+    </div>
+    <!-- Image section -->
+    <div id="pim-image-section" style="display:none;padding:12px 16px;flex:1">
+      <div id="pim-img-thumb" style="margin-bottom:10px;min-height:60px"></div>
+      <button class="btn btn-outline btn-sm" onclick="openMediaPicker(function(url){_pimImage=url;pimRefreshImageThumb();})">
+        <span class="material-icons-round mi" style="font-size:15px">image</span> Choose from media library</button>
+    </div>
+    <!-- None section -->
+    <div id="pim-none-section" style="display:none;padding:16px;color:var(--ink3);font-size:0.85rem">
+      No icon — only label text will be shown on the wheel segment.</div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closePrizeIconModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePrizeIconModal()">Apply</button>
     </div>
   </div>
 </div>
@@ -6965,6 +7003,15 @@ function openCntStyleModal(blockId){
   const b=found.block;const style=b.style||{};
   _cntStyleBlockId=blockId;
   document.getElementById('cnt-style-body').innerHTML=`
+    <div class="cg"><label class="cl">Padding (px)</label>
+      <div class="cr">
+        <input type="range" min="0" max="60" step="4" value="${style.padding!=null?style.padding:16}"
+          oninput="updateCntStyle('${blockId}','padding',+this.value);this.nextElementSibling.value=this.value" style="flex:1">
+        <input type="text" value="${style.padding!=null?style.padding:16}" style="width:48px;flex-shrink:0"
+          oninput="updateCntStyle('${blockId}','padding',+this.value);this.previousElementSibling.value=parseInt(this.value)||0">
+        <span style="color:var(--ink3);font-size:0.75rem;flex-shrink:0">px</span>
+      </div>
+    </div>
     <div class="cg"><label class="cl">Background</label>
       <div id="cntm-bg"></div>
     </div>
@@ -7608,6 +7655,7 @@ function openFieldModal(fieldId){
       sv('modal-isel-layout',f.iselLayout||'scroll');sv('modal-isel-cols',f.iselColumns||4);sv('modal-isel-flow',f.iselFlow||'row');
       sv('modal-isel-borderw',f.iselTileBorderWidth!=null?f.iselTileBorderWidth:2);
       sv('modal-isel-align',f.iselAlign||'left');
+      sv('modal-isel-shape',f.iselTileShape||'square');
       document.getElementById('modal-isel-multi').checked=!!f.iselMulti;
       sv('modal-isel-min-sel',f.iselMinSel||0);sv('modal-isel-max-sel',f.iselMaxSel||0);
       document.getElementById('modal-isel-labels').checked=f.iselShowLabels!==false;
@@ -7636,7 +7684,7 @@ function openFieldModal(fieldId){
     document.getElementById('modal-id').disabled=false;document.getElementById('modal-type').disabled=false;
     document.getElementById('modal-slider-showval').checked=true;
     _iselItems=[];iselRenderItems();sv('modal-isel-size','64');sv('modal-isel-size-mode','fixed');sv('modal-isel-selstyle','border');sv('modal-isel-layout','scroll');sv('modal-isel-cols','4');sv('modal-isel-flow','row');
-    sv('modal-isel-borderw','2');sv('modal-isel-align','left');
+    sv('modal-isel-borderw','2');sv('modal-isel-align','left');sv('modal-isel-shape','square');
     document.getElementById('modal-isel-multi').checked=false;
     sv('modal-isel-min-sel','0');sv('modal-isel-max-sel','0');
     document.getElementById('modal-isel-labels').checked=true;
@@ -7747,6 +7795,7 @@ function saveField(){
     field.iselColumns=parseInt(document.getElementById('modal-isel-cols').value)||4;
     field.iselFlow=document.getElementById('modal-isel-flow').value;
     field.iselShowArrows=document.getElementById('modal-isel-arrows').checked;
+    field.iselTileShape=document.getElementById('modal-isel-shape')?.value||'square';
   }
   if(type==='prizedraw'){
     field.prizes=_prizeItems.map(p=>({
@@ -7780,13 +7829,24 @@ function prizeRenderRows(){
   const el=document.getElementById('modal-pd-rows');
   if(!el)return;
   if(!n){el.innerHTML='<div style="font-size:0.8rem;color:var(--ink3);padding:8px 2px">No prizes yet — click Add to get started.</div>';return;}
-  // Build rows — grid: drag|color|label|value|wt|img|icon|copy|del
+  // Build rows — grid: drag|color|label|value|wt|art|copy|del
   el.innerHTML=_prizeItems.map((p,i)=>{
-    const imgHtml=p.image
-      ?`<img src="${escHtml(p.image)}" style="width:26px;height:26px;object-fit:cover;border-radius:4px;border:1px solid var(--brd);cursor:pointer" onclick="pickPrizeImage(${i})" title="Change image · click to replace">`
-      :`<button class="ibtn" onclick="pickPrizeImage(${i})" title="Add image (square PNG/JPEG/WebP, 80×80 px)" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">add_photo_alternate</span></button>`;
+    const hasImg=!!p.image;
     const iconSet=p.iconType&&p.iconType!=='none'&&p.iconChar;
-    const iconHtml=`<button class="ibtn" onclick="openPrizeIconEditor(${i})" title="${iconSet?'Icon: '+p.iconChar:'Add icon'}" style="padding:2px${iconSet?';color:var(--accent)':''}"><span class="material-icons-round mi" style="font-size:14px">${iconSet?'emoji_symbols':'add_reaction'}</span></button>`;
+    let artHtml;
+    if(hasImg){
+      artHtml=`<button class="ibtn" onclick="openPrizeIconModal(${i})" title="Image set · click to change art" style="padding:2px;position:relative">
+        <img src="${escHtml(p.image)}" style="width:22px;height:22px;object-fit:cover;border-radius:3px;display:block">
+      </button>`;
+    }else if(iconSet){
+      artHtml=`<button class="ibtn" onclick="openPrizeIconModal(${i})" title="Icon: ${p.iconChar}" style="padding:2px;color:var(--accent)">
+        <span class="material-icons-round mi" style="font-size:18px">${p.iconChar}</span>
+      </button>`;
+    }else{
+      artHtml=`<button class="ibtn" onclick="openPrizeIconModal(${i})" title="Add image or icon" style="padding:2px">
+        <span class="material-icons-round mi" style="font-size:14px">palette</span>
+      </button>`;
+    }
     return `<div class="prize-row" draggable="true" data-pd-idx="${i}"
         ondragstart="prizeDragStart(event,${i})" ondragend="prizeDragEnd(event)" ondragover="prizeDragOver(event)" ondrop="prizeDrop(event,${i})">
       <span class="material-icons-round dh">drag_indicator</span>
@@ -7794,8 +7854,7 @@ function prizeRenderRows(){
       <input type="text" value="${escHtml(p.label||'')}" placeholder="Label" style="font-size:0.78rem;width:100%;min-width:0" oninput="prizeUpdate(${i},'label',this.value)">
       <input type="text" value="${escHtml(p.value||'')}" placeholder="Value / code" title="Stored value e.g. coupon code" style="font-size:0.78rem;width:100%;min-width:0;color:var(--ink3)" oninput="prizeUpdate(${i},'value',this.value)">
       <input type="number" value="${+(p.probability||1)}" min="0.1" max="100" step="0.1" title="Probability weight" style="width:100%;font-size:0.78rem" oninput="prizeUpdate(${i},'probability',+this.value)">
-      ${imgHtml}
-      ${iconHtml}
+      ${artHtml}
       <button class="ibtn" title="Duplicate prize" onclick="prizeCloneItem(${i})" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">content_copy</span></button>
       <button class="ibtn danger" title="Remove prize" onclick="prizeRemoveItem(${i})" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">delete</span></button>
     </div>`;
@@ -7818,56 +7877,83 @@ function prizeCloneItem(i){
 }
 function prizeRemoveItem(i){_prizeItems.splice(i,1);prizeRenderRows();}
 function prizeUpdate(i,k,v){if(_prizeItems[i])_prizeItems[i][k]=v;}
-function pickPrizeImage(i){
-  openMediaPicker(function(url){
-    if(!_prizeItems[i])return;
-    _prizeItems[i].image=url;
-    prizeRenderRows();
-  });
-}
-function clearPrizeImage(i){if(_prizeItems[i]){_prizeItems[i].image='';prizeRenderRows();}}
+// Prize icon modal
+let _pimIdx=-1,_pimType='none',_pimMaterial='',_pimImage='';
 
-// Icon editor for a single prize — inline popover approach using a small modal
-function openPrizeIconEditor(i){
+function openPrizeIconModal(i){
   const p=_prizeItems[i];if(!p)return;
-  const existing={iconType:p.iconType||'none',iconChar:p.iconChar||'',iconFont:p.iconFont||'',iconSize:+(p.iconSize||20)};
-  const html=`<div style="padding:0 0 8px">
-    <div class="cr" style="gap:8px;margin-bottom:8px;align-items:center">
-      <label class="cl" style="margin:0;white-space:nowrap">Icon type</label>
-      <select id="pie-type" style="font-size:0.8rem" onchange="document.getElementById('pie-material').style.display=this.value==='material'?'block':'none';document.getElementById('pie-custom').style.display=this.value==='custom'?'block':'none'">
-        <option value="none"${existing.iconType==='none'?' selected':''}>None</option>
-        <option value="material"${existing.iconType==='material'?' selected':''}>Material icon</option>
-        <option value="custom"${existing.iconType==='custom'?' selected':''}>Custom char / font</option>
-      </select>
-    </div>
-    <div id="pie-material" style="display:${existing.iconType==='material'?'block':'none'}">
-      <div class="cg" style="margin-bottom:6px"><label class="cl">Material icon name</label>
-        <input type="text" id="pie-micon" value="${escHtml(existing.iconType==='material'?existing.iconChar:'')}" placeholder="e.g. star, emoji_events, local_offer" style="font-size:0.8rem">
-        <p style="font-size:0.7rem;color:var(--ink3);margin-top:2px">Find names at <a href="https://fonts.google.com/icons" target="_blank">fonts.google.com/icons</a></p>
-      </div>
-    </div>
-    <div id="pie-custom" style="display:${existing.iconType==='custom'?'block':'none'}">
-      <div class="cg" style="margin-bottom:6px"><label class="cl">Character / emoji</label>
-        <input type="text" id="pie-char" value="${escHtml(existing.iconType==='custom'?existing.iconChar:'')}" placeholder="e.g. ★  🎁  A" style="font-size:1.2rem;width:80px;text-align:center">
-      </div>
-      <div class="cr" style="gap:8px">
-        <div class="cg" style="flex:1;margin:0"><label class="cl">Font family</label><input type="text" id="pie-font" value="${escHtml(existing.iconFont||'')}" placeholder="inherit" style="font-size:0.8rem"></div>
-        <div class="cg" style="flex:0 0 72px;margin:0"><label class="cl">Size (px)</label><input type="number" id="pie-size" value="${existing.iconSize}" min="8" max="64" style="font-size:0.8rem"></div>
-      </div>
-    </div>
-  </div>`;
-  openWysiwygModal('','Icon for prize '+(i+1), ()=>{
-    // on save, read back from the DOM elements (they're in the wysiwyg body)
-    const t=document.getElementById('pie-type')?.value||'none';
-    if(!_prizeItems[i])return;
-    _prizeItems[i].iconType=t;
-    _prizeItems[i].iconChar=t==='material'?(document.getElementById('pie-micon')?.value||''):(document.getElementById('pie-char')?.value||'');
-    _prizeItems[i].iconFont=document.getElementById('pie-font')?.value||'';
-    _prizeItems[i].iconSize=parseInt(document.getElementById('pie-size')?.value||20)||20;
-    prizeRenderRows();
+  _pimIdx=i;
+  _pimImage=p.image||'';
+  if(p.image){_pimType='image';}
+  else if(p.iconType==='material'&&p.iconChar){_pimType='material';_pimMaterial=p.iconChar;}
+  else{_pimType='none';_pimMaterial='';}
+  document.getElementById('pim-title').textContent='Art for prize '+(i+1);
+  pimSetType(_pimType);
+  const s=document.getElementById('pim-icon-search');if(s)s.value='';
+  pimFilterIcons('');
+  pimRefreshImageThumb();
+  document.getElementById('prize-icon-modal').classList.add('open');
+}
+function closePrizeIconModal(){document.getElementById('prize-icon-modal').classList.remove('open');}
+
+function pimSetType(t){
+  _pimType=t;
+  const sections={material:'pim-material-section',image:'pim-image-section',none:'pim-none-section'};
+  Object.entries(sections).forEach(([k,id])=>{
+    const el=document.getElementById(id);if(!el)return;
+    const show=(k===t);
+    el.style.display=show?(k==='material'?'flex':'block'):'none';
   });
-  // Override the wysiwyg body with our custom HTML after modal opens
-  setTimeout(()=>{const b=document.getElementById('wysiwyg-area');if(b)b.innerHTML=html;},10);
+  const btns=document.getElementById('pim-type-btns');if(!btns)return;
+  const labels={none:'None',material:'Material icon',image:'Image'};
+  btns.innerHTML=['none','material','image'].map(s=>{
+    const active=(s===t);
+    return `<button class="ibtn" onclick="pimSetType('${s}')"
+      style="padding:4px 12px;font-size:0.78rem;${active?'background:var(--accent);color:#fff;border-color:var(--accent)':''}">${labels[s]}</button>`;
+  }).join('');
+}
+
+function pimFilterIcons(q){
+  const lower=(q||'').toLowerCase().trim();
+  const filtered=lower?_ISEL_ICONS.filter(n=>n.includes(lower)):_ISEL_ICONS;
+  const grid=document.getElementById('pim-icon-grid');
+  const empty=document.getElementById('pim-icon-empty');
+  if(!grid)return;
+  grid.innerHTML=filtered.map(name=>{
+    const sel=(name===_pimMaterial);
+    return `<button title="${name}" onclick="pimSelectIcon('${name}')"
+      style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+      border:1.5px solid ${sel?'var(--accent)':'transparent'};border-radius:8px;
+      background:${sel?'#eef2ff':'#f6f6f6'};cursor:pointer;gap:2px;padding:6px 4px;min-height:52px"
+      onmouseover="this.style.background='#eef2ff';this.style.borderColor='var(--accent)'"
+      onmouseout="this.style.background='${sel?'#eef2ff':'#f6f6f6'}';this.style.borderColor='${sel?'var(--accent)':'transparent'}'">
+      <span class="material-icons-round" style="font-size:22px;color:#444">${name}</span>
+      <span style="font-size:6.5px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48px;text-align:center">${name.replace(/_/g,' ')}</span>
+    </button>`;
+  }).join('');
+  if(empty)empty.style.display=(filtered.length?'none':'block');
+  grid.style.display=(filtered.length?'grid':'none');
+}
+function pimSelectIcon(name){_pimMaterial=name;pimFilterIcons(document.getElementById('pim-icon-search')?.value||'');}
+
+function pimRefreshImageThumb(){
+  const el=document.getElementById('pim-img-thumb');if(!el)return;
+  el.innerHTML=_pimImage
+    ?`<img src="${escHtml(_pimImage)}" style="max-width:80px;max-height:80px;object-fit:contain;border-radius:6px;border:1px solid var(--brd)">`
+    :'<span style="font-size:0.78rem;color:var(--ink3)">No image selected</span>';
+}
+
+function savePrizeIconModal(){
+  const p=_prizeItems[_pimIdx];if(!p)return;
+  if(_pimType==='material'){
+    p.iconType='material';p.iconChar=_pimMaterial;p.iconFont='';p.iconSize=20;p.image='';
+  }else if(_pimType==='image'){
+    p.image=_pimImage;p.iconType='none';p.iconChar='';
+  }else{
+    p.iconType='none';p.iconChar='';p.iconFont='';p.image='';
+  }
+  prizeRenderRows();
+  closePrizeIconModal();
 }
 
 // Drag-drop reorder
@@ -7999,13 +8085,16 @@ function iselRenderTilesModal(){
     buildBrandColorPicker(tileBgId,     item.tileBg||'',        v=>{_iselItems[i].tileBg=v;},true);
     buildBrandColorPicker(tileBorderId, item.tileBorderColor||'',v=>{_iselItems[i].tileBorderColor=v;},true);
   });
-  // Add tile button at bottom of list
-  const addBtn=document.createElement('button');
-  addBtn.className='add-field-btn';
-  addBtn.style.cssText='width:100%;margin-top:8px;font-size:0.72rem;justify-content:center;';
-  addBtn.innerHTML='<span class="material-icons-round mi" style="font-size:14px">add</span> Add tile';
-  addBtn.onclick=iselAddItem;
-  el.appendChild(addBtn);
+  // Bottom bar: preset save/load + add tile button
+  const bottomBar=document.createElement('div');
+  bottomBar.style.cssText='display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid var(--brd);flex-wrap:wrap';
+  bottomBar.innerHTML=`
+    <button class="ibtn" onclick="iselSavePreset()" style="font-size:0.7rem;padding:2px 8px"><span class="material-icons-round mi" style="font-size:13px">bookmark_add</span> Save preset</button>
+    <button class="ibtn" onclick="iselShowPresets()" style="font-size:0.7rem;padding:2px 8px"><span class="material-icons-round mi" style="font-size:13px">bookmarks</span> Load preset</button>
+    <div id="modal-isel-preset-list" style="display:none;flex:1;min-width:140px"></div>
+    <div style="flex:1"></div>
+    <button class="add-field-btn" onclick="iselAddItem()" style="font-size:0.72rem;justify-content:center;margin:0;padding:4px 12px"><span class="material-icons-round mi" style="font-size:14px">add</span> Add tile</button>`;
+  el.appendChild(bottomBar);
   // Update count
   const cnt=document.getElementById('modal-isel-tile-count');
   if(cnt)cnt.textContent=_iselItems.length+' tile'+(_iselItems.length!==1?'s':'');
