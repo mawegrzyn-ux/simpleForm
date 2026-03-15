@@ -1694,6 +1694,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>GET /api/admin/forms/:slug</code></td><td>Get full form config JSONB (market access enforced)</td></tr>
           <tr><td><code>POST /api/admin/forms/:slug</code></td><td>Save full form config JSONB; requires Editor role or above on the form's markets</td></tr>
           <tr><td><code>PATCH /api/admin/forms/:slug/meta</code></td><td>Rename form or change slug</td></tr>
+          <tr><td><code>PATCH /api/admin/forms/:slug/status</code></td><td>Update form lifecycle status (<code>draft</code> | <code>testing</code> | <code>live</code> | <code>archived</code>); body: <code>{ status, testingPin? }</code>. Setting <code>live</code> requires Admin role or super-admin.</td></tr>
           <tr><td><code>DELETE /api/admin/forms/:slug</code></td><td>Delete form + all subscribers + all media + all analytics (cascade, irreversible)</td></tr>
           <tr><td><code>GET /api/admin/forms/:slug/subscribers</code></td><td>Paginated subscriber list with search, status filter, sort</td></tr>
           <tr><td><code>DELETE /api/admin/forms/:slug/subscribers/:id</code></td><td>GDPR hard delete subscriber</td></tr>
@@ -1896,7 +1897,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <h3>PostgreSQL tables</h3>
         <table class="help-table">
           <tr><th>Table</th><th>PK</th><th>Description</th></tr>
-          <tr><td><code>forms</code></td><td><code>slug</code></td><td>One row per form; <code>config</code> JSONB holds full form config</td></tr>
+          <tr><td><code>forms</code></td><td><code>slug</code></td><td>One row per form; <code>config</code> JSONB holds full form config; <code>status</code> TEXT (<code>draft</code>|<code>testing</code>|<code>live</code>|<code>archived</code>, default <code>draft</code>); <code>testing_pin</code> CHAR(4) 4-digit access PIN</td></tr>
           <tr><td><code>subscribers</code></td><td><code>id</code> UUID</td><td>Subscriber records; FK → <code>forms.slug</code> CASCADE; <code>custom_fields</code> JSONB</td></tr>
           <tr><td><code>media</code></td><td><code>id</code> UUID</td><td>Uploaded images; <code>form_slug</code> NULL = shared; S3 key + public URL stored</td></tr>
           <tr><td><code>fonts</code></td><td><code>id</code> UUID</td><td>Custom fonts; <code>name</code> UNIQUE; S3 key + public URL stored</td></tr>
@@ -2227,6 +2228,17 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-15 — Form lifecycle status system</h3>
+        <ul>
+          <li>✅ <strong>Form status column</strong> — <code>forms</code> table gains two real columns: <code>status TEXT NOT NULL DEFAULT 'draft'</code> and <code>testing_pin CHAR(4)</code>. All new forms start as <strong>Draft</strong>; existing rows get a random 4-digit PIN on next boot.</li>
+          <li>✅ <strong>Four statuses</strong> — <strong>Draft</strong> (default; branded Coming Soon page shown publicly), <strong>Testing</strong> (PIN-gated; testers enter a 4-digit code before the form loads), <strong>Live</strong> (publicly accessible; only Admin or super-admin can set), <strong>Archived</strong> (branded No Longer Available page shown publicly). Deleted forms remove the DB record entirely.</li>
+          <li>✅ <strong>PIN overlay</strong> — when a form is in Testing mode a full-screen overlay (dark blur backdrop, white card, form's primary accent colour) gates both the public page and embed iframe. The correct PIN is stored in <code>sessionStorage</code> per slug so testers aren't re-prompted on refresh.</li>
+          <li>✅ <strong>Branded status pages</strong> — Draft and Archived public URLs return a full HTML page that inherits the form's background, font, logo, and colours but shows a centred status card instead of the form. Embed requests in Draft/Archived return <code>403 Forbidden</code>.</li>
+          <li>✅ <strong>Submission gate</strong> — <code>POST /:slug/subscribe</code> rejects Draft and Archived forms with <code>403</code> so no subscriptions slip through even if the overlay is bypassed.</li>
+          <li>✅ <strong>Form Status card in Settings sidebar</strong> — segmented pill selector (Draft / Testing / Live / Archived); Live button disabled for Editors; PIN input + Random button visible only when Testing selected; <em>Save status</em> button calls <code>PATCH /api/admin/forms/:slug/status</code>.</li>
+          <li>✅ <strong>Status badges</strong> — coloured pill badge (gray/amber/green/dark) shown on each form card in the list view and as a small chip next to "Settings" in the form editor header.</li>
+          <li>✅ <strong>New API route</strong> — <code>PATCH /api/admin/forms/:slug/status</code>; body: <code>{ status, testingPin? }</code>; audited via <code>form.status_change</code> event.</li>
+        </ul>
         <h3>2026-03-15 — Platform Settings reorganised into tabs; tiles modal + highlight colour fixes; nav identity moved to dropdown</h3>
         <ul>
           <li>✅ <strong>Platform Settings sub-tabs</strong> — the single-page Platform Settings panel is now split into four tabs accessible from a sub-nav bar: <strong>Security</strong> (IP Flagging + Anti-Bot config), <strong>Markets</strong> (market management, super-admin only), <strong>Users</strong> (user management, super-admin only), <strong>Logs</strong> (Admin Audit Log). Each tab lazy-loads its data on first visit.</li>
@@ -3049,7 +3061,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
 <div id="tab-pfsettings" class="page">
   <div id="settings-panel">
   <div class="page-body">
-    <div class="page-head"><h2>Settings</h2><p>Form-specific configuration — branding, identity, legal, and notifications.</p></div>
+    <div class="page-head"><h2>Settings <span id="editor-status-badge"></span></h2><p>Form-specific configuration — branding, identity, legal, and notifications.</p></div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:10px"><span class="material-icons-round mi">style</span> Branding</div>
       <div class="cg">
@@ -3098,6 +3110,25 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <div class="cg"><label class="cl">Meta Pixel ID</label>
         <input type="text" id="pf-pixel-id" placeholder="1234567890123" oninput="cfg.site.metaPixelId=this.value.trim()"></div>
     </div>
+    <!-- Form Status card -->
+    <div class="card" style="padding:16px" id="form-status-card">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:4px"><span class="material-icons-round mi">label</span> Form Status</div>
+      <p class="card-desc" style="font-size:0.78rem;margin-bottom:12px">Controls public access to this form.</p>
+      <div id="status-btns" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0"></div>
+      <div id="status-pin-section" style="display:none;border-top:1px solid var(--border2);margin-top:14px;padding-top:14px">
+        <div class="setting-title" style="font-size:0.82rem;margin-bottom:2px">Access PIN</div>
+        <div class="setting-desc" style="font-size:0.76rem;color:var(--ink3);margin-bottom:10px">4-digit code shown on the testing overlay</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="status-pin-input" maxlength="4" inputmode="numeric" pattern="\d{4}" placeholder="0000"
+                 style="width:76px;font-size:1.5rem;text-align:center;letter-spacing:5px;border:2px solid var(--border2);border-radius:8px;padding:6px 4px;line-height:1">
+          <button class="btn btn-outline btn-sm" onclick="regeneratePin()">
+            <span class="material-icons-round mi" style="font-size:15px;vertical-align:middle">casino</span> Random
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-top:14px;width:100%" onclick="saveFormStatus()">Save status</button>
+    </div>
+
     <div class="card super-admin-only" style="padding:16px" id="form-markets-card">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">public</span> Market assignment</div>
       <p class="card-desc" style="font-size:0.78rem;margin-bottom:10px">Assign this form to markets to restrict which users can see and manage it. Leave unassigned to make it visible to all admins.</p>
@@ -3567,6 +3598,15 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         </ul>
         <h3>Deleting a form</h3>
         <p>Deleting a form from the Forms tab is <strong>irreversible</strong>. It permanently removes: the form configuration, all subscribers, all analytics, and all media that was uploaded exclusively for that form. Export your subscriber list before deleting if you need the data.</p>
+        <h3>Form Status</h3>
+        <p>Each form has a lifecycle status, set in the <em>Form Status</em> card at the top of the Form Settings sidebar:</p>
+        <ul>
+          <li><strong>Draft</strong> (default for new forms) — the public URL shows a branded <em>Coming Soon</em> page using the form's colours, fonts, and logo. No submissions are accepted. Admins can still preview via the editor.</li>
+          <li><strong>Testing</strong> — the form is accessible at its public URL and embed, but guarded by a <strong>4-digit PIN overlay</strong>. Testers enter the PIN once per browser session (stored in <code>sessionStorage</code>). The PIN is set in the Form Status card — use the <em>Random</em> button to generate one, or type your own 4 digits. Share the PIN with testers before sharing the link.</li>
+          <li><strong>Live</strong> — fully publicly accessible. Only <strong>Admin</strong> or <strong>super-admin</strong> role can set a form to Live; Editors see the button disabled.</li>
+          <li><strong>Archived</strong> — the public URL shows a branded <em>No Longer Available</em> page. No submissions are accepted. Embed requests return <code>403 Forbidden</code>.</li>
+        </ul>
+        <p>Status changes are recorded in the Admin Audit Log (<code>form.status_change</code> event).</p>
         <h3>Anti-Bot &amp; CAPTCHA</h3>
         <p>SignFlow's built-in bot protection (honeypot, timing check, proof-of-work, math challenge, IP flagging) runs automatically on every form — no configuration needed. Optionally layer in <strong>hCaptcha</strong> as a visible external challenge. CAPTCHA mode is a <strong>platform-wide</strong> setting configured in <strong>Platform Settings → Security tab → Anti-Bot Protection</strong> (⚙ icon, top-right) rather than per-form. See the <strong>Anti-Bot Protection</strong> section for full details.</p>
         <h3>Market assignment <span style="font-size:0.8rem;font-weight:400;color:var(--ink3)">(super-admin only)</span></h3>
@@ -4684,6 +4724,7 @@ function renderFormsList(){
           ${f.description?`<div class="form-card-desc">${escHtml(f.description)}</div>`:''}
           <div class="form-card-meta">
             <span class="slug-pill">/${f.slug}</span>
+            ${(()=>{const sm=STATUS_META[f.status]||STATUS_META.draft;return `<span style="padding:2px 8px;border-radius:20px;font-size:0.68rem;font-weight:700;background:${sm.bg};color:${sm.color}">${sm.label}</span>`;})()}
             ${hasPayload?`<span class="size-pill" title="${payloadBreakdown}"><span class="material-icons-round mi" style="font-size:11px;vertical-align:middle">data_usage</span> ${fmtBytes(totalPayload)}</span>`:''}
             ${(f.markets&&f.markets.length)?f.markets.map(m=>`<span class="badge" style="background:#e8f0fe;color:#1a56db;font-size:0.68rem">${escHtml(m.name)}</span>`).join(''):`<span class="badge" style="background:#f3f4f6;color:#6b7280;font-size:0.68rem">Unassigned</span>`}
           </div>
@@ -4726,6 +4767,86 @@ function _applyFormsPreviewSize(){
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 const escH=escHtml; // alias used by RBAC UI helpers
 
+// ── Form Status ───────────────────────────────────────────────────────────────
+const STATUS_META = {
+  draft:    { label:'Draft',    color:'#6b7280', bg:'#f3f4f6', icon:'edit_note' },
+  testing:  { label:'Testing', color:'#b45309', bg:'#fef3c7', icon:'science' },
+  live:     { label:'Live',    color:'#065f46', bg:'#d1fae5', icon:'check_circle' },
+  archived: { label:'Archived',color:'#374151', bg:'#e5e7eb', icon:'archive' },
+};
+let _formStatus = 'draft';
+let _formPin = '';
+
+function loadFormStatus() {
+  _formStatus = cfg._status || 'draft';
+  _formPin    = cfg._testingPin || '';
+  renderStatusBtns();
+  const pinInput = document.getElementById('status-pin-input');
+  if (pinInput) pinInput.value = _formPin;
+}
+
+function renderStatusBtns() {
+  const el = document.getElementById('status-btns');
+  if (!el) return;
+  const canGoLive = me.systemRole === 'super-admin' || myRoleForForm(cfg.markets) === 'admin';
+  el.innerHTML = Object.entries(STATUS_META).map(([s, m]) => {
+    const active   = s === _formStatus;
+    const disabled = s === 'live' && !canGoLive;
+    return `<button onclick="selectStatus('${s}')"
+      ${disabled ? 'disabled title="Admin role required to publish"' : ''}
+      style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;
+             border:2px solid ${active ? m.color : 'var(--border2)'};
+             background:${active ? m.bg : 'var(--bg1)'};
+             color:${active ? m.color : 'var(--ink3)'};
+             font-size:0.78rem;font-weight:${active ? '700' : '500'};
+             cursor:${disabled ? 'not-allowed' : 'pointer'};opacity:${disabled ? '0.45' : '1'};
+             transition:all .15s">
+      <span class="material-icons-round mi" style="font-size:14px">${m.icon}</span>${m.label}</button>`;
+  }).join('');
+  const pinSec = document.getElementById('status-pin-section');
+  if (pinSec) pinSec.style.display = _formStatus === 'testing' ? '' : 'none';
+  // update editor header badge if present
+  const edBadge = document.getElementById('editor-status-badge');
+  if (edBadge) {
+    const m = STATUS_META[_formStatus] || STATUS_META.draft;
+    edBadge.innerHTML = `<span style="padding:2px 9px;border-radius:20px;font-size:0.7rem;font-weight:700;background:${m.bg};color:${m.color}">${m.label}</span>`;
+  }
+}
+
+function selectStatus(s) {
+  _formStatus = s;
+  renderStatusBtns();
+}
+
+function regeneratePin() {
+  const pin = String(Math.floor(1000 + Math.random() * 9000));
+  _formPin = pin;
+  const inp = document.getElementById('status-pin-input');
+  if (inp) inp.value = pin;
+}
+
+async function saveFormStatus() {
+  const pinInp = document.getElementById('status-pin-input');
+  const pin = pinInp ? pinInp.value : _formPin;
+  if (_formStatus === 'testing' && !/^\d{4}$/.test(pin))
+    return alert('PIN must be exactly 4 digits');
+  const body = { status: _formStatus };
+  if (_formStatus === 'testing') body.testingPin = pin;
+  const r = await adminFetch(`/api/admin/forms/${cfg.slug}/status`, {
+    method: 'PATCH', body: JSON.stringify(body)
+  });
+  if (r.ok) {
+    cfg._status    = _formStatus;
+    cfg._testingPin = (_formStatus === 'testing') ? pin : _formPin;
+    toast('Status saved', 'success');
+    // Refresh the form list card to show updated badge
+    loadFormsIndex().catch(() => {});
+  } else {
+    const e = await r.json().catch(() => ({}));
+    alert(e.error || 'Failed to save status');
+  }
+}
+
 async function openFormEditor(slug){
   currentFormSlug=slug;
   const r=await adminFetch(`/api/admin/forms/${slug}`);
@@ -4733,6 +4854,11 @@ async function openFormEditor(slug){
   cfg=await r.json();
   if(!cfg.design.customFonts)cfg.design.customFonts=[];
   if(!cfg.confirmation)cfg.confirmation=[];
+  // Inject status + pin from formsIndex (these are DB columns, not in config JSONB)
+  { const fi=formsIndex.find(f=>f.slug===slug);
+    if(fi){cfg._status=fi.status||'draft';cfg._testingPin=fi.testingPin||'';}
+    else{cfg._status='draft';cfg._testingPin='';}
+  }
   // Update form name chip in nav
   const chip=document.getElementById('t-form-name-chip');
   if(chip){chip.textContent=cfg.name||slug;chip.style.display='inline-flex';}
@@ -8430,7 +8556,7 @@ function switchTab(tab,btn){
   if(fsn&&currentFormSlug)fsn.style.display=(tab==='design'||tab==='help'||tab==='forms'||tab==='global-settings')?'none':'flex';
   if(tab==='forms'&&_formsPreviewSlug){const wrap=document.getElementById('forms-prev-frame-wrap');const ph=document.getElementById('forms-preview-placeholder');if(wrap)wrap.style.display='flex';if(ph)ph.style.display='none';_applyFormsPreviewSize();}
   if(tab==='subscribers'){switchSubTab('entries');loadSubscribers(1);}
-  if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';}
+  if(tab==='pfsettings'&&currentFormSlug){const spf=document.getElementById('settings-preview-frame');if(spf)spf.src='/'+currentFormSlug+'?_preview=1';loadFormStatus();}
   if(tab==='embed'){updateEmbedCode();refreshEmbedPreview();}
   if(tab==='help'){switchInnerTab('help');renderUserNotes();}
   if(tab==='global-settings'){switchGsTab(_gsTab||'security');}

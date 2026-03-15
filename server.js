@@ -600,8 +600,13 @@ function rowToMedia(r) {
 }
 
 async function readFormsIndex() {
-  const { rows } = await pool.query('SELECT slug, name, created_at FROM forms ORDER BY created_at ASC');
-  return rows.map(r => ({ slug: r.slug, name: r.name, createdAt: r.created_at ? r.created_at.toISOString() : null }));
+  const { rows } = await pool.query('SELECT slug, name, created_at, status, testing_pin FROM forms ORDER BY created_at ASC');
+  return rows.map(r => ({
+    slug: r.slug, name: r.name,
+    createdAt: r.created_at ? r.created_at.toISOString() : null,
+    status: r.status || 'draft',
+    testingPin: r.testing_pin || null,
+  }));
 }
 
 async function readFormConfig(slug) {
@@ -896,6 +901,12 @@ async function initDb() {
       value JSONB   NOT NULL DEFAULT '{}'
     );
     INSERT INTO global_settings (id, value) VALUES (1, '{}') ON CONFLICT DO NOTHING;
+
+    ALTER TABLE forms
+      ADD COLUMN IF NOT EXISTS status      TEXT NOT NULL DEFAULT 'draft',
+      ADD COLUMN IF NOT EXISTS testing_pin CHAR(4);
+    UPDATE forms SET testing_pin = LPAD((FLOOR(RANDOM()*9000)+1000)::TEXT, 4, '0')
+      WHERE testing_pin IS NULL;
   `);
   console.log('✔ Database tables ready');
 }
@@ -1258,7 +1269,8 @@ app.get('/api/admin/forms', adminAuth, async (req, res) => {
     }
     const [sharedFonts, templates] = await Promise.all([readSharedFonts(), readDesignTemplates()]);
     const result = await Promise.all(idx.map(async f => {
-      const entry = { ...f, subscriberCount: 0, embedPageSize: null, embedJsSize: null, mediaSize: null };
+      const entry = { ...f, subscriberCount: 0, embedPageSize: null, embedJsSize: null, mediaSize: null,
+                      status: f.status || 'draft', testingPin: f.testingPin || null };
       try {
         const cfg = await readFormConfig(f.slug);
         const { rows: countRows } = await pool.query(
@@ -1300,9 +1312,10 @@ app.post('/api/admin/forms', adminAuth, async (req, res) => {
       if (!marketIds.some(id => userAdminMktIds.has(id)))
         return res.status(403).json({ error: 'Assign form to at least one market you administer' });
     }
+    const newTestingPin = String(Math.floor(1000 + Math.random() * 9000));
     await pool.query(
-      'INSERT INTO forms(slug, name, created_at, config) VALUES($1, $2, NOW(), $3)',
-      [slug, name, defaultFormConfig(slug, name)]
+      'INSERT INTO forms(slug, name, created_at, status, testing_pin, config) VALUES($1, $2, NOW(), $3, $4, $5)',
+      [slug, name, 'draft', newTestingPin, defaultFormConfig(slug, name)]
     );
     // Assign form to selected markets
     for (const mId of marketIds) {
@@ -1356,6 +1369,34 @@ app.patch('/api/admin/forms/:slug/meta', adminAuth, async (req, res) => {
     );
     if (!rowCount) return res.status(404).json({ error: 'Form not found' });
     res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Update form status (and optionally PIN)
+app.patch('/api/admin/forms/:slug/status', adminAuth, async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { status, testingPin } = req.body;
+    const VALID_STATUSES = ['draft', 'testing', 'live', 'archived'];
+    if (!VALID_STATUSES.includes(status))
+      return res.status(400).json({ error: 'Invalid status. Must be draft, testing, live, or archived.' });
+    // 'live' requires admin or super-admin role — editors can toggle between draft/testing/archived
+    if (status === 'live') {
+      const fmIds = await getFormMarketIds(slug);
+      const role = userEffectiveRole(req, fmIds);
+      if (!isSuperAdmin(req) && role !== 'admin')
+        return res.status(403).json({ error: 'Admin role required to publish a form' });
+    }
+    if (testingPin !== undefined) {
+      if (!/^\d{4}$/.test(testingPin))
+        return res.status(400).json({ error: 'PIN must be exactly 4 digits' });
+      await pool.query('UPDATE forms SET status=$1, testing_pin=$2 WHERE slug=$3', [status, testingPin, slug]);
+    } else {
+      await pool.query('UPDATE forms SET status=$1 WHERE slug=$2', [status, slug]);
+    }
+    logAudit(req, 'form.status_change', 'form', slug,
+      { status, testingPin: testingPin ? '****' : undefined });
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2343,6 +2384,22 @@ app.get('/:slug', async (req, res) => {
   const { slug } = req.params;
   if (RESERVED_SLUGS.has(slug)) return res.status(404).send('Not found');
   try {
+    // Check status first — only one extra DB round-trip, avoids rendering expensive pages unnecessarily
+    const { rows: [statusRow] } = await pool.query(
+      'SELECT status, testing_pin FROM forms WHERE slug=$1', [slug]);
+    if (!statusRow) return res.status(404).send('<p>Page not found.</p>');
+
+    const { status, testing_pin } = statusRow;
+
+    // Draft / Archived — branded status page (200 with form design, no form)
+    // Admin previews bypass the status gate (query param _preview=1 requires adminAuth; _tplPreview is fine)
+    if ((status === 'draft' || status === 'archived') && !req.query._preview && !req.query._tplPreview) {
+      let formCfg = await readFormConfig(slug);
+      const sharedFonts = await readSharedFonts();
+      formCfg._status = status;
+      return res.send(renderFormStatusPage(formCfg, sharedFonts));
+    }
+
     let formCfg = await readFormConfig(slug);
     if (!req.query._preview && !req.query._tplPreview) bumpAnalytic(slug, 'visits');
     const [sharedFonts, templates] = await Promise.all([readSharedFonts(), readDesignTemplates()]);
@@ -2355,9 +2412,10 @@ app.get('/:slug', async (req, res) => {
     if (req.query._generic) {
       formCfg = { ...formCfg, sections: GENERIC_PREVIEW_SECTIONS, fields: GENERIC_PREVIEW_FIELDS };
     }
-    res.send(renderPublicPage(formCfg, sharedFonts, templates));
+    res.send(renderPublicPage(formCfg, sharedFonts, templates,
+      { testingPin: status === 'testing' ? testing_pin : null }));
   }
-  catch(e) { res.status(404).send('<p>Form not found. <a href="/">Home</a></p>'); }
+  catch(e) { res.status(404).send('<p>Page not found.</p>'); }
 });
 
 // Confirmation/response state preview (admin only)
@@ -2381,6 +2439,15 @@ app.get('/:slug/confirmation-preview', adminAuth, async (req, res) => {
 // Embed iframe page — allows framing; respects per-form domain allowlist
 app.get('/:slug/embed', async (req, res) => {
   try {
+    // Status check before expensive rendering
+    const { rows: [statusRow] } = await pool.query(
+      'SELECT status, testing_pin FROM forms WHERE slug=$1', [req.params.slug]);
+    if (!statusRow) return res.status(404).send('Form not found');
+
+    const { status, testing_pin } = statusRow;
+    if (status === 'draft' || status === 'archived')
+      return res.status(403).send('This form is not publicly available.');
+
     const [cfg, sharedFonts, templates] = await Promise.all([
       readFormConfig(req.params.slug), readSharedFonts(), readDesignTemplates()]);
 
@@ -2406,7 +2473,8 @@ app.get('/:slug/embed', async (req, res) => {
       "connect-src 'self' https://api.hcaptcha.com https://www.google-analytics.com https://region1.google-analytics.com https://www.facebook.com; " +
       "frame-src https://www.youtube.com https://player.vimeo.com; " +
       `frame-ancestors ${faVal}; object-src 'none'; base-uri 'self'`);
-    res.send(renderEmbedPage(cfg, sharedFonts, templates));
+    res.send(renderEmbedPage(cfg, sharedFonts, templates,
+      { testingPin: status === 'testing' ? testing_pin : null }));
   } catch(e) { res.status(404).send('Form not found'); }
 });
 
@@ -2439,6 +2507,12 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   let cfg;
   try { cfg = await readFormConfig(slug); }
   catch(e) { return res.status(404).json({ error: 'Form not found' }); }
+  // Block submissions to draft and archived forms
+  try {
+    const { rows: [sr] } = await pool.query('SELECT status FROM forms WHERE slug=$1', [slug]);
+    if (!sr || sr.status === 'draft' || sr.status === 'archived')
+      return res.status(403).json({ error: 'This form is not accepting submissions.' });
+  } catch(_) { /* non-fatal — proceed if status check fails */ }
   const body = req.body;
   // Top-level safety net — ensures a response is always sent even on unexpected errors
   try {
@@ -3802,7 +3876,150 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
 <\/script>`;
 }
 
-function renderPublicPage(cfg, sharedFonts = [], templates = []) {
+// ── Branded status page (draft / archived) ────────────────────────────────────
+// Renders the form's visual design but shows a status message instead of the form.
+function renderFormStatusPage(cfg, sharedFonts = []) {
+  const d = cfg.design || {};
+  const s = cfg.site || {};
+  const status = cfg._status || 'draft';
+  const isArchived = status === 'archived';
+  const heading = isArchived ? 'No Longer Available' : 'Coming Soon';
+  const sub = isArchived
+    ? 'This form has been archived and is no longer accepting submissions.'
+    : 'This form isn\'t available yet. Check back soon.';
+
+  const primaryColor = d.primaryColor || '#1a1a2e';
+  const accentColor  = d.accentColor  || '#e94560';
+  const bgColor      = d.backgroundColor || '#f8f5f0';
+  const textColor    = d.textColor    || '#1a1a2e';
+  const bgImage      = d.backgroundImage || '';
+  const bgOverlay    = d.backgroundOverlay !== undefined ? d.backgroundOverlay : 0.4;
+  const bgOverlayColor = d.backgroundOverlayColor || '#000000';
+  const containerWidth = d.containerWidth || '560px';
+  const cardPadding  = d.cardPadding  || '48px 40px';
+  const cardRadius   = d.cardRadius   || '12px';
+  const logoUrl      = d.logoUrl      || '';
+  const logoWidth    = d.logoWidth    || '180px';
+  const gFont        = d.googleFont   || 'Playfair Display';
+  const bFont        = d.bodyFont     || 'Lato';
+  const customFonts  = (d.customFonts || []).filter(f => f.name && f.url);
+
+  const googleFontLink = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(gFont)}:wght@400;700&family=${encodeURIComponent(bFont)}:wght@400;700&display=swap`;
+  const customFontFaces = customFonts.map(f =>
+    `@font-face{font-family:${JSON.stringify(f.name)};src:url(${JSON.stringify(f.url)});font-display:swap;}`).join('');
+  const sharedFontFaces = sharedFonts.filter(f => f.name && f.url).map(f =>
+    `@font-face{font-family:${JSON.stringify(f.name)};src:url(${JSON.stringify(f.url)});font-display:swap;}`).join('');
+
+  const bodyStyle = bgImage
+    ? `background:linear-gradient(${bgOverlayColor}${Math.round(bgOverlay*255).toString(16).padStart(2,'0')},${bgOverlayColor}${Math.round(bgOverlay*255).toString(16).padStart(2,'0')}),url(${JSON.stringify(bgImage)}) center/cover no-repeat fixed;`
+    : `background-color:${bgColor};`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(s.title || cfg.name || 'Form')}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="${googleFontLink}">
+<style>
+${customFontFaces}${sharedFontFaces}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  font-family:${JSON.stringify(bFont)},system-ui,sans-serif;${bodyStyle}}
+.sf-status-card{background:#fff;border-radius:${cardRadius};padding:${cardPadding};
+  max-width:${containerWidth};width:90%;text-align:center;
+  box-shadow:0 8px 40px rgba(0,0,0,0.15);}
+.sf-status-logo{max-width:${logoWidth};height:auto;margin:0 auto 24px;display:block}
+.sf-status-icon{font-size:3rem;margin-bottom:16px;opacity:0.6}
+.sf-status-heading{font-family:${JSON.stringify(gFont)},serif;font-size:1.8rem;font-weight:700;
+  color:${primaryColor};margin-bottom:12px}
+.sf-status-sub{color:${textColor};opacity:0.7;font-size:0.95rem;line-height:1.6;max-width:320px;margin:0 auto}
+.sf-status-accent{display:inline-block;width:48px;height:3px;background:${accentColor};
+  border-radius:2px;margin:20px auto 0}
+</style>
+</head>
+<body>
+<div class="sf-status-card">
+  ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" class="sf-status-logo" alt="Logo">` : ''}
+  <div class="sf-status-icon">${isArchived ? '📦' : '🚧'}</div>
+  <h1 class="sf-status-heading">${escapeHtml(heading)}</h1>
+  <p class="sf-status-sub">${escapeHtml(sub)}</p>
+  <div class="sf-status-accent"></div>
+</div>
+</body>
+</html>`;
+}
+
+function buildPinOverlayHtml(pin, primaryColor) {
+  const accent = primaryColor || '#1a1a2e';
+  const slug = '${location.pathname.replace(/\\/+$/,"").split("/").pop()}';
+  return `<div id="sf-pin-gate" data-pin="${escapeHtml(pin)}" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)">
+  <div style="background:#fff;border-radius:16px;padding:40px 32px;text-align:center;max-width:320px;width:90%;box-shadow:0 24px 80px rgba(0,0,0,0.4)">
+    <div style="font-size:2.4rem;margin-bottom:8px">🔒</div>
+    <h2 style="font-size:1.25rem;font-weight:700;color:#111;margin-bottom:8px">Test Access</h2>
+    <p style="color:#666;font-size:0.875rem;margin-bottom:24px;line-height:1.5">This form is in testing mode. Enter the 4-digit PIN to continue.</p>
+    <div id="sf-pin-digits" style="display:flex;gap:10px;justify-content:center;margin-bottom:12px">
+      <input class="sf-pin-d" type="text" inputmode="numeric" maxlength="1" style="width:54px;height:62px;font-size:1.8rem;text-align:center;border:2px solid #ddd;border-radius:10px;outline:none;transition:border-color .15s">
+      <input class="sf-pin-d" type="text" inputmode="numeric" maxlength="1" style="width:54px;height:62px;font-size:1.8rem;text-align:center;border:2px solid #ddd;border-radius:10px;outline:none;transition:border-color .15s">
+      <input class="sf-pin-d" type="text" inputmode="numeric" maxlength="1" style="width:54px;height:62px;font-size:1.8rem;text-align:center;border:2px solid #ddd;border-radius:10px;outline:none;transition:border-color .15s">
+      <input class="sf-pin-d" type="text" inputmode="numeric" maxlength="1" style="width:54px;height:62px;font-size:1.8rem;text-align:center;border:2px solid #ddd;border-radius:10px;outline:none;transition:border-color .15s">
+    </div>
+    <div id="sf-pin-err" style="min-height:18px;font-size:0.82rem;color:#c00;margin-bottom:4px"></div>
+    <button id="sf-pin-btn" onclick="sfPinSubmit()" style="margin-top:8px;padding:10px 32px;background:${escapeHtml(accent)};color:#fff;border:none;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;width:100%">Unlock</button>
+  </div>
+</div>
+<style>
+.sf-pin-d:focus{border-color:${escapeHtml(accent)}!important;box-shadow:0 0 0 3px ${escapeHtml(accent)}30}
+@keyframes sfPinShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+</style>
+<script>
+(function(){
+  var gate=document.getElementById('sf-pin-gate');
+  if(!gate)return;
+  var slug=location.pathname.replace(/\\/+$/,'').split('/').pop()||'form';
+  var key='sf_pin_'+slug;
+  try{if(sessionStorage.getItem(key)===gate.dataset.pin){gate.remove();return;}}catch(e){}
+  var inputs=Array.from(gate.querySelectorAll('.sf-pin-d'));
+  inputs.forEach(function(inp,i){
+    inp.addEventListener('input',function(){
+      inp.value=inp.value.replace(/[^0-9]/g,'').slice(-1);
+      if(inp.value&&i<inputs.length-1)inputs[i+1].focus();
+      if(inputs.every(function(d){return d.value.length===1;}))sfPinSubmit();
+    });
+    inp.addEventListener('keydown',function(e){
+      if(e.key==='Backspace'&&!inp.value&&i>0){inputs[i-1].focus();inputs[i-1].value='';}
+    });
+    inp.addEventListener('paste',function(e){
+      e.preventDefault();
+      var t=(e.clipboardData||window.clipboardData).getData('text').replace(/[^0-9]/g,'').slice(0,4);
+      inputs.forEach(function(d,j){d.value=t[j]||'';});
+      if(t.length===4)sfPinSubmit();
+    });
+  });
+  inputs[0].focus();
+  window.sfPinSubmit=function(){
+    var entered=inputs.map(function(d){return d.value;}).join('');
+    if(entered.length<4)return;
+    if(entered===gate.dataset.pin){
+      try{sessionStorage.setItem(key,entered);}catch(e){}
+      gate.style.transition='opacity .3s';gate.style.opacity='0';
+      setTimeout(function(){gate.remove();},320);
+    } else {
+      document.getElementById('sf-pin-err').textContent='Incorrect PIN — try again';
+      document.getElementById('sf-pin-digits').style.animation='sfPinShake .4s';
+      setTimeout(function(){
+        document.getElementById('sf-pin-digits').style.animation='';
+        inputs.forEach(function(d){d.value='';});
+        document.getElementById('sf-pin-err').textContent='';
+        inputs[0].focus();
+      },500);
+    }
+  };
+})();
+<\/script>`;
+}
+
+function renderPublicPage(cfg, sharedFonts = [], templates = [], opts = {}) {
   let d = cfg.design || {};
   if (cfg.designTemplateId) {
     const tpl = templates.find(t => t.id === cfg.designTemplateId);
@@ -3924,6 +4141,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
 ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? `<script src="https://js.hcaptcha.com/1/api.js" async defer></script>` : ''}
 </head>
 <body>
+${opts.testingPin ? buildPinOverlayHtml(opts.testingPin, d.primaryColor) : ''}
 <div class="sf-card">
   <form id="sf-form" novalidate>
     <div id="sf-form-content">
@@ -4485,7 +4703,7 @@ ${customFontFaceCSS(cfg, sharedFonts)}
 </div></body></html>`;
 }
 
-function renderEmbedPage(cfg, sharedFonts = [], templates = []) {
+function renderEmbedPage(cfg, sharedFonts = [], templates = [], opts = {}) {
   let d = cfg.design || {};
   if (cfg.designTemplateId) {
     const tpl = templates.find(t => t.id === cfg.designTemplateId);
@@ -4570,6 +4788,7 @@ ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? 
 </style>
 </head>
 <body>
+${opts.testingPin ? buildPinOverlayHtml(opts.testingPin, d.primaryColor) : ''}
   <form id="sf-form" novalidate>
     <div id="sf-form-content">
       ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
