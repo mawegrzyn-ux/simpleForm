@@ -407,10 +407,11 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #field-modal.modal-fullscreen .modal-box>*:last-child{flex:1;overflow-y:auto;}
 .modal-box{background:var(--panel);border-radius:var(--rlg);padding:26px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:fadeUp .18s var(--ease);}
 .modal-box--wide{width:700px;}
-.prize-row{display:grid;grid-template-columns:14px 28px 1fr 56px 46px 28px 28px 26px 26px;gap:4px;padding:4px 2px;border-bottom:1px solid var(--brd);align-items:center;}
+.prize-row{display:grid;grid-template-columns:14px 28px 1fr 1fr 56px 46px 28px 28px 26px 26px;gap:4px;padding:4px 2px;border-bottom:1px solid var(--brd);align-items:center;}
 .prize-row .dh{font-size:14px!important;color:var(--ink3);cursor:grab;user-select:none;}
 .prize-row input[type=number]{text-align:center;}
 .prize-row-drag-over{outline:2px dashed var(--accent);border-radius:4px;}
+.prizes-cfg-overlay{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.5);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-head h2{font-weight:600;font-size:1rem;}
 .modal-close{background:none;border:none;cursor:pointer;padding:4px;color:var(--ink3);border-radius:4px;display:flex;transition:all 120ms;}
@@ -3780,7 +3781,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <label class="tgl"><input type="checkbox" id="modal-pd-imageonly"><span class="tgl-s"></span></label>
-        <label class="tgl-lbl">Image only (hide labels on wheel)</label>
+        <label class="tgl-lbl">Image only</label>
       </div>
     </div>
     <!-- Spin button text (manual spin mode) -->
@@ -3788,30 +3789,11 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <label class="cl">Spin button text</label>
       <input type="text" id="modal-pd-btntext" value="Spin!" style="max-width:180px">
     </div>
-    <!-- Result text -->
-    <div style="border:1px solid var(--brd);border-radius:8px;padding:8px 10px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <label class="tgl"><input type="checkbox" id="modal-pd-showresult" checked onchange="prizeResultToggle()"><span class="tgl-s"></span></label>
-        <label class="tgl-lbl" style="flex:1">Show result text after spin</label>
-        <button class="ibtn" id="modal-pd-result-edit-btn" onclick="openPrizeResultEditor()" style="font-size:0.72rem;padding:2px 8px;display:flex;align-items:center;gap:3px">
-          <span class="material-icons-round mi" style="font-size:13px">edit</span> Edit template
-        </button>
-      </div>
-      <div id="modal-pd-result-preview" style="font-size:0.75rem;color:var(--ink3);font-style:italic;padding:3px 6px;background:var(--bg2);border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎉 {{prize_name}}</div>
-    </div>
-    <!-- Prizes list -->
-    <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <label class="cl" style="margin:0">Prizes <span id="modal-pd-count" style="font-size:0.72rem;color:var(--ink3)"></span></label>
-        <button class="ibtn" onclick="prizeAddItem()" style="font-size:0.72rem;padding:2px 8px;display:flex;align-items:center;gap:3px"><span class="material-icons-round mi" style="font-size:13px">add</span> Add</button>
-      </div>
-      <p style="font-size:0.68rem;color:var(--ink3);margin:0 0 5px">Images: square PNG/JPEG/WebP · recommended 80×80 px · transparent PNG works best on coloured segments.</p>
-      <!-- Column headers — matches .prize-row grid: 14|28|1fr|56|46|28|28|26|26 -->
-      <div style="font-size:0.65rem;color:var(--ink3);display:grid;grid-template-columns:14px 28px 1fr 56px 46px 28px 28px 26px 26px;gap:4px;padding:0 2px 2px">
-        <span></span><span>Color</span><span>Label / Value</span><span style="text-align:center">Value</span><span style="text-align:center">Wt</span><span style="text-align:center">Img</span><span style="text-align:center">Icon</span><span></span><span></span>
-      </div>
-      <div id="modal-pd-rows" ondragover="prizeDragOver(event)" ondrop="prizeDrop(event)"></div>
-    </div>
+    <!-- Open prizes sub-modal -->
+    <button class="btn btn-outline" onclick="openPrizesCfgModal()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
+      <span class="material-icons-round mi" style="font-size:16px">casino</span>
+      Configure prizes <span id="modal-pd-count" style="font-size:0.78rem;color:var(--ink3)"></span>
+    </button>
   </div>
 
     <div class="modal-section" id="modal-conditions-section">
@@ -3822,6 +3804,41 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeFieldModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveField()">Save field</button>
+    </div>
+  </div>
+</div>
+
+<!-- Prizes configuration sub-modal (z-index above field modal) -->
+<div id="prizes-cfg-modal" class="prizes-cfg-overlay" style="display:none" onclick="if(event.target===this)closePrizesCfgModal()">
+  <div class="modal-box modal-box--wide" style="width:700px;max-width:calc(100vw - 32px)">
+    <div class="modal-head">
+      <h2 style="display:flex;align-items:center;gap:6px"><span class="material-icons-round mi" style="font-size:18px">casino</span> Configure prizes</h2>
+      <button class="modal-close" onclick="closePrizesCfgModal()"><span class="material-icons-round" style="font-size:18px">close</span></button>
+    </div>
+    <!-- Result text section -->
+    <div style="border:1px solid var(--brd);border-radius:8px;padding:8px 10px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <label class="tgl"><input type="checkbox" id="modal-pd-showresult" checked onchange="prizeResultToggle()"><span class="tgl-s"></span></label>
+        <label class="tgl-lbl" style="flex:1">Show result text after spin</label>
+        <button class="ibtn" id="modal-pd-result-edit-btn" onclick="openPrizeResultEditor()" style="font-size:0.72rem;padding:2px 8px;display:flex;align-items:center;gap:3px">
+          <span class="material-icons-round mi" style="font-size:13px">edit</span> Edit template
+        </button>
+      </div>
+      <div id="modal-pd-result-preview" style="font-size:0.75rem;color:var(--ink3);font-style:italic;padding:3px 6px;background:var(--bg2);border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎉 {{prize_name}}</div>
+    </div>
+    <!-- Prizes list -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <label class="cl" style="margin:0">Prizes <span id="modal-pd-count-sub" style="font-size:0.72rem;color:var(--ink3)"></span></label>
+      <button class="ibtn" onclick="prizeAddItem()" style="font-size:0.72rem;padding:2px 10px;display:flex;align-items:center;gap:3px"><span class="material-icons-round mi" style="font-size:13px">add</span> Add</button>
+    </div>
+    <p style="font-size:0.68rem;color:var(--ink3);margin:0 0 6px">Images: square PNG/JPEG/WebP · recommended 80×80 px · transparent PNG works best on coloured segments.</p>
+    <!-- Column headers — matches .prize-row grid: 14|28|1fr|1fr|56|46|28|28|26|26 -->
+    <div style="font-size:0.65rem;color:var(--ink3);display:grid;grid-template-columns:14px 28px 1fr 1fr 56px 46px 28px 28px 26px 26px;gap:4px;padding:0 2px 2px">
+      <span></span><span>Color</span><span>Label</span><span>Value</span><span style="text-align:center">Wt</span><span style="text-align:center">Img</span><span style="text-align:center">Icon</span><span></span><span></span><span></span>
+    </div>
+    <div id="modal-pd-rows" ondragover="prizeDragOver(event)" ondrop="prizeDrop(event)"></div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="closePrizesCfgModal()">Done</button>
     </div>
   </div>
 </div>
@@ -7206,26 +7223,27 @@ let _prizeItems=[], _prizeDragIdx=-1;
 const _PD_COLORS=['#e94560','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316'];
 
 function prizeRenderRows(){
-  const cnt=document.getElementById('modal-pd-count');
-  if(cnt)cnt.textContent='('+_prizeItems.length+')';
+  const n=_prizeItems.length;
+  // Sync both count badges: button in field modal + sub-modal header
+  [document.getElementById('modal-pd-count'),document.getElementById('modal-pd-count-sub')]
+    .forEach(el=>{if(el)el.textContent='('+n+')';});
   const el=document.getElementById('modal-pd-rows');
   if(!el)return;
-  if(!_prizeItems.length){el.innerHTML='<div style="font-size:0.8rem;color:var(--ink3);padding:6px 2px">No prizes yet — add at least one.</div>';return;}
-  // Build rows with placeholder divs for brand color pickers
+  if(!n){el.innerHTML='<div style="font-size:0.8rem;color:var(--ink3);padding:8px 2px">No prizes yet — click Add to get started.</div>';return;}
+  // Build rows — grid: drag|color|label|value|wt|img|icon|copy|del
   el.innerHTML=_prizeItems.map((p,i)=>{
     const imgHtml=p.image
-      ?`<img src="${escHtml(p.image)}" style="width:26px;height:26px;object-fit:cover;border-radius:4px;border:1px solid var(--brd);cursor:pointer" onclick="pickPrizeImage(${i})" title="Change · click to replace">`
-      :`<button class="ibtn" onclick="pickPrizeImage(${i})" title="Add image (square PNG/JPEG/WebP, 80×80 px recommended)" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">add_photo_alternate</span></button>`;
-    const iconHtml=`<button class="ibtn" onclick="openPrizeIconEditor(${i})" title="${p.iconType&&p.iconType!=='none'?'Icon set: '+p.iconChar:'Add icon'}" style="padding:2px;${p.iconType&&p.iconType!=='none'?'color:var(--accent)':''}"><span class="material-icons-round mi" style="font-size:14px">${p.iconType&&p.iconType!=='none'?'emoji_symbols':'add_reaction'}</span></button>`;
+      ?`<img src="${escHtml(p.image)}" style="width:26px;height:26px;object-fit:cover;border-radius:4px;border:1px solid var(--brd);cursor:pointer" onclick="pickPrizeImage(${i})" title="Change image · click to replace">`
+      :`<button class="ibtn" onclick="pickPrizeImage(${i})" title="Add image (square PNG/JPEG/WebP, 80×80 px)" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">add_photo_alternate</span></button>`;
+    const iconSet=p.iconType&&p.iconType!=='none'&&p.iconChar;
+    const iconHtml=`<button class="ibtn" onclick="openPrizeIconEditor(${i})" title="${iconSet?'Icon: '+p.iconChar:'Add icon'}" style="padding:2px${iconSet?';color:var(--accent)':''}"><span class="material-icons-round mi" style="font-size:14px">${iconSet?'emoji_symbols':'add_reaction'}</span></button>`;
     return `<div class="prize-row" draggable="true" data-pd-idx="${i}"
         ondragstart="prizeDragStart(event,${i})" ondragend="prizeDragEnd(event)" ondragover="prizeDragOver(event)" ondrop="prizeDrop(event,${i})">
       <span class="material-icons-round dh">drag_indicator</span>
       <div id="pd-bcp-${i}" style="flex-shrink:0"></div>
-      <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
-        <input type="text" value="${escHtml(p.label||'')}" placeholder="Label" style="font-size:0.78rem;width:100%" oninput="prizeUpdate(${i},'label',this.value)">
-        <input type="text" value="${escHtml(p.value||'')}" placeholder="Value/code" title="Stored value, e.g. coupon code" style="font-size:0.72rem;width:100%;color:var(--ink3)" oninput="prizeUpdate(${i},'value',this.value)">
-      </div>
-      <input type="number" value="${+(p.probability||1)}" min="0.1" max="100" step="0.1" title="Probability weight" style="width:100%;font-size:0.78rem;text-align:center" oninput="prizeUpdate(${i},'probability',+this.value)">
+      <input type="text" value="${escHtml(p.label||'')}" placeholder="Label" style="font-size:0.78rem;width:100%;min-width:0" oninput="prizeUpdate(${i},'label',this.value)">
+      <input type="text" value="${escHtml(p.value||'')}" placeholder="Value / code" title="Stored value e.g. coupon code" style="font-size:0.78rem;width:100%;min-width:0;color:var(--ink3)" oninput="prizeUpdate(${i},'value',this.value)">
+      <input type="number" value="${+(p.probability||1)}" min="0.1" max="100" step="0.1" title="Probability weight" style="width:100%;font-size:0.78rem" oninput="prizeUpdate(${i},'probability',+this.value)">
       ${imgHtml}
       ${iconHtml}
       <button class="ibtn" title="Duplicate prize" onclick="prizeCloneItem(${i})" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">content_copy</span></button>
@@ -7343,6 +7361,17 @@ function prizeOnAutoSpinChange(){
   const auto=document.getElementById('modal-pd-autospin')?.checked;
   const row=document.getElementById('modal-pd-btn-row');
   if(row)row.style.display=auto?'none':'block';
+}
+
+function openPrizesCfgModal(){
+  prizeRenderRows(); // ensure rows + counts are fresh
+  document.getElementById('prizes-cfg-modal').style.display='flex';
+}
+function closePrizesCfgModal(){
+  document.getElementById('prizes-cfg-modal').style.display='none';
+  // Refresh the count badge in the field modal button
+  const cnt=document.getElementById('modal-pd-count');
+  if(cnt)cnt.textContent='('+_prizeItems.length+')';
 }
 
 // ── Icon Select items editor ──
