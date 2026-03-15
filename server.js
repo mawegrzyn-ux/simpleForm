@@ -3205,19 +3205,26 @@ function hexToRgb(hex) {
 function renderPrizeDrawWidget(field, cfg, opts = {}) {
   const prizes = field.prizes || [];
   if (!prizes.length) return '';
-  const sz      = parseInt(field.canvasSize) || 280;
-  const ctr     = sz / 2;
-  const rad     = ctr - 10;
-  const labels  = JSON.stringify(prizes.map(r => r.label || ''));
-  const colors  = JSON.stringify(prizes.map(r => r.color || '#e94560'));
-  const probs   = JSON.stringify(prizes.map(r => +(r.probability || 1)));
-  const images  = JSON.stringify(prizes.map(r => r.image || r.icon || ''));
-  const values  = JSON.stringify(prizes.map(r => r.value || ''));
-  const accent  = (cfg.design && cfg.design.accentColor) || '#e94560';
-  const btnText = escapeHtml(field.buttonText || 'Spin!');
-  const fid     = field.id;
-  const auto    = field.autoSpin !== false;
-  const presetIdx = (opts.presetIndex != null) ? opts.presetIndex : -1;
+  const sz         = parseInt(field.canvasSize) || 280;
+  const ctr        = sz / 2;
+  const rad        = ctr - 10;
+  const labels     = JSON.stringify(prizes.map(r => r.label || ''));
+  const colors     = JSON.stringify(prizes.map(r => r.color || '#e94560'));
+  const probs      = JSON.stringify(prizes.map(r => +(r.probability || 1)));
+  const images     = JSON.stringify(prizes.map(r => r.image || ''));
+  const values     = JSON.stringify(prizes.map(r => r.value || ''));
+  const iconTypes  = JSON.stringify(prizes.map(r => r.iconType || 'none'));
+  const iconChars  = JSON.stringify(prizes.map(r => r.iconChar || ''));
+  const iconFonts  = JSON.stringify(prizes.map(r => r.iconFont || ''));
+  const iconSizes  = JSON.stringify(prizes.map(r => +(r.iconSize || 20)));
+  const accent     = (cfg.design && cfg.design.accentColor) || '#e94560';
+  const btnText    = escapeHtml(field.buttonText || 'Spin!');
+  const fid        = field.id;
+  const auto       = field.autoSpin !== false;
+  const imageOnly  = !!field.imageOnlyMode;
+  const showRes    = field.showResult !== false;
+  const resultTpl  = JSON.stringify(field.resultTemplate || '🎉 {{prize_name}}');
+  const presetIdx  = (opts.presetIndex != null) ? opts.presetIndex : -1;
   return `
 <div class="sf-prizedraw sf-prizedraw--${escapeHtml(field.drawMethod||'spinwheel')}" id="sf-pd-${fid}" data-field-id="${fid}" style="text-align:center;margin:16px auto;max-width:${sz+40}px">
   <div style="position:relative;display:inline-block">
@@ -3225,12 +3232,14 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
     <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:22px solid ${accent}"></div>
   </div>
   ${!auto ? `<div style="margin-top:16px"><button id="sf-pd-btn-${fid}" class="sf-btn" onclick="sfPdSpin_${fid}(-1)">${btnText}</button></div>` : ''}
-  <div id="sf-pd-result-${fid}" style="margin-top:18px;min-height:40px;font-size:1.1rem;font-weight:600;color:${accent}"></div>
+  <div id="sf-pd-result-${fid}" style="margin-top:18px;min-height:${showRes?'40px':'0'};display:${showRes?'block':'none'};font-size:1.1rem;font-weight:600;color:${accent}"></div>
 </div>
 <script>
 (function(){
   var labels=${labels},colors=${colors},probs=${probs},images_=${images},values_=${values};
+  var iconTypes_=${iconTypes},iconChars_=${iconChars},iconFonts_=${iconFonts},iconSizes_=${iconSizes};
   var sz=${sz},ctr=${ctr},rad=${rad},fid='${fid}',auto=${auto},presetIdx=${presetIdx};
+  var imageOnly=${imageOnly},showRes=${showRes},resultTpl=${resultTpl};
   var rotation=0,spinning=false,n=labels.length;
   var imgs=images_.map(function(src){
     if(!src)return null;
@@ -3248,12 +3257,29 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
       ctx.fillStyle=colors[i]||'#e94560';ctx.fill();
       ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.stroke();
       ctx.save();ctx.translate(ctr,ctr);ctx.rotate(s+arc/2);
-      var im=imgs[i];
-      if(im&&im.complete&&im.naturalWidth){var isz=rad*0.28;try{ctx.drawImage(im,rad*0.45-isz/2,-isz/2,isz,isz);}catch(e2){}}
-      ctx.fillStyle='#fff';ctx.font='bold '+Math.round(sz*0.058)+'px sans-serif';
-      ctx.textAlign='left';ctx.textBaseline='middle';
-      ctx.shadowColor='rgba(0,0,0,0.25)';ctx.shadowBlur=3;
-      ctx.fillText(labels[i]||'',rad*0.55,0);ctx.restore();
+      var im=imgs[i],hasImg=im&&im.complete&&im.naturalWidth;
+      if(hasImg){
+        var isz=imageOnly?rad*0.55:rad*0.28;
+        var ix=imageOnly?rad*0.38-isz/2:rad*0.45-isz/2;
+        try{ctx.drawImage(im,ix,-isz/2,isz,isz);}catch(e2){}
+      }
+      if(!imageOnly||!hasImg){
+        var itype=iconTypes_[i],ichar=iconChars_[i];
+        if(itype&&itype!=='none'&&ichar){
+          var ifont=iconFonts_[i]||'',isize=iconSizes_[i]||20;
+          ctx.fillStyle='#fff';
+          ctx.font=isize+'px '+(ifont?'"'+ifont+'",sans-serif':'sans-serif');
+          ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.shadowColor='rgba(0,0,0,0.25)';ctx.shadowBlur=2;
+          ctx.fillText(ichar,rad*(hasImg?0.68:0.60),0);
+        } else {
+          ctx.fillStyle='#fff';ctx.font='bold '+Math.round(sz*0.058)+'px sans-serif';
+          ctx.textAlign='left';ctx.textBaseline='middle';
+          ctx.shadowColor='rgba(0,0,0,0.25)';ctx.shadowBlur=3;
+          ctx.fillText(labels[i]||'',rad*(hasImg?0.68:0.55),0);
+        }
+      }
+      ctx.restore();
     }
     ctx.beginPath();ctx.arc(ctr,ctr,rad*0.13,0,2*Math.PI);
     ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,0.2)';ctx.shadowBlur=6;ctx.fill();ctx.shadowBlur=0;
@@ -3267,9 +3293,6 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
     var extra=5+Math.floor(Math.random()*3);
     var endAngle=rotation+extra*2*Math.PI+((targetAngle-rotation)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
     var startAngle=rotation,duration=3500,start_=null;
-    // 3-phase ease: 1s accel → 0.5s full speed → 2s decel (total 3.5s)
-    // Phase boundaries (as fraction of total): t1=2/7≈0.286, t2=3/7≈0.429
-    // Position boundaries: p1=0.25, p2=0.50 — velocity is continuous at joints
     function ease(t){
       var t1=2/7,t2=3/7;
       if(t<t1){var s=t/t1;return 0.25*s*s;}
@@ -3287,9 +3310,15 @@ function renderPrizeDrawWidget(field, cfg, opts = {}) {
     requestAnimationFrame(frame);
   }
   function showResult(idx){
+    if(!showRes)return;
     var el=document.getElementById('sf-pd-result-'+fid);if(!el)return;
-    var val=values_[idx]||labels[idx]||'';
-    el.innerHTML='🎉 <span>'+val+'</span>';
+    var prizeName=labels[idx]||values_[idx]||'';
+    var prizeImgUrl=images_[idx]||'';
+    var imgTag=prizeImgUrl?'<img src="'+prizeImgUrl+'" style="width:56px;height:56px;object-fit:cover;border-radius:8px;vertical-align:middle;margin:0 8px 0 4px">':'';
+    var html=resultTpl
+      .replace(/\{\{prize_name\}\}/g,prizeName)
+      .replace(/\{\{prize_image_url\}\}/g,imgTag);
+    el.innerHTML=html;el.style.display='block';
   }
   draw(0);
   window['sfPdSpinTo_'+fid]=function(idx){spin(idx>=0?idx:-1);};

@@ -406,6 +406,11 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #field-modal.modal-fullscreen .modal-box{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0!important;display:flex;flex-direction:column;}
 #field-modal.modal-fullscreen .modal-box>*:last-child{flex:1;overflow-y:auto;}
 .modal-box{background:var(--panel);border-radius:var(--rlg);padding:26px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:fadeUp .18s var(--ease);}
+.modal-box--wide{width:700px;}
+.prize-row{display:grid;grid-template-columns:14px 28px 1fr 56px 46px 28px 28px 26px 26px;gap:4px;padding:4px 2px;border-bottom:1px solid var(--brd);align-items:center;}
+.prize-row .dh{font-size:14px!important;color:var(--ink3);cursor:grab;user-select:none;}
+.prize-row input[type=number]{text-align:center;}
+.prize-row-drag-over{outline:2px dashed var(--accent);border-radius:4px;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-head h2{font-weight:600;font-size:1rem;}
 .modal-close{background:none;border:none;cursor:pointer;padding:4px;color:var(--ink3);border-radius:4px;display:flex;transition:all 120ms;}
@@ -3648,6 +3653,10 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <option value="prizedraw">Prize Draw</option>
       </select>
     </div>
+    <div class="cg" style="display:flex;align-items:center;gap:10px;margin-top:6px">
+      <label class="tgl"><input type="checkbox" id="modal-required"><span class="tgl-s"></span></label>
+      <label for="modal-required" class="tgl-lbl">Required field</label>
+    </div>
     <hr style="border:none;border-top:1px solid var(--brd);margin:10px 0">
     <div class="cg" id="modal-options-group" style="display:none"><label class="cl">Options (one per line)</label><textarea id="modal-options" rows="4" placeholder="Option 1&#10;Option 2"></textarea></div>
     <div class="cg" id="modal-placeholder-group"><label class="cl">Placeholder</label><input type="text" id="modal-placeholder"></div>
@@ -3755,12 +3764,11 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
 
   <!-- Prize Draw options -->
   <div id="modal-prizedraw-group" style="display:none">
+    <!-- Row 1: method / size / toggles -->
     <div class="cr" style="gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:6px">
-        <label class="cl" style="margin:0;white-space:nowrap">Draw method</label>
-        <select id="modal-pd-method" style="font-size:0.8rem">
-          <option value="spinwheel">Spin Wheel</option>
-        </select>
+        <label class="cl" style="margin:0;white-space:nowrap">Method</label>
+        <select id="modal-pd-method" style="font-size:0.8rem"><option value="spinwheel">Spin Wheel</option></select>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <label class="cl" style="margin:0;white-space:nowrap">Size (px)</label>
@@ -3768,31 +3776,44 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <label class="tgl"><input type="checkbox" id="modal-pd-autospin" checked onchange="prizeOnAutoSpinChange()"><span class="tgl-s"></span></label>
-        <label class="tgl-lbl">Auto-spin on reveal</label>
+        <label class="tgl-lbl">Auto-spin</label>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label class="tgl"><input type="checkbox" id="modal-pd-imageonly"><span class="tgl-s"></span></label>
+        <label class="tgl-lbl">Image only (hide labels on wheel)</label>
       </div>
     </div>
+    <!-- Spin button text (manual spin mode) -->
     <div class="cg" id="modal-pd-btn-row" style="display:none;margin-bottom:8px">
       <label class="cl">Spin button text</label>
       <input type="text" id="modal-pd-btntext" value="Spin!" style="max-width:180px">
     </div>
-    <div style="margin-bottom:4px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <label class="cl" style="margin:0">Prizes <span id="modal-pd-count" style="font-size:0.72rem;color:var(--ink3)"></span></label>
-        <button class="ibtn" onclick="prizeAddItem()" style="font-size:0.72rem;padding:2px 8px;display:flex;align-items:center;gap:3px">
-          <span class="material-icons-round mi" style="font-size:13px">add</span> Add prize
+    <!-- Result text -->
+    <div style="border:1px solid var(--brd);border-radius:8px;padding:8px 10px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <label class="tgl"><input type="checkbox" id="modal-pd-showresult" checked onchange="prizeResultToggle()"><span class="tgl-s"></span></label>
+        <label class="tgl-lbl" style="flex:1">Show result text after spin</label>
+        <button class="ibtn" id="modal-pd-result-edit-btn" onclick="openPrizeResultEditor()" style="font-size:0.72rem;padding:2px 8px;display:flex;align-items:center;gap:3px">
+          <span class="material-icons-round mi" style="font-size:13px">edit</span> Edit template
         </button>
       </div>
-      <div style="font-size:0.68rem;color:var(--ink3);display:grid;grid-template-columns:24px 1fr 80px 80px 32px 24px;gap:4px;padding:0 2px;margin-bottom:3px">
-        <span></span><span>Label</span><span>Weight</span><span>Image</span><span></span><span></span>
+      <div id="modal-pd-result-preview" style="font-size:0.75rem;color:var(--ink3);font-style:italic;padding:3px 6px;background:var(--bg2);border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎉 {{prize_name}}</div>
+    </div>
+    <!-- Prizes list -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <label class="cl" style="margin:0">Prizes <span id="modal-pd-count" style="font-size:0.72rem;color:var(--ink3)"></span></label>
+        <button class="ibtn" onclick="prizeAddItem()" style="font-size:0.72rem;padding:2px 8px;display:flex;align-items:center;gap:3px"><span class="material-icons-round mi" style="font-size:13px">add</span> Add</button>
       </div>
-      <div id="modal-pd-rows"></div>
+      <p style="font-size:0.68rem;color:var(--ink3);margin:0 0 5px">Images: square PNG/JPEG/WebP · recommended 80×80 px · transparent PNG works best on coloured segments.</p>
+      <!-- Column headers — matches .prize-row grid: 14|28|1fr|56|46|28|28|26|26 -->
+      <div style="font-size:0.65rem;color:var(--ink3);display:grid;grid-template-columns:14px 28px 1fr 56px 46px 28px 28px 26px 26px;gap:4px;padding:0 2px 2px">
+        <span></span><span>Color</span><span>Label / Value</span><span style="text-align:center">Value</span><span style="text-align:center">Wt</span><span style="text-align:center">Img</span><span style="text-align:center">Icon</span><span></span><span></span>
+      </div>
+      <div id="modal-pd-rows" ondragover="prizeDragOver(event)" ondrop="prizeDrop(event)"></div>
     </div>
   </div>
 
-    <div class="cg" style="display:flex;align-items:center;gap:10px;margin-top:8px">
-      <label class="tgl"><input type="checkbox" id="modal-required"><span class="tgl-s"></span></label>
-      <label for="modal-required" class="tgl-lbl">Required field</label>
-    </div>
     <div class="modal-section" id="modal-conditions-section">
       <div class="modal-section-title">Conditional visibility</div>
       <div id="modal-conditions-list"></div>
@@ -5241,38 +5262,40 @@ function imgEdApplyCrop(){
   _iedRenderCanvas();toast('Crop applied','success');
 }
 async function imgEdSaveAsCopy(){
-  if(!_iedOffscreen){toast('No image loaded','error');return;}
-  const finalCanvas=document.getElementById('ied-canvas');
-  const fmtOverride=document.getElementById('ied-fmt')?.value||'';
-  const mimeType=(fmtOverride||(_iedItem?.mimeType||'image/jpeg')).replace('image/jpg','image/jpeg');
-  const qualPct=parseInt(document.getElementById('ied-qual-range')?.value||92);
-  const quality=['image/jpeg','image/webp'].includes(mimeType)?qualPct/100:undefined;
-  const baseName=(_iedItem?.name||'image').replace(/\.[^.]+$/,'');
-  const ext=mimeType==='image/png'?'png':mimeType==='image/webp'?'webp':'jpg';
-  const suggested=`${baseName}-edited.${ext}`;
-  // Prompt for filename
-  const input=prompt('Save as:',suggested);
-  if(!input||!input.trim())return;
-  let fileName=input.trim();
-  // Ensure correct extension
-  if(!/\.[a-zA-Z]{2,4}$/.test(fileName))fileName+='.'+ext;
-  const folder=document.getElementById('media-upload-folder')?.value||'';
-  const fd=new FormData();fd.append('images',finalCanvas.toBlob?null:null,''); // placeholder — blob set in callback
-  finalCanvas.toBlob(async(blob)=>{
-    if(!blob){toast('Could not generate image','error');return;}
-    const fd2=new FormData();fd2.append('images',blob,fileName);
-    fd2.append('shared','1');fd2.append('folder',folder);
-    const uploadSlug=currentFormSlug||'_shared';
-    try{
-      const j=await adminFetch(`/api/admin/forms/${uploadSlug}/upload-multi`,{method:'POST',body:fd2}).then(r=>r.json());
-      if(j.results?.[0]?.ok){
-        closeImgEditor();await loadMediaLibrary();
-        const newest=_mediaItems.find(i=>i.name===fileName)||_mediaItems[0];
-        if(newest)clickMediaItem(newest.id);
-        toast('Saved: '+fileName,'success');
-      }else{toast('Save failed','error');}
-    }catch(e){toast('Upload error: '+e.message,'error');}
-  },mimeType,quality);
+  try{
+    if(!_iedOffscreen){toast('No image loaded','error');return;}
+    const finalCanvas=document.getElementById('ied-canvas');
+    const fmtOverride=document.getElementById('ied-fmt')?.value||'';
+    const mimeType=(fmtOverride||(_iedItem?.mimeType||'image/jpeg')).replace('image/jpg','image/jpeg');
+    const qualPct=parseInt(document.getElementById('ied-qual-range')?.value||92);
+    const quality=['image/jpeg','image/webp'].includes(mimeType)?qualPct/100:undefined;
+    const baseName=(_iedItem?.name||'image').replace(/\.[^.]+$/,'');
+    const ext=mimeType==='image/png'?'png':mimeType==='image/webp'?'webp':'jpg';
+    const suggested=`${baseName}-edited.${ext}`;
+    const input=prompt('Save as:',suggested);
+    if(input===null)return; // cancelled
+    if(!input.trim()){toast('Please enter a filename','error');return;}
+    let fileName=input.trim();
+    if(!/\.[a-zA-Z]{2,4}$/.test(fileName))fileName+='.'+ext;
+    const folder=document.getElementById('media-upload-folder')?.value||'';
+    finalCanvas.toBlob(async(blob)=>{
+      if(!blob){toast('Could not generate image','error');return;}
+      const fd=new FormData();
+      fd.append('images',blob,fileName);
+      fd.append('shared','1');
+      fd.append('folder',folder);
+      const uploadSlug=currentFormSlug||'_shared';
+      try{
+        const j=await adminFetch(`/api/admin/forms/${uploadSlug}/upload-multi`,{method:'POST',body:fd}).then(r=>r.json());
+        if(j.results?.[0]?.ok){
+          closeImgEditor();await loadMediaLibrary();
+          const newest=_mediaItems.find(i=>i.name===fileName)||_mediaItems[0];
+          if(newest)clickMediaItem(newest.id);
+          toast('Saved: '+fileName,'success');
+        }else{toast('Save failed: '+(j.error||j.results?.[0]?.error||'unknown'),'error');}
+      }catch(e){toast('Upload error: '+e.message,'error');}
+    },mimeType,quality);
+  }catch(e){toast('Save error: '+e.message,'error');}
 }
 async function renameMediaItem(item){
   if(!item)return;
@@ -7025,14 +7048,19 @@ function openFieldModal(fieldId){
       _buildIselColorDropdowns(f.iselSelColor||'',f.iselTileBg||'',f.iselTileBorderColor||'');
     }
     if(f.type==='prizedraw'){
-    _prizeItems=JSON.parse(JSON.stringify(f.prizes||[]));
-    prizeRenderRows();
-    sv('modal-pd-method',f.drawMethod||'spinwheel');
-    sv('modal-pd-size',f.canvasSize||280);
-    sv('modal-pd-btntext',f.buttonText||'Spin!');
-    document.getElementById('modal-pd-autospin').checked=f.autoSpin!==false;
-    prizeOnAutoSpinChange();
-  }
+      _prizeItems=JSON.parse(JSON.stringify(f.prizes||[]));
+      prizeRenderRows();
+      sv('modal-pd-method',f.drawMethod||'spinwheel');
+      sv('modal-pd-size',f.canvasSize||280);
+      sv('modal-pd-btntext',f.buttonText||'Spin!');
+      document.getElementById('modal-pd-autospin').checked=f.autoSpin!==false;
+      document.getElementById('modal-pd-imageonly').checked=!!f.imageOnlyMode;
+      document.getElementById('modal-pd-showresult').checked=f.showResult!==false;
+      _prizeResultTemplate=f.resultTemplate||'🎉 {{prize_name}}';
+      const _pdPrev=document.getElementById('modal-pd-result-preview');
+      if(_pdPrev)_pdPrev.innerHTML=_prizeResultTemplate;
+      prizeOnAutoSpinChange();prizeResultToggle();
+    }
     renderConditions(f.conditions||[]);
   }else{
     ['modal-label','modal-id','modal-placeholder','modal-options','modal-age-min','modal-age-max','modal-date-min','modal-date-max','modal-date-specific','modal-year-min','modal-year-max','modal-slider-icon','modal-slider-min-label','modal-slider-max-label'].forEach(id=>sv(id,''));sv('modal-year-height',120);_renderTelCountries([]);
@@ -7047,7 +7075,14 @@ function openFieldModal(fieldId){
     document.getElementById('modal-isel-labels').checked=true;
     document.getElementById('modal-isel-arrows').checked=true;
     _buildIselColorDropdowns('','','');
-    _prizeItems=[];prizeRenderRows();sv('modal-pd-method','spinwheel');sv('modal-pd-size','280');sv('modal-pd-btntext','Spin!');document.getElementById('modal-pd-autospin').checked=true;prizeOnAutoSpinChange();
+    _prizeItems=[];prizeRenderRows();sv('modal-pd-method','spinwheel');sv('modal-pd-size','280');sv('modal-pd-btntext','Spin!');
+    document.getElementById('modal-pd-autospin').checked=true;
+    document.getElementById('modal-pd-imageonly').checked=false;
+    document.getElementById('modal-pd-showresult').checked=true;
+    _prizeResultTemplate='🎉 {{prize_name}}';
+    const _pdPrevN=document.getElementById('modal-pd-result-preview');
+    if(_pdPrevN)_pdPrevN.innerHTML='🎉 {{prize_name}}';
+    prizeOnAutoSpinChange();prizeResultToggle();
     renderConditions([]);
   }
   onModalTypeChange();
@@ -7078,7 +7113,9 @@ function onModalTypeChange(){
   if(t==='tel'){const existing=editingFieldId&&cfg.fields.find(f=>f.id===editingFieldId);_renderTelCountries(existing?.phoneCountries||[]);}
   document.getElementById('modal-isel-group').style.display=t==='iconselect'?'block':'none';
   document.getElementById('modal-prizedraw-group').style.display=t==='prizedraw'?'block':'none';
-  if(t==='prizedraw'){prizeOnAutoSpinChange();}
+  // Widen the modal for prizedraw — it has many prize columns
+  document.querySelector('#field-modal .modal-box').classList.toggle('modal-box--wide',t==='prizedraw');
+  if(t==='prizedraw'){prizeOnAutoSpinChange();prizeResultToggle();}
   if(t==='date')onDateModeChange();
   if(t==='iconselect'){
     iselOnLayoutChange();iselOnMultiChange();
@@ -7145,11 +7182,17 @@ function saveField(){
     field.iselShowArrows=document.getElementById('modal-isel-arrows').checked;
   }
   if(type==='prizedraw'){
-    field.prizes=_prizeItems.map(p=>({...p,label:p.label||'',value:p.value||'',color:p.color||'#e94560',probability:+(p.probability||1),icon:p.icon||''}));
+    field.prizes=_prizeItems.map(p=>({
+      label:p.label||'',value:p.value||'',color:p.color||'#e94560',probability:+(p.probability||1),
+      image:p.image||'',iconType:p.iconType||'none',iconChar:p.iconChar||'',iconFont:p.iconFont||'',iconSize:+(p.iconSize||20)
+    }));
     field.drawMethod=document.getElementById('modal-pd-method').value;
     field.canvasSize=parseInt(document.getElementById('modal-pd-size').value)||280;
     field.buttonText=document.getElementById('modal-pd-btntext').value||'Spin!';
     field.autoSpin=document.getElementById('modal-pd-autospin').checked;
+    field.imageOnlyMode=document.getElementById('modal-pd-imageonly').checked;
+    field.showResult=document.getElementById('modal-pd-showresult').checked;
+    field.resultTemplate=_prizeResultTemplate;
   }
   field.conditions=collectConditions();
   if(editingFieldId){const idx=cfg.fields.findIndex(f=>f.id===editingFieldId);cfg.fields[idx]={...cfg.fields[idx],...field};}
@@ -7159,36 +7202,143 @@ function saveField(){
 function deleteField(id){if(!confirm('Delete this field?'))return;cfg.fields=cfg.fields.filter(f=>f.id!==id);renderFieldList();schedulePreview();}
 
 // ── Prize Draw items editor ──
-let _prizeItems=[];
+let _prizeItems=[], _prizeDragIdx=-1;
+const _PD_COLORS=['#e94560','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316'];
+
 function prizeRenderRows(){
   const cnt=document.getElementById('modal-pd-count');
   if(cnt)cnt.textContent='('+_prizeItems.length+')';
   const el=document.getElementById('modal-pd-rows');
   if(!el)return;
-  if(!_prizeItems.length){el.innerHTML='<div style="font-size:0.8rem;color:var(--ink3);padding:6px 2px">No prizes yet. Add at least one.</div>';return;}
-  el.innerHTML=_prizeItems.map((p,i)=>`
-    <div class="cr" style="gap:4px;padding:4px 2px;border-bottom:1px solid var(--brd);align-items:center;flex-wrap:nowrap">
-      <input type="color" value="${p.color||'#e94560'}" title="Segment colour" style="width:24px;height:24px;border:none;padding:0;cursor:pointer;border-radius:4px;flex-shrink:0" oninput="prizeUpdate(${i},'color',this.value)">
-      <input type="text" value="${escHtml(p.label||'')}" placeholder="Label (on wheel)" style="flex:1;min-width:60px;font-size:0.8rem" oninput="prizeUpdate(${i},'label',this.value)">
-      <input type="text" value="${escHtml(p.value||'')}" placeholder="Value (stored)" title="Stored prize value e.g. coupon code, prize name" style="flex:1;min-width:60px;font-size:0.8rem" oninput="prizeUpdate(${i},'value',this.value)">
-      <input type="number" value="${p.probability||1}" min="0.1" max="10" step="0.1" title="Probability weight" style="width:52px;font-size:0.8rem" oninput="prizeUpdate(${i},'probability',+this.value)">
-      ${p.icon
-        ? `<img src="${escHtml(p.icon)}" style="height:28px;width:28px;object-fit:cover;border-radius:4px;border:1px solid var(--brd);cursor:pointer;flex-shrink:0" onclick="pickPrizeImage(${i})" title="Change image">
-           <button class="ibtn" title="Remove image" onclick="clearPrizeImage(${i})" style="flex-shrink:0"><span class="material-icons-round mi" style="font-size:13px">hide_image</span></button>`
-        : `<button class="ibtn" title="Add image from media library" onclick="pickPrizeImage(${i})" style="flex-shrink:0;white-space:nowrap;font-size:0.68rem;padding:2px 4px"><span class="material-icons-round mi" style="font-size:13px">add_photo_alternate</span></button>
-           <span style="width:24px;flex-shrink:0"></span>`
-      }
-      <button class="ibtn danger" title="Remove" onclick="prizeRemoveItem(${i})" style="flex-shrink:0"><span class="material-icons-round mi" style="font-size:14px">delete</span></button>
-    </div>`).join('');
+  if(!_prizeItems.length){el.innerHTML='<div style="font-size:0.8rem;color:var(--ink3);padding:6px 2px">No prizes yet — add at least one.</div>';return;}
+  // Build rows with placeholder divs for brand color pickers
+  el.innerHTML=_prizeItems.map((p,i)=>{
+    const imgHtml=p.image
+      ?`<img src="${escHtml(p.image)}" style="width:26px;height:26px;object-fit:cover;border-radius:4px;border:1px solid var(--brd);cursor:pointer" onclick="pickPrizeImage(${i})" title="Change · click to replace">`
+      :`<button class="ibtn" onclick="pickPrizeImage(${i})" title="Add image (square PNG/JPEG/WebP, 80×80 px recommended)" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">add_photo_alternate</span></button>`;
+    const iconHtml=`<button class="ibtn" onclick="openPrizeIconEditor(${i})" title="${p.iconType&&p.iconType!=='none'?'Icon set: '+p.iconChar:'Add icon'}" style="padding:2px;${p.iconType&&p.iconType!=='none'?'color:var(--accent)':''}"><span class="material-icons-round mi" style="font-size:14px">${p.iconType&&p.iconType!=='none'?'emoji_symbols':'add_reaction'}</span></button>`;
+    return `<div class="prize-row" draggable="true" data-pd-idx="${i}"
+        ondragstart="prizeDragStart(event,${i})" ondragend="prizeDragEnd(event)" ondragover="prizeDragOver(event)" ondrop="prizeDrop(event,${i})">
+      <span class="material-icons-round dh">drag_indicator</span>
+      <div id="pd-bcp-${i}" style="flex-shrink:0"></div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+        <input type="text" value="${escHtml(p.label||'')}" placeholder="Label" style="font-size:0.78rem;width:100%" oninput="prizeUpdate(${i},'label',this.value)">
+        <input type="text" value="${escHtml(p.value||'')}" placeholder="Value/code" title="Stored value, e.g. coupon code" style="font-size:0.72rem;width:100%;color:var(--ink3)" oninput="prizeUpdate(${i},'value',this.value)">
+      </div>
+      <input type="number" value="${+(p.probability||1)}" min="0.1" max="100" step="0.1" title="Probability weight" style="width:100%;font-size:0.78rem;text-align:center" oninput="prizeUpdate(${i},'probability',+this.value)">
+      ${imgHtml}
+      ${iconHtml}
+      <button class="ibtn" title="Duplicate prize" onclick="prizeCloneItem(${i})" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">content_copy</span></button>
+      <button class="ibtn danger" title="Remove prize" onclick="prizeRemoveItem(${i})" style="padding:2px"><span class="material-icons-round mi" style="font-size:14px">delete</span></button>
+    </div>`;
+  }).join('');
+  // Attach compact brand color pickers after DOM is ready
+  _prizeItems.forEach((p,i)=>{
+    buildBrandColorPicker('pd-bcp-'+i, p.color||_PD_COLORS[i%8], v=>{prizeUpdate(i,'color',v);}, true);
+  });
 }
+
 function prizeAddItem(){
-  _prizeItems.push({label:'Prize '+(+_prizeItems.length+1),value:'',color:['#e94560','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316'][_prizeItems.length%8],probability:1,icon:''});
+  const n=_prizeItems.length;
+  _prizeItems.push({label:'Prize '+(n+1),value:'',color:_PD_COLORS[n%8],probability:1,image:'',iconType:'none',iconChar:'',iconFont:'',iconSize:20});
+  prizeRenderRows();
+}
+function prizeCloneItem(i){
+  if(!_prizeItems[i])return;
+  _prizeItems.splice(i+1,0,JSON.parse(JSON.stringify(_prizeItems[i])));
   prizeRenderRows();
 }
 function prizeRemoveItem(i){_prizeItems.splice(i,1);prizeRenderRows();}
 function prizeUpdate(i,k,v){if(_prizeItems[i])_prizeItems[i][k]=v;}
-function pickPrizeImage(i){openMediaPicker(function(url){if(_prizeItems[i])_prizeItems[i].icon=url;prizeRenderRows();});}
-function clearPrizeImage(i){if(_prizeItems[i])_prizeItems[i].icon='';prizeRenderRows();}
+function pickPrizeImage(i){
+  openMediaPicker(function(url){
+    if(!_prizeItems[i])return;
+    _prizeItems[i].image=url;
+    prizeRenderRows();
+  });
+}
+function clearPrizeImage(i){if(_prizeItems[i]){_prizeItems[i].image='';prizeRenderRows();}}
+
+// Icon editor for a single prize — inline popover approach using a small modal
+function openPrizeIconEditor(i){
+  const p=_prizeItems[i];if(!p)return;
+  const existing={iconType:p.iconType||'none',iconChar:p.iconChar||'',iconFont:p.iconFont||'',iconSize:+(p.iconSize||20)};
+  const html=`<div style="padding:0 0 8px">
+    <div class="cr" style="gap:8px;margin-bottom:8px;align-items:center">
+      <label class="cl" style="margin:0;white-space:nowrap">Icon type</label>
+      <select id="pie-type" style="font-size:0.8rem" onchange="document.getElementById('pie-material').style.display=this.value==='material'?'block':'none';document.getElementById('pie-custom').style.display=this.value==='custom'?'block':'none'">
+        <option value="none"${existing.iconType==='none'?' selected':''}>None</option>
+        <option value="material"${existing.iconType==='material'?' selected':''}>Material icon</option>
+        <option value="custom"${existing.iconType==='custom'?' selected':''}>Custom char / font</option>
+      </select>
+    </div>
+    <div id="pie-material" style="display:${existing.iconType==='material'?'block':'none'}">
+      <div class="cg" style="margin-bottom:6px"><label class="cl">Material icon name</label>
+        <input type="text" id="pie-micon" value="${escHtml(existing.iconType==='material'?existing.iconChar:'')}" placeholder="e.g. star, emoji_events, local_offer" style="font-size:0.8rem">
+        <p style="font-size:0.7rem;color:var(--ink3);margin-top:2px">Find names at <a href="https://fonts.google.com/icons" target="_blank">fonts.google.com/icons</a></p>
+      </div>
+    </div>
+    <div id="pie-custom" style="display:${existing.iconType==='custom'?'block':'none'}">
+      <div class="cg" style="margin-bottom:6px"><label class="cl">Character / emoji</label>
+        <input type="text" id="pie-char" value="${escHtml(existing.iconType==='custom'?existing.iconChar:'')}" placeholder="e.g. ★  🎁  A" style="font-size:1.2rem;width:80px;text-align:center">
+      </div>
+      <div class="cr" style="gap:8px">
+        <div class="cg" style="flex:1;margin:0"><label class="cl">Font family</label><input type="text" id="pie-font" value="${escHtml(existing.iconFont||'')}" placeholder="inherit" style="font-size:0.8rem"></div>
+        <div class="cg" style="flex:0 0 72px;margin:0"><label class="cl">Size (px)</label><input type="number" id="pie-size" value="${existing.iconSize}" min="8" max="64" style="font-size:0.8rem"></div>
+      </div>
+    </div>
+  </div>`;
+  openWysiwygModal('','Icon for prize '+(i+1), ()=>{
+    // on save, read back from the DOM elements (they're in the wysiwyg body)
+    const t=document.getElementById('pie-type')?.value||'none';
+    if(!_prizeItems[i])return;
+    _prizeItems[i].iconType=t;
+    _prizeItems[i].iconChar=t==='material'?(document.getElementById('pie-micon')?.value||''):(document.getElementById('pie-char')?.value||'');
+    _prizeItems[i].iconFont=document.getElementById('pie-font')?.value||'';
+    _prizeItems[i].iconSize=parseInt(document.getElementById('pie-size')?.value||20)||20;
+    prizeRenderRows();
+  });
+  // Override the wysiwyg body with our custom HTML after modal opens
+  setTimeout(()=>{const b=document.getElementById('wysiwyg-area');if(b)b.innerHTML=html;},10);
+}
+
+// Drag-drop reorder
+function prizeDragStart(e,i){_prizeDragIdx=i;e.dataTransfer.effectAllowed='move';e.currentTarget.style.opacity='0.4';}
+function prizeDragEnd(e){_prizeDragIdx=-1;e.currentTarget.style.opacity='';document.querySelectorAll('.prize-row-drag-over').forEach(r=>r.classList.remove('prize-row-drag-over'));}
+function prizeDragOver(e){e.preventDefault();const row=e.target.closest('.prize-row');if(row)row.classList.add('prize-row-drag-over');}
+function prizeDrop(e,dropIdx){
+  e.preventDefault();
+  document.querySelectorAll('.prize-row-drag-over').forEach(r=>r.classList.remove('prize-row-drag-over'));
+  const row=e.target.closest('.prize-row');
+  const ti=row?parseInt(row.dataset.pdIdx):(dropIdx!=null?dropIdx:-1);
+  if(_prizeDragIdx<0||ti<0||ti===_prizeDragIdx)return;
+  const[item]=_prizeItems.splice(_prizeDragIdx,1);
+  _prizeItems.splice(ti,0,item);
+  prizeRenderRows();
+}
+
+// Result text toggle
+function prizeResultToggle(){
+  const show=document.getElementById('modal-pd-showresult')?.checked;
+  const btn=document.getElementById('modal-pd-result-edit-btn');
+  const prev=document.getElementById('modal-pd-result-preview');
+  if(btn)btn.style.opacity=show?'1':'0.4';
+  if(prev)prev.style.opacity=show?'1':'0.4';
+}
+
+// Result text WYSIWYG via shared editor
+let _prizeResultTemplate='🎉 {{prize_name}}';
+function openPrizeResultEditor(){
+  openWysiwygModal(_prizeResultTemplate,'Prize result text',html=>{
+    _prizeResultTemplate=html;
+    const prev=document.getElementById('modal-pd-result-preview');
+    if(prev)prev.innerHTML=html;
+  },[
+    {label:'Prize name',value:'{{prize_name}}'},
+    {label:'Prize image URL',value:'{{prize_image_url}}'}
+  ]);
+}
+
 function prizeOnAutoSpinChange(){
   const auto=document.getElementById('modal-pd-autospin')?.checked;
   const row=document.getElementById('modal-pd-btn-row');
