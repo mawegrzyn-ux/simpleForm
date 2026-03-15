@@ -2252,6 +2252,18 @@ const _AI_TOOLS = [
     input_schema: { type: 'object', properties: {} }
   },
   {
+    name: 'get_feedback',
+    description: 'Query the feedback log (bugs, change requests, feature ideas). Filter by type and/or status. Use when the user asks what has been reported, what is open, or what features are planned.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        type:   { type: 'string', enum: ['bug', 'change', 'feature', 'all'], description: 'Filter by type, or "all"' },
+        status: { type: 'string', enum: ['open', 'in-progress', 'resolved', 'wont-fix', 'all'], description: 'Filter by status, or "all"' },
+        limit:  { type: 'number', description: 'Max rows to return (default 20, max 50)' }
+      }
+    }
+  },
+  {
     name: 'submit_feedback',
     description: 'Save a bug report, change request, or feature request. Use ONLY after collecting a clear title and description from the user. Do not call speculatively.',
     input_schema: {
@@ -2288,6 +2300,25 @@ async function _executeAiTool(name, input) {
       pool.query('SELECT email, subscribed_at FROM subscribers WHERE form_slug=$1 ORDER BY subscribed_at DESC LIMIT 5', [slug])
     ]);
     return { counts: counts.rows, recent: recent.rows };
+  }
+  if (name === 'get_feedback') {
+    const VALID_TYPES   = ['bug', 'change', 'feature', 'all'];
+    const VALID_STATUSES = ['open', 'in-progress', 'resolved', 'wont-fix', 'all'];
+    const fType   = VALID_TYPES.includes(input.type)     ? input.type   : 'all';
+    const fStatus = VALID_STATUSES.includes(input.status) ? input.status : 'all';
+    const limit   = Math.min(Math.max(1, parseInt(input.limit) || 20), 50);
+    const conditions = [];
+    const params = [];
+    if (fType   !== 'all') { params.push(fType);   conditions.push(`type=$${params.length}`); }
+    if (fStatus !== 'all') { params.push(fStatus);  conditions.push(`status=$${params.length}`); }
+    params.push(limit);
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const { rows } = await pool.query(
+      `SELECT type, title, description, steps, status, reported_by, created_at
+       FROM bug_reports ${where} ORDER BY created_at DESC LIMIT $${params.length}`,
+      params
+    );
+    return { count: rows.length, items: rows };
   }
   if (name === 'submit_feedback') {
     const VALID_TYPES = ['bug', 'change', 'feature'];
@@ -2408,6 +2439,37 @@ app.delete('/api/admin/bug-reports/:id', adminAuth, async (req, res) => {
   try {
     await pool.query('DELETE FROM bug_reports WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Internal read-only API (WebFetch / Claude Code access) ───────────────────
+// Secured by INTERNAL_API_KEY env var. Read-only — no mutations.
+// Usage: GET /api/internal/feedback?key=<INTERNAL_API_KEY>[&type=bug|change|feature][&status=open]
+app.get('/api/internal/feedback', async (req, res) => {
+  const key = process.env.INTERNAL_API_KEY;
+  if (!key || req.query.key !== key)
+    return res.status(401).json({ error: 'Unauthorized' });
+
+  const VALID_TYPES    = ['bug', 'change', 'feature', 'all'];
+  const VALID_STATUSES = ['open', 'in-progress', 'resolved', 'wont-fix', 'all'];
+  const fType   = VALID_TYPES.includes(req.query.type)     ? req.query.type   : 'all';
+  const fStatus = VALID_STATUSES.includes(req.query.status) ? req.query.status : 'all';
+  const limit   = Math.min(Math.max(1, parseInt(req.query.limit) || 50), 100);
+
+  const conditions = [];
+  const params = [];
+  if (fType   !== 'all') { params.push(fType);   conditions.push(`type=$${params.length}`); }
+  if (fStatus !== 'all') { params.push(fStatus); conditions.push(`status=$${params.length}`); }
+  params.push(limit);
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, type, title, description, steps, status, reported_by, context, created_at, updated_at
+       FROM bug_reports ${where} ORDER BY created_at DESC LIMIT $${params.length}`,
+      params
+    );
+    res.json({ count: rows.length, filters: { type: fType, status: fStatus }, items: rows });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
