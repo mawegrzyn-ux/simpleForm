@@ -270,7 +270,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:     ["'self'"],
-      scriptSrc:      ["'self'", "'unsafe-inline'", 'https://js.hcaptcha.com', 'https://www.googletagmanager.com', 'https://connect.facebook.net'],
+      scriptSrc:      ["'self'", "'unsafe-inline'", 'https://js.hcaptcha.com', 'https://www.googletagmanager.com', 'https://connect.facebook.net', 'https://cdnjs.cloudflare.com'],
       scriptSrcAttr:  ["'unsafe-inline'"],  // allow onclick/onchange handlers in admin SPA & public pages
       styleSrc:       ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc:        ["'self'", 'https://fonts.gstatic.com', 'https://*.amazonaws.com'],

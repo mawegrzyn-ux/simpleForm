@@ -198,6 +198,8 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .bk-footer>.bk-head .bk-vis.on,.bk-footer>.bk-head .bk-vis:hover{color:#fff;}
 .bk-hero>.bk-head .bk-del:hover,.bk-form>.bk-head .bk-del:hover,.bk-footer>.bk-head .bk-del:hover{color:#ff8a8a;background:rgba(255,255,255,.08);}
 .bk-hero>.bk-head .bk-title,.bk-form>.bk-head .bk-title,.bk-footer>.bk-head .bk-title{color:#fff;}
+#bl-scroll.custom-mode .bk-hero,#bl-scroll.custom-mode .bk-form,#bl-scroll.custom-mode .bk-footer{display:none;}
+#custom-mode-btn.active{background:var(--accent);color:#fff;}
 .bk-dh{color:var(--border);cursor:grab;font-size:18px!important;flex-shrink:0;transition:color 120ms;}
 .bk-dh:hover{color:var(--ink3);}
 .bk-lock{color:var(--border2);font-size:16px!important;flex-shrink:0;}
@@ -782,6 +784,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <button id="tab-prefcenter-btn" class="bl-tab" onclick="switchPanelTab('prefcenter')">Pref</button>
         <button id="tab-email-btn" class="bl-tab" onclick="switchPanelTab('email')"><span class="material-icons-round mi" style="font-size:14px!important">mail</span> Email</button>
       </div>
+      <button id="custom-mode-btn" class="tbtn tbtn-ghost" style="padding:5px 7px;flex-shrink:0" onclick="toggleCustomMode()" title="Custom mode — hide default Hero / Form / Footer blocks"><span class="material-icons-round mi" style="font-size:16px!important">layers_clear</span></button>
       <button id="bl-add-btn" class="tbtn tbtn-ghost" style="padding:5px 10px;font-size:0.78rem;flex-shrink:0" onclick="panelAddAction()"><span class="material-icons-round mi">add</span> <span id="bl-add-label">Add container</span></button>
     </div>
     <div id="bl-scroll"><!-- populated by renderBuildPanel() --></div>
@@ -5534,6 +5537,28 @@ const BK_LABELS={hero:'Hero',form:'Form',footer:'Footer',divider:'Divider',video
 function isBkFixed(s){return s.id==='hero'||s.id==='footer'||s.id==='form'||s.type==='form';}
 function isBkDeletable(s){return s.id!=='hero'&&s.id!=='footer'&&s.id!=='form';}
 
+function toggleCustomMode(){
+  const on=!cfg.site.customFormMode;
+  cfg.site.customFormMode=on;
+  const defaultIds=['hero','form','footer'];
+  (cfg.sections||[]).forEach(s=>{
+    if(defaultIds.includes(s.id)||s.type==='form')s.visible=!on;
+  });
+  const scroll=document.getElementById('bl-scroll');
+  if(scroll)scroll.classList.toggle('custom-mode',on);
+  const btn=document.getElementById('custom-mode-btn');
+  if(btn)btn.classList.toggle('active',on);
+  schedulePreview();
+}
+
+function _applyCustomMode(){
+  const on=!!(cfg.site&&cfg.site.customFormMode);
+  const scroll=document.getElementById('bl-scroll');
+  if(scroll)scroll.classList.toggle('custom-mode',on);
+  const btn=document.getElementById('custom-mode-btn');
+  if(btn)btn.classList.toggle('active',on);
+}
+
 function renderBuildPanel(){
   const scroll=document.getElementById('bl-scroll');scroll.innerHTML='';
   const hero=cfg.sections.find(s=>s.id==='hero');
@@ -5551,6 +5576,7 @@ function renderBuildPanel(){
   const addWrap=document.createElement('div');addWrap.style.cssText='padding:8px 0 4px;flex-shrink:0';
   addWrap.innerHTML=`<button class="add-field-btn" onclick="addContainer()"><span class="material-icons-round mi">add</span> Add container</button>`;
   scroll.appendChild(addWrap);
+  _applyCustomMode();
 }
 
 // Ensures every prizedraw field has a locked container in cfg.confirmation.
