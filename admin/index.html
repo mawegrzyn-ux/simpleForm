@@ -616,6 +616,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 .mf-item.cat-drop-over{background:var(--accent-bg)!important;color:var(--accent);outline:2px dashed var(--accent);outline-offset:-2px;}
 .media-upload-opts select{padding:4px 6px;border:1.5px solid var(--border);border-radius:var(--r);font-size:0.78rem;font-family:var(--font);background:var(--panel);color:var(--ink);}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </head>
 <body>
 
@@ -1040,6 +1041,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <button class="psz" onclick="setPreviewSize('tablet',this)"><span class="material-icons-round mi">tablet_mac</span> Tablet</button>
       <button class="psz" onclick="setPreviewSize('mobile',this)"><span class="material-icons-round mi">smartphone</span> Mobile</button>
       <span class="prev-lbl">Live preview</span>
+      <button class="psz" onclick="previewPrint()" title="Print form"><span class="material-icons-round mi">print</span></button>
+      <button class="psz" id="prev-jpg-btn" onclick="previewSaveJpg()" title="Save as JPG"><span class="material-icons-round mi">image</span></button>
     </div>
     <div id="prev-frame-wrap">
       <iframe id="preview-frame" src="about:blank" style="width:100%;height:680px"></iframe>
@@ -4527,6 +4530,37 @@ function setPreviewSize(s,btn){
   if(s==='mobile'){f.style.width='390px';f.style.height='844px';}
   else if(s==='tablet'){f.style.width='768px';f.style.height='1024px';}
   else{f.style.width='100%';f.style.height='680px';}
+}
+function previewPrint(){
+  const f=document.getElementById('preview-frame');
+  if(!f||!f.contentWindow){toast('Preview not loaded','error');return;}
+  f.contentWindow.focus();
+  f.contentWindow.print();
+}
+async function previewSaveJpg(){
+  if(typeof html2canvas==='undefined'){toast('Image library not loaded yet — try again in a moment','error');return;}
+  const f=document.getElementById('preview-frame');
+  if(!f||!f.contentDocument||!f.contentDocument.body){toast('Preview not loaded','error');return;}
+  const btn=document.getElementById('prev-jpg-btn');
+  if(btn){btn.disabled=true;btn.querySelector('.mi').textContent='hourglass_empty';}
+  try{
+    const canvas=await html2canvas(f.contentDocument.body,{
+      useCORS:true,allowTaint:true,
+      width:f.contentDocument.body.scrollWidth,
+      height:f.contentDocument.body.scrollHeight,
+      windowWidth:f.contentDocument.body.scrollWidth,
+      windowHeight:f.contentDocument.body.scrollHeight,
+      scale:2
+    });
+    const a=document.createElement('a');
+    a.download=(currentFormSlug||'form')+'-preview.jpg';
+    a.href=canvas.toDataURL('image/jpeg',0.92);
+    a.click();
+    toast('JPG saved');
+  }catch(e){toast('Could not capture preview: '+e.message,'error');}
+  finally{
+    if(btn){btn.disabled=false;btn.querySelector('.mi').textContent='image';}
+  }
 }
 
 // ── Uploads ──
