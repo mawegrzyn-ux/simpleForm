@@ -153,11 +153,12 @@ function replaceMergeTags(text, cfg, subscriber, unsubUrl) {
   return out.replace(/\{\{[a-zA-Z0-9_]+\}\}/g, t => (map[t] !== undefined ? map[t] : t));
 }
 
-async function sendWelcomeEmail(cfg, subscriber) {
+async function sendWelcomeEmail(cfg, subscriber, logId = null) {
   const mailer = getMailer();
   if (!mailer) return; // SMTP not configured — skip silently
   const s = cfg.site;
   if (!s.emailEnabled) return;
+  logId = logId || uuidv4(); // pre-generate for tracking
   const prefUrl = `${ORIGIN}/preferences?token=${subscriber.unsubscribeToken}&email=${encodeURIComponent(subscriber.email)}`;
   const fromName  = s.emailFromName  || s.title || 'SignFlow';
   const ed = s.emailDesign || {};
@@ -172,7 +173,8 @@ async function sendWelcomeEmail(cfg, subscriber) {
   const rawSubject = s.emailSubject || `Thanks for subscribing to ${s.title}`;
   const rawBody    = sanitizeWysiwyg(s.emailBodyHtml) || `<p>Hi!</p><p>Thanks for subscribing to <strong>${s.title}</strong>. We're excited to have you!</p>`;
   const subject    = replaceMergeTags(rawSubject, cfg, subscriber, prefUrl);
-  const bodyHtml   = replaceMergeTags(rawBody,    cfg, subscriber, prefUrl);
+  const rawBodyHtml = replaceMergeTags(rawBody,    cfg, subscriber, prefUrl);
+  const bodyHtml   = rewriteEmailLinks(rawBodyHtml, cfg.slug, logId);
   // Prize draw — append a prize section if this subscriber won something
   let prizeSection = '';
   const pdField = (cfg.fields || []).find(f => f.type === 'prizedraw');
@@ -199,6 +201,7 @@ async function sendWelcomeEmail(cfg, subscriber) {
   const prefLinkText  = prefLink.linkText || 'Manage preferences';
   const footer = (prefLink.hide || rawBody.includes('{{unsubscribeUrl}}')) ? '' :
     `<p style="margin-top:32px;font-size:0.8rem;color:#aaa;border-top:1px solid #eee;padding-top:16px">${escapeHtml(prefLinkLabel)} <a href="${prefUrl}" style="color:#aaa">${escapeHtml(prefLinkText)}</a></p>`;
+  const trackingPixel = `<img src="${ORIGIN}/${cfg.slug}/track/o/${logId}" width="1" height="1" alt="" style="display:none;width:1px;height:1px">`;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(bodyFont)}:wght@400;600&display=swap" rel="stylesheet">
 </head><body style="margin:0;padding:0;background:${bgColor}">
@@ -208,6 +211,7 @@ async function sendWelcomeEmail(cfg, subscriber) {
 ${bodyHtml}
 ${prizeSection}
 ${footer}
+${trackingPixel}
 </td></tr></table></td></tr></table>
 </body></html>`;
   let sendError = null;
@@ -226,6 +230,69 @@ ${footer}
   // Log every attempt to email_log (best-effort — never blocks the response)
   try {
     await pool.query(
+      `INSERT INTO email_log (id, form_slug, subscriber_id, email, subject, status, error)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (id) DO NOTHING`,
+      [logId, cfg.slug, subscriber.id || null, subscriber.email, subject,
+       sendError ? 'failed' : 'sent', sendError || null]
+    );
+  } catch(dbErr) {
+    console.error('[email-log]', dbErr.message);
+  }
+}
+
+// ── Email link rewriter (for click tracking) ──────────────────────────────────
+function rewriteEmailLinks(html, slug, logId) {
+  return html.replace(/href="(https?:\/\/[^"]+)"/g, (match, url) => {
+    if (url.includes('/track/') || url.includes('/unsubscribe') || url.includes('/preferences') || url.includes('/confirm/')) return match;
+    return `href="${ORIGIN}/${slug}/track/c/${logId}?u=${encodeURIComponent(url)}"`;
+  });
+}
+
+// ── Double opt-in confirmation email ─────────────────────────────────────────
+async function sendConfirmationEmail(cfg, subscriber) {
+  const mailer = getMailer();
+  if (!mailer) return;
+  const s = cfg.site;
+  if (!s.emailEnabled) return;
+  const confirmUrl = `${ORIGIN}/${cfg.slug}/confirm/${subscriber.unsubscribeToken}`;
+  const fromName = s.emailFromName || s.title || 'SignFlow';
+  const ed = s.emailDesign || {};
+  const bgColor  = ed.bgColor  || '#f4f4f4';
+  const cardBg   = ed.cardBg   || '#ffffff';
+  const textColor = ed.textColor || '#333333';
+  const bodyFont  = ed.bodyFont  || s.bodyFont || 'Lato';
+  const maxWidth  = ed.maxWidth  || '600px';
+  const padding   = ed.padding   || '40px';
+  const radius    = ed.borderRadius || '8px';
+  const accentColor = cfg.design?.accentColor || '#e94560';
+  const subject = s.confirmEmailSubject || `Please confirm your subscription to ${s.title || cfg.name}`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(bodyFont)}:wght@400;600&display=swap" rel="stylesheet">
+</head><body style="margin:0;padding:0;background:${bgColor}">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 16px">
+<table width="${maxWidth}" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}">
+<tr><td style="background:${cardBg};border-radius:${radius};padding:${padding};color:${textColor};font-family:'${bodyFont}',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;text-align:center">
+<p style="margin:0 0 16px;font-size:1.3rem;font-weight:600;color:${textColor}">Confirm your subscription</p>
+<p style="margin:0 0 24px">Click the button below to confirm your subscription to <strong>${escapeHtml(s.title || cfg.name)}</strong>.</p>
+<a href="${confirmUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:0.95rem">Confirm subscription</a>
+<p style="margin:24px 0 0;font-size:0.8rem;color:#aaa">If you didn't request this, you can safely ignore this email.</p>
+</td></tr></table></td></tr></table>
+</body></html>`;
+  let sendError = null;
+  try {
+    await mailer.sendMail({
+      from: `"${fromName}" <${SMTP_FROM}>`,
+      to: subscriber.email,
+      ...(s.emailReplyTo ? { replyTo: s.emailReplyTo } : {}),
+      subject, html
+    });
+  } catch(e) {
+    sendError = e.message;
+    console.error('[email-confirm]', e.message);
+  }
+  try {
+    await pool.query(
       `INSERT INTO email_log (form_slug, subscriber_id, email, subject, status, error)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [cfg.slug, subscriber.id || null, subscriber.email, subject,
@@ -233,6 +300,20 @@ ${footer}
     );
   } catch(dbErr) {
     console.error('[email-log]', dbErr.message);
+  }
+}
+
+// ── Admin audit log ───────────────────────────────────────────────────────────
+async function logAudit(req, action, targetType, targetId, detail = {}) {
+  try {
+    const userEmail = req.session?.user?.email || req.session?.user?.sub || null;
+    await pool.query(
+      `INSERT INTO audit_log (user_email, action, target_type, target_id, detail)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userEmail, action, targetType || null, targetId || null, detail]
+    );
+  } catch(e) {
+    console.error('[audit]', e.message);
   }
 }
 
@@ -704,6 +785,22 @@ async function initDb() {
       sent_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS idx_email_log_form ON email_log(form_slug, sent_at DESC);
+    ALTER TABLE email_log
+      ADD COLUMN IF NOT EXISTS open_count      INT         NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS click_count     INT         NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS first_opened_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS last_clicked_at TIMESTAMPTZ;
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      timestamp   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      user_email  TEXT,
+      action      TEXT        NOT NULL,
+      target_type TEXT,
+      target_id   TEXT,
+      detail      JSONB       NOT NULL DEFAULT '{}'
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_log_ts ON audit_log(timestamp DESC);
 
     CREATE TABLE IF NOT EXISTS global_settings (
       id    INTEGER PRIMARY KEY DEFAULT 1,
@@ -1073,6 +1170,7 @@ app.post('/api/admin/forms', adminAuth, async (req, res) => {
       'INSERT INTO forms(slug, name, created_at, config) VALUES($1, $2, NOW(), $3)',
       [slug, name, defaultFormConfig(slug, name)]
     );
+    logAudit(req, 'form.create', 'form', slug, { name });
     res.json({ success: true, slug });
   } catch(e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Slug already in use' });
@@ -1093,6 +1191,7 @@ app.delete('/api/admin/forms/:slug', adminAuth, async (req, res) => {
     ));
     // Delete form — cascades to subscribers, analytics, media (DB rows)
     await pool.query('DELETE FROM forms WHERE slug=$1', [slug]);
+    logAudit(req, 'form.delete', 'form', slug, {});
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1131,6 +1230,7 @@ app.post('/api/admin/forms/:slug', adminAuth, async (req, res) => {
       ? await pool.query('UPDATE forms SET config=$1, name=$2 WHERE slug=$3', [req.body, req.body.name, slug])
       : await pool.query('UPDATE forms SET config=$1 WHERE slug=$2', [req.body, slug]);
     if (!updates.rowCount) return res.status(404).json({ error: 'Form not found' });
+    logAudit(req, 'form.config_save', 'form', slug, {});
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1418,6 +1518,7 @@ app.delete('/api/admin/forms/:slug/subscribers/:id', adminAuth, async (req, res)
     const { rowCount } = await pool.query(
       'DELETE FROM subscribers WHERE id=$1 AND form_slug=$2', [req.params.id, req.params.slug]);
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    logAudit(req, 'subscriber.delete', 'subscriber', req.params.id, { form_slug: req.params.slug });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1486,6 +1587,22 @@ app.post('/api/admin/forms/:slug/subscribers/:id/reactivate', adminAuth, async (
       `UPDATE subscribers SET status='active', unsubscribed_at=NULL
        WHERE id=$1 AND form_slug=$2`, [req.params.id, req.params.slug]);
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: resend confirmation email to a pending subscriber
+app.post('/api/admin/forms/:slug/subscribers/:id/resend-confirm', adminAuth, async (req, res) => {
+  try {
+    const { slug, id } = req.params;
+    const { rows } = await pool.query(
+      `SELECT id, email, unsubscribe_token FROM subscribers WHERE id=$1 AND form_slug=$2 AND status='pending' LIMIT 1`,
+      [id, slug]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Pending subscriber not found' });
+    const cfg = await readFormConfig(slug);
+    const sub = { id: rows[0].id, email: rows[0].email, unsubscribeToken: rows[0].unsubscribe_token };
+    sendConfirmationEmail(cfg, sub).catch(e => console.error('[email]', e.message));
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1733,7 +1850,27 @@ app.post('/api/admin/global-settings', adminAuth, async (req, res) => {
       [value]
     );
     await loadGlobalSettings();
+    logAudit(req, 'global_settings.save', 'global_settings', '1', { captchaMode: value.captchaMode });
     res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Audit log API
+app.get('/api/admin/audit-log', adminAuth, async (req, res) => {
+  try {
+    const page  = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+    const [{ rows }, { rows: countRows }] = await Promise.all([
+      pool.query(
+        `SELECT id, timestamp, user_email, action, target_type, target_id, detail
+         FROM audit_log ORDER BY timestamp DESC LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      ),
+      pool.query('SELECT COUNT(*) FROM audit_log')
+    ]);
+    const total = parseInt(countRows[0].count);
+    res.json({ entries: rows, total, page, pages: Math.ceil(total / limit) });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1838,6 +1975,54 @@ app.post('/:slug/unsubscribe/:token', async (req, res) => {
     }
   } catch(e) { message = 'An error occurred. Please try again.'; }
   res.send(renderUnsubscribePage(cfg, { subscriber, allSubs, token, message, success }, sharedFonts));
+});
+
+// Double opt-in confirmation
+app.get('/:slug/confirm/:token', async (req, res) => {
+  const { slug, token } = req.params;
+  let cfg, sharedFonts = [];
+  try { cfg = await readFormConfig(slug); } catch(e) { return res.status(404).send('Form not found'); }
+  try { sharedFonts = await readSharedFonts(); } catch(e) {}
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, email, status FROM subscribers WHERE form_slug=$1 AND unsubscribe_token=$2 LIMIT 1`,
+      [slug, token]
+    );
+    const sub = rows[0];
+    if (!sub) return res.send(renderConfirmPage(cfg, sharedFonts, 'invalid'));
+    if (sub.status === 'active') return res.send(renderConfirmPage(cfg, sharedFonts, 'already'));
+    if (sub.status !== 'pending') return res.send(renderConfirmPage(cfg, sharedFonts, 'invalid'));
+    await pool.query(`UPDATE subscribers SET status='active', subscribed_at=NOW() WHERE id=$1`, [sub.id]);
+    const record = { id: sub.id, email: sub.email, unsubscribeToken: token, customFields: {} };
+    sendWelcomeEmail(cfg, record).catch(e => console.error('[email]', e.message));
+    bumpAnalytic(slug, 'submits');
+    res.send(renderConfirmPage(cfg, sharedFonts, 'confirmed'));
+  } catch(e) {
+    console.error('[confirm]', e.message);
+    res.status(500).send('Error processing confirmation.');
+  }
+});
+
+// Email open tracking (1×1 GIF)
+const TRACKING_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+app.get('/:slug/track/o/:logId', (req, res) => {
+  res.set({ 'Content-Type': 'image/gif', 'Cache-Control': 'no-store, no-cache, must-revalidate', Pragma: 'no-cache' });
+  res.send(TRACKING_GIF);
+  pool.query(
+    `UPDATE email_log SET open_count=open_count+1, first_opened_at=COALESCE(first_opened_at,NOW()) WHERE id=$1`,
+    [req.params.logId]
+  ).catch(e => console.error('[track-open]', e.message));
+});
+
+// Email click tracking (redirect)
+app.get('/:slug/track/c/:logId', (req, res) => {
+  const url = req.query.u ? decodeURIComponent(req.query.u) : null;
+  if (!url || !/^https?:\/\//.test(url)) return res.redirect('/');
+  res.redirect(url);
+  pool.query(
+    `UPDATE email_log SET click_count=click_count+1, last_clicked_at=NOW() WHERE id=$1`,
+    [req.params.logId]
+  ).catch(e => console.error('[track-click]', e.message));
 });
 
 // Prize reveal page
@@ -2139,6 +2324,16 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
     return res.status(409).json({ error: 'This email is already subscribed.' });
   }
 
+  const doubleOptIn = cfg.site.doubleOptIn || false;
+
+  // Double opt-in: pending subscriber re-submits → resend confirmation
+  if (doubleOptIn && existing && existing.status === 'pending') {
+    const newToken = uuidv4();
+    await pool.query(`UPDATE subscribers SET unsubscribe_token=$1, subscribed_at=NOW() WHERE id=$2`, [newToken, existing.id]);
+    sendConfirmationEmail(cfg, { id: existing.id, email, unsubscribeToken: newToken }).catch(e => console.error('[email]', e.message));
+    return res.json({ success: true, pendingConfirmation: true });
+  }
+
   const customFields = {};
   cfg.fields.filter(f => !f.system).forEach(f => {
     if (f.type === 'prizedraw') return; // handled separately
@@ -2160,17 +2355,18 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   const id             = uuidv4();
   const token          = uuidv4();
   const now            = new Date().toISOString();
-  const record         = { id, email, status: 'active', subscribedAt: now, unsubscribedAt: null,
+  const insertStatus   = doubleOptIn ? 'pending' : 'active';
+  const record         = { id, email, status: insertStatus, subscribedAt: now, unsubscribedAt: null,
                            unsubscribeToken: token, consentGiven: true, consentTimestamp: now,
                            ipAddress: req.ip, customFields };
 
   if (existing) {
     // Re-activate a previously unsubscribed record
     await pool.query(
-      `UPDATE subscribers SET status='active', subscribed_at=NOW(), unsubscribed_at=NULL,
-       unsubscribe_token=$1, consent_given=TRUE, consent_timestamp=$2,
-       ip_address=$3, custom_fields=$4 WHERE id=$5`,
-      [token, now, req.ip, customFields, existing.id]
+      `UPDATE subscribers SET status=$1, subscribed_at=NOW(), unsubscribed_at=NULL,
+       unsubscribe_token=$2, consent_given=TRUE, consent_timestamp=$3,
+       ip_address=$4, custom_fields=$5 WHERE id=$6`,
+      [insertStatus, token, now, req.ip, customFields, existing.id]
     );
     record.id = existing.id;
   } else {
@@ -2182,11 +2378,16 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
       `INSERT INTO subscribers
        (id, form_slug, email, status, subscribed_at, unsubscribed_at,
         unsubscribe_token, consent_given, consent_timestamp, ip_address, custom_fields)
-       VALUES($1,$2,$3,'active',NOW(),NULL,$4,TRUE,$5,$6,$7)`,
-      [id, slug, email, token, now, req.ip, customFields]
+       VALUES($1,$2,$3,$4,NOW(),NULL,$5,TRUE,$6,$7,$8)`,
+      [id, slug, email, insertStatus, token, now, req.ip, customFields]
     );
   }
 
+  if (doubleOptIn) {
+    // Don't count as a submit until confirmed — bump happens in the confirm route
+    sendConfirmationEmail(cfg, record).catch(e => console.error('[email]', e.message));
+    return res.json({ success: true, pendingConfirmation: true });
+  }
   bumpAnalytic(slug, 'submits');
   // Fire-and-forget welcome email (never blocks the response)
   sendWelcomeEmail(cfg, record).catch(e => console.error('[email]', e.message));
@@ -3634,7 +3835,10 @@ ${trackingConfigBlock(s)}
       if(j.success){
         const conf = document.getElementById('sf-confirmation');
         const fc = document.getElementById('sf-form-content');
-        if(conf && conf.children.length > 0){
+        if(j.pendingConfirmation){
+          if(msg){msg.className='sf-msg success'; msg.textContent='Almost done! Please check your email and click the confirmation link.';msg.style.display='block';}
+          if(btn){btn.textContent='\u2713 Check your email';btn.style.opacity='0.7';}
+        } else if(conf && conf.children.length > 0){
           if(fc) fc.style.display = 'none';
           conf.style.display = 'block';
           if(j.prizeResult){const fn=window['sfPdSpinTo_'+j.prizeResult.fieldId];if(fn)fn(j.prizeResult.index);}
@@ -3700,6 +3904,43 @@ ${sliderPickerJS()}
 </script>
 </body>
 </html>`;
+}
+
+function renderConfirmPage(cfg, sharedFonts, state) {
+  // state: 'confirmed' | 'already' | 'invalid'
+  const d = cfg.design || {};
+  const s = cfg.site || {};
+  const ac = d.accentColor || d.primaryColor || '#e94560';
+  const { title: msg, body, icon } = {
+    confirmed: { icon: '✅', title: 'Subscription confirmed!', body: `Thank you for confirming. You're now subscribed to <strong>${escapeHtml(s.title || cfg.name)}</strong>.` },
+    already:   { icon: '✔',  title: 'Already confirmed',       body: 'Your subscription is already active. No action needed.' },
+    invalid:   { icon: '⚠️', title: 'Invalid or expired link', body: 'This confirmation link is invalid or has already been used. Please sign up again if needed.' },
+  }[state] || { icon: '⚠️', title: 'Something went wrong', body: 'Please try again or contact support.' };
+  const gf = googleFontTag(cfg, null, sharedFonts);
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(msg)} – ${escapeHtml(s.title || cfg.name)}</title>
+${gf}
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:${d.backgroundColor||'#f8f5f0'};font-family:'${d.bodyFont||'Lato'}',sans-serif;padding:24px}
+  .card{background:${d.cardBg||'#fff'};border-radius:${d.cardRadius||'12px'};
+    padding:48px 40px;max-width:480px;width:100%;text-align:center;
+    box-shadow:0 4px 32px rgba(0,0,0,0.08)}
+  .icon{font-size:3rem;margin-bottom:16px}
+  h1{font-size:1.5rem;font-weight:700;color:${d.textColor||'#1a1a2e'};margin-bottom:12px}
+  p{color:${d.textColor||'#555'};line-height:1.6;font-size:0.95rem}
+  .btn{display:inline-block;margin-top:24px;background:${ac};color:#fff;text-decoration:none;
+    padding:11px 28px;border-radius:${d.buttonRadius||'4px'};font-weight:600;font-size:0.9rem}
+</style>
+</head><body>
+<div class="card">
+  <div class="icon">${icon}</div>
+  <h1>${escapeHtml(msg)}</h1>
+  <p>${body}</p>
+  ${state === 'confirmed' ? `<a class="btn" href="/${cfg.slug}">Go to homepage</a>` : ''}
+</div>
+</body></html>`;
 }
 
 function renderUnsubscribePage(cfg, { subscriber, allSubs = [], token, message, success } = {}, sharedFonts = []) {
@@ -4098,7 +4339,11 @@ ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? 
       if(j.success){
         const conf = document.getElementById('sf-confirmation');
         const fc = document.getElementById('sf-form-content');
-        if(conf && conf.children.length > 0){
+        if(j.pendingConfirmation){
+          if(msg){msg.className='sf-msg success'; msg.textContent='Almost done! Please check your email and click the confirmation link.';msg.style.display='block';}
+          if(btn){btn.textContent='\u2713 Check your email';btn.style.opacity='0.7';}
+          reportHeight();
+        } else if(conf && conf.children.length > 0){
           if(fc) fc.style.display = 'none';
           conf.style.display = 'block';
           window.parent.postMessage({ type: 'sf-success', slug: '${cfg.slug}' }, '*');

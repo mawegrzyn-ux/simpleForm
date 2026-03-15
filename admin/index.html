@@ -244,6 +244,7 @@ tr:hover td{background:#FAFAF8;}
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:600;letter-spacing:0.03em;}
 .badge.active{background:var(--sbg);color:var(--success);}
 .badge.unsubscribed{background:var(--bg2);color:var(--ink3);}
+.badge.pending{background:#fff3cd;color:#856404;}
 .badge.exported{background:#d4edda;color:#155724;}
 /* Email template modal */
 #email-template-modal{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;}
@@ -773,8 +774,28 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="saveGlobalSettings()"><span class="material-icons-round mi">save</span> Save</button>
     </div>
 
-    <!-- Placeholder for future global tools -->
-    <!-- e.g. audit log, API keys, webhook endpoints, global rate limit overrides -->
+    <!-- Audit Log -->
+    <div class="card" style="padding:16px" id="audit-log-card">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:6px"><span class="material-icons-round mi">manage_history</span> Admin Audit Log</div>
+      <p class="card-desc" style="font-size:0.73rem;color:var(--ink3);margin-bottom:10px">All admin actions — form create/delete/save, subscriber deletions, global settings changes — are recorded here.</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <button class="tbtn tbtn-ghost" onclick="loadAuditLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+        <span id="audit-log-count" style="font-size:0.75rem;color:var(--ink3);margin-left:auto"></span>
+      </div>
+      <div class="tscroll" style="max-height:400px">
+        <table>
+          <thead><tr>
+            <th style="width:140px">Time</th>
+            <th style="width:160px">User</th>
+            <th style="width:160px">Action</th>
+            <th style="width:100px">Target type</th>
+            <th>Target ID / Detail</th>
+          </tr></thead>
+          <tbody id="audit-log-tbody"><tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
+        </table>
+      </div>
+      <div class="table-foot"><div class="pagination" id="audit-log-pagination"></div></div>
+    </div>
 
   </div>
 </div>
@@ -1587,6 +1608,9 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>POST /:slug/subscribe</code></td><td>5-layer anti-bot check → Joi validation → dedup → DB insert → welcome email → bump analytics</td></tr>
           <tr><td><code>GET /:slug/unsubscribe/:token</code></td><td>Show branded unsubscribe page for subscriber's token</td></tr>
           <tr><td><code>POST /:slug/unsubscribe/:token</code></td><td>Process unsubscribe (single / all / delete action)</td></tr>
+          <tr><td><code>GET /:slug/confirm/:token</code></td><td>Double opt-in confirmation — activates pending subscriber, fires welcome email, renders branded result page</td></tr>
+          <tr><td><code>GET /:slug/track/o/:logId</code></td><td>Email open tracking — returns 1×1 GIF, increments <code>open_count</code> on <code>email_log</code></td></tr>
+          <tr><td><code>GET /:slug/track/c/:logId</code></td><td>Email click tracking — redirects to <code>?u=</code> URL, increments <code>click_count</code> on <code>email_log</code></td></tr>
           <tr><td><code>GET /:slug/confirmation-preview</code></td><td>Admin-only preview of the confirmation section (requires <code>adminAuth</code>)</td></tr>
           <tr><td><code>GET /preferences/:token</code></td><td>Subscriber preference centre (update fields, resubscribe, unsubscribe)</td></tr>
           <tr><td><code>POST /preferences/:token</code></td><td>Save preference centre changes</td></tr>
@@ -1645,6 +1669,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>GET /api/admin/ip-flags</code></td><td>List all currently active IP flags</td></tr>
           <tr><td><code>DELETE /api/admin/ip-flags/:ipHash</code></td><td>Clear a single IP flag</td></tr>
           <tr><td><code>DELETE /api/admin/ip-flags</code></td><td>Clear all active IP flags</td></tr>
+          <tr><td><code>POST /api/admin/forms/:slug/subscribers/:id/resend-confirm</code></td><td>Resend double opt-in confirmation email to a pending subscriber</td></tr>
+          <tr><td><code>GET /api/admin/audit-log</code></td><td>Paginated admin audit log (50/page); <code>?page=</code> param</td></tr>
           <tr><td><code>GET /branding-preview</code></td><td>Render a standalone branding preview iframe (uses generic demo content)</td></tr>
         </table>
       </div>
@@ -1807,7 +1833,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>analytics</code></td><td><code>(form_slug, key)</code></td><td>Event counters (<code>visits</code>, <code>submits</code>, <code>errors</code>); upserted via <code>ON CONFLICT DO UPDATE</code></td></tr>
           <tr><td><code>isel_presets</code></td><td><code>id</code> UUID</td><td>Saved icon/tile selector presets; <code>name</code> UNIQUE; <code>items</code> JSONB tile array</td></tr>
           <tr><td><code>ip_flags</code></td><td><code>ip_hash</code> text</td><td>Bot IP flags; <code>ip_hash</code> = HMAC-SHA256(ip, salt); <code>level</code> 1–3; <code>strike_count</code>; <code>expires_at</code> timestamptz; auto-indexed</td></tr>
-          <tr><td><code>email_log</code></td><td><code>id</code> UUID</td><td>Welcome email send log; FK → <code>forms.slug</code> CASCADE; <code>status</code> = <code>sent</code>|<code>failed</code>; <code>error</code> = SMTP error text; indexed on <code>(form_slug, sent_at DESC)</code></td></tr>
+          <tr><td><code>email_log</code></td><td><code>id</code> UUID</td><td>Welcome + confirmation email send log; FK → <code>forms.slug</code> CASCADE; <code>status</code> = <code>sent</code>|<code>failed</code>; <code>open_count</code>, <code>click_count</code>, <code>first_opened_at</code>, <code>last_clicked_at</code> for engagement tracking; indexed on <code>(form_slug, sent_at DESC)</code></td></tr>
+          <tr><td><code>audit_log</code></td><td><code>id</code> UUID</td><td>Admin action log; <code>user_email</code>, <code>action</code> (e.g. <code>form.create</code>), <code>target_type</code>, <code>target_id</code>, <code>detail</code> JSONB; indexed on <code>timestamp DESC</code></td></tr>
           <tr><td><code>global_settings</code></td><td><code>id</code> int (always 1)</td><td>Single-row platform config; <code>value</code> JSONB holds <code>captchaMode</code>, <code>hcaptchaSiteKey</code>, <code>hcaptchaSecretKey</code></td></tr>
           <tr><td><code>session</code></td><td><code>sid</code></td><td>Auto-created by <code>connect-pg-simple</code>; stores Express sessions</td></tr>
         </table>
@@ -1835,7 +1862,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>id</code></td><td>UUID</td><td>Generated by <code>gen_random_uuid()</code> on signup</td></tr>
           <tr><td><code>email</code></td><td>text</td><td>Subscriber email</td></tr>
           <tr><td><code>custom_fields</code></td><td>JSONB</td><td>Custom field responses</td></tr>
-          <tr><td><code>status</code></td><td>text</td><td><code>active</code> | <code>unsubscribed</code></td></tr>
+          <tr><td><code>status</code></td><td>text</td><td><code>active</code> | <code>pending</code> (awaiting double opt-in confirmation) | <code>unsubscribed</code></td></tr>
           <tr><td><code>consent_timestamp</code></td><td>timestamptz</td><td>Consent timestamp (GDPR evidence)</td></tr>
           <tr><td><code>ip_address</code></td><td>text</td><td>IP at consent (GDPR evidence)</td></tr>
           <tr><td><code>unsubscribe_token</code></td><td>text</td><td>Unique unsubscribe / delete token</td></tr>
@@ -2125,6 +2152,13 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-15 — Double opt-in, Email tracking, Admin audit log</h3>
+        <ul>
+          <li>✅ <strong>Double opt-in</strong> — per-form toggle (Settings → Double opt-in). When enabled, new subscribers are inserted with <code>status='pending'</code> and receive a branded confirmation email. Clicking the link in that email activates the subscription and fires the welcome email. Re-submitting while pending resends the confirmation. Confirmation page is fully branded. Subscriber table shows amber <em>pending</em> badge, a "Resend confirmation" button, and a new <em>Pending confirmation</em> status filter. API: <code>POST /api/admin/forms/:slug/subscribers/:id/resend-confirm</code>.</li>
+          <li>✅ <strong>Email open tracking</strong> — a 1×1 transparent GIF pixel (<code>GET /:slug/track/o/:logId</code>) is injected into every welcome email. Opens increment <code>open_count</code> and set <code>first_opened_at</code> on <code>email_log</code>. Email Log table shows 👁 open count column.</li>
+          <li>✅ <strong>Email click tracking</strong> — all <code>https://</code> links in the welcome email body are rewritten through a redirect proxy (<code>GET /:slug/track/c/:logId?u=…</code>). Clicks increment <code>click_count</code> and set <code>last_clicked_at</code>. Email Log table shows 🖱 click count column. Unsubscribe, preferences, and confirmation links are excluded from rewriting.</li>
+          <li>✅ <strong>Admin audit log</strong> — new <code>audit_log</code> PostgreSQL table records every significant admin action (form create/delete/save, subscriber delete, global settings save) with timestamp, user email, action type, target, and detail JSONB. Paginated UI in Platform Settings → Admin Audit Log. API: <code>GET /api/admin/audit-log</code>.</li>
+        </ul>
         <h3>2026-03-14 — Email Log</h3>
         <ul>
           <li>✅ <strong>Email Log</strong> — every welcome email attempt (success and failure) logged to new <code>email_log</code> PostgreSQL table with <code>form_slug</code>, <code>subscriber_id</code>, <code>email</code>, <code>subject</code>, <code>status</code>, <code>error</code>, <code>sent_at</code></li>
@@ -2141,7 +2175,7 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <h3>2026-03-14 — Documentation overhaul + Forms tab redesign + Platform Settings</h3>
         <ul>
           <li>✅ <strong>Forms tab redesigned</strong> — two-panel layout: form list on left (380px), live preview iframe on right with Desktop / Tablet / Mobile size buttons; click a form card to preview; Edit/Delete buttons stop propagation; first form auto-selected on load</li>
-          <li>✅ <strong>Platform Settings panel</strong> — ⚙ cogwheel icon added to top-right nav; opens global <code>tab-global-settings</code> page; IP Flagging card moved here; designed for future global tools (audit log, API keys, webhooks)</li>
+          <li>✅ <strong>Platform Settings panel</strong> — ⚙ cogwheel icon added to top-right nav; opens global <code>tab-global-settings</code> page; IP Flagging card moved here; Admin Audit Log added (2026-03-15)</li>
           <li>✅ <strong>Architecture diagram</strong> — inline SVG diagram added to System → Architecture &amp; Routes section; shows 5-layer stack: Clients → Nginx → Node.js → PostgreSQL / S3 / Auth0 / SMTP with annotated connections</li>
           <li>✅ <strong>Full help documentation audit</strong> — all Help and System tab sections reviewed against server.js codebase; gaps filled, outdated content corrected, new sections added: Anti-Bot Protection, Analytics, Platform Settings; merge tags corrected; all routes documented; Data Model updated with ip_flags and isel_presets tables; Security section updated with anti-bot layer details</li>
         </ul>
@@ -2490,13 +2524,13 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li><strong>SCIM provisioning</strong> — auto-provision users from corporate IdP</li>
           <li><strong>RBAC roles</strong> — super-admin, admin, editor, viewer; per-form scoping</li>
           <li><strong>API keys</strong> — scoped machine-to-machine keys with expiry</li>
-          <li><strong>Audit log</strong> — immutable record of all admin actions in DB</li>
+          <li>✅ <strong>Audit log</strong> — all admin actions (form CRUD, subscriber delete, global settings) recorded in <code>audit_log</code> table; paginated UI in Platform Settings</li>
         </ul>
         <h3>Phase 4 — GDPR Tooling</h3>
         <ul>
           <li>✅ <strong>GDPR cookie consent manager</strong> — three-category opt-in (Necessary / Analytics / Marketing); GA4 + Meta Pixel scripts blocked until explicit consent; granular preferences panel; persistent <code>localStorage</code> record with version + timestamp; "Cookie settings" withdrawal link; embeds excluded (handled via postMessage)</li>
           <li>Immutable consent audit trail with form-version snapshot</li>
-          <li>Double opt-in confirmation email flow</li>
+          <li>✅ <strong>Double opt-in</strong> — per-form toggle; pending status; branded confirmation email; confirm route activates subscriber and fires welcome email</li>
           <li>Configurable data retention policies + automated purge job</li>
           <li>Subject access request (SAR) data-package generator</li>
           <li>Bulk GDPR erasure across all forms by email</li>
@@ -2516,7 +2550,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li>✅ <strong>GA4 + Meta Pixel</strong> — per-form Measurement ID / Pixel ID injected into direct-load pages; <code>generate_lead</code> / <code>Lead</code> events on submission; <code>postMessage</code> bridge fires into parent page's analytics for embeds; no config needed on embed side</li>
           <li>Form funnel dashboard: views → starts → completions → drop-off per field</li>
           <li>A/B testing: split variants, auto-select winner by conversion rate</li>
-          <li>Email open / click tracking via pixel + link proxy</li>
+          <li>✅ <strong>Email open / click tracking</strong> — 1×1 GIF pixel + link rewrite proxy; <code>open_count</code>, <code>click_count</code>, <code>first_opened_at</code>, <code>last_clicked_at</code> on <code>email_log</code>; columns visible in Email Log UI</li>
           <li>Edge rendering via Cloudflare Workers (&lt;50ms TTFB globally)</li>
           <li>Horizontal scaling: stateless Express + shared PostgreSQL + Redis LB</li>
           <li>Docker image + docker-compose for self-hosted deploys</li>
@@ -2780,7 +2814,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <div class="table-bar">
           <input type="text" placeholder="Search email, status, IP, fields…" oninput="debounceSearch(this.value)">
           <select id="sub-status-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadSubscribers(1)">
-            <option value="all">All statuses</option><option value="active">Active</option><option value="unsubscribed">Unsubscribed</option>
+            <option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending confirmation</option><option value="unsubscribed">Unsubscribed</option>
           </select>
           <select id="sub-emailstatus-filter" class="btn btn-outline btn-sm" style="width:auto;cursor:pointer" onchange="loadSubscribers(1)">
             <option value="all">All email statuses</option><option value="sent">✓ Email sent</option><option value="failed">✗ Email failed</option><option value="none">— Not sent</option>
@@ -2816,11 +2850,13 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
               <th style="width:140px">Time</th>
               <th>Email</th>
               <th>Subject</th>
-              <th style="width:70px;text-align:center">Status</th>
-              <th style="width:260px">Error</th>
+              <th style="width:60px;text-align:center">Status</th>
+              <th style="width:50px;text-align:center" title="Opens">👁</th>
+              <th style="width:50px;text-align:center" title="Clicks">🖱</th>
+              <th style="width:200px">Error</th>
               <th style="width:70px"></th>
             </tr></thead>
-            <tbody id="email-log-tbody"><tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">Loading…</td></tr></tbody>
+            <tbody id="email-log-tbody"><tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">Loading…</td></tr></tbody>
           </table>
         </div>
         <div class="table-foot"><div class="pagination" id="email-log-pagination"></div></div>
@@ -2943,6 +2979,17 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <input type="text" id="pf-ga4-id" placeholder="G-XXXXXXXXXX" oninput="cfg.site.ga4MeasurementId=this.value.trim()"></div>
       <div class="cg"><label class="cl">Meta Pixel ID</label>
         <input type="text" id="pf-pixel-id" placeholder="1234567890123" oninput="cfg.site.metaPixelId=this.value.trim()"></div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div class="card-title" style="font-size:0.82rem;margin-bottom:8px"><span class="material-icons-round mi">mark_email_read</span> Double opt-in</div>
+      <p class="card-desc" style="font-size:0.78rem;margin-bottom:10px">When enabled, subscribers receive a confirmation email first and must click a link to activate. Requires email sending to be enabled.</p>
+      <div class="setting-row" style="padding-top:0;margin-bottom:0">
+        <div class="setting-info">
+          <div class="setting-title">Require email confirmation</div>
+          <div class="setting-desc">New subscribers stay pending until they confirm</div>
+        </div>
+        <label class="tgl"><input type="checkbox" id="doi-enabled" onchange="cfg.site.doubleOptIn=this.checked;saveConfig()"><span class="tgl-s"></span></label>
+      </div>
     </div>
     <div class="card" style="padding:16px">
       <div class="card-title" style="font-size:0.82rem;margin-bottom:8px"><span class="material-icons-round mi">rule</span> Submission deduplication</div>
@@ -3172,14 +3219,14 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
 
     <!-- SUBSCRIBERS -->
-    <div class="help-group" data-tags="subscriber list export csv delete gdpr unsubscribe filter search">
+    <div class="help-group" data-tags="subscriber list export csv delete gdpr unsubscribe filter search pending double opt-in confirmation">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">people</span> Subscribers
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
         <h3>Viewing subscribers</h3>
-        <p>Open the <strong>Subscribers</strong> tab for the current form. The table is paginated (50 per page). Use the status filter to view <em>All / Active / Unsubscribed</em>. Use the search box to filter by email or any custom field value.</p>
+        <p>Open the <strong>Subscribers</strong> tab for the current form. The table is paginated (50 per page). Use the status filter to view <em>All / Active / Pending confirmation / Unsubscribed</em>. Use the search box to filter by email or any custom field value.</p>
         <h3>Sorting</h3>
         <p>Click any column header (<strong>Email</strong>, <strong>Status</strong>, <strong>Subscribed</strong>) to sort the table. Click again to toggle ascending / descending. The active sort column shows a directional arrow.</p>
         <h3>Exporting</h3>
@@ -3189,12 +3236,20 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li><strong>Clear all export flags</strong> — resets all export markers so all subscribers appear as "not yet exported" (bulk button, only visible when exported rows exist)</li>
         </ul>
         <p>Use the export flag workflow to track which subscribers were included in your last send, without deleting them.</p>
+        <h3>Subscriber statuses</h3>
+        <table class="help-table">
+          <tr><th>Status</th><th>Meaning</th></tr>
+          <tr><td><strong>active</strong></td><td>Confirmed subscriber — counts in analytics, included in exports</td></tr>
+          <tr><td><strong>pending</strong></td><td>Awaiting email confirmation (double opt-in only) — not yet active; shown with amber badge</td></tr>
+          <tr><td><strong>unsubscribed</strong></td><td>Opted out — record kept for audit purposes but excluded from normal lists</td></tr>
+        </table>
         <h3>Admin actions per subscriber</h3>
         <table class="help-table">
-          <tr><th>Action</th><th>What it does</th></tr>
-          <tr><td><strong>Unsubscribe</strong></td><td>Sets subscriber status to <em>unsubscribed</em> immediately — equivalent to the subscriber clicking their unsubscribe link</td></tr>
-          <tr><td><strong>Reactivate</strong></td><td>Restores an unsubscribed subscriber to <em>active</em> status — use when a subscriber asks to rejoin</td></tr>
-          <tr><td><strong>Delete (GDPR)</strong></td><td>Permanently removes the subscriber record from the database. Cannot be undone. Use to honour right-to-erasure requests under GDPR / UK GDPR.</td></tr>
+          <tr><th>Action</th><th>Applies to</th><th>What it does</th></tr>
+          <tr><td><strong>Unsubscribe</strong></td><td>Active</td><td>Sets status to <em>unsubscribed</em> immediately — equivalent to the subscriber clicking their unsubscribe link</td></tr>
+          <tr><td><strong>Reactivate</strong></td><td>Unsubscribed</td><td>Restores an unsubscribed subscriber to <em>active</em> status — use when a subscriber asks to rejoin</td></tr>
+          <tr><td><strong>Resend confirmation</strong></td><td>Pending</td><td>Resends the double opt-in confirmation email with a fresh token — use if the subscriber missed the original email</td></tr>
+          <tr><td><strong>Delete (GDPR)</strong></td><td>Any</td><td>Permanently removes the subscriber record. Cannot be undone. Use to honour right-to-erasure requests under GDPR / UK GDPR.</td></tr>
         </table>
         <h3>Unsubscribe flow</h3>
         <p>Each subscriber has a unique UUID token. The welcome email includes an unsubscribe link automatically. Visiting <code>/your-slug/unsubscribe/:token</code> shows a branded page listing all the subscriber's active subscriptions across all forms. They can:</p>
@@ -3250,7 +3305,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
 
     <!-- EMAIL -->
-    <div class="help-group" data-tags="email welcome template smtp transactional unsubscribe confirmation">
+    <div class="help-group" data-tags="email welcome template smtp transactional unsubscribe confirmation double opt-in tracking open click pixel">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">mail</span> Email
         <span class="material-icons-round mi help-chevron">expand_more</span>
@@ -3276,15 +3331,30 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <p>If <code>{{unsubscribeUrl}}</code> is not found anywhere in the email body, SignFlow appends a plain-text unsubscribe footer automatically: <em>"To unsubscribe, visit: [link]"</em>. This ensures every email is legally compliant without any extra effort.</p>
         <h3>Email subject line</h3>
         <p>Set the subject line in the template editor. Merge tags work in the subject too — e.g. <code>Welcome, {{firstName}}!</code></p>
+        <h3>Double opt-in (optional per form)</h3>
+        <p>When enabled (Settings → <strong>Double opt-in</strong>), new subscribers are <em>not</em> immediately active. Instead:</p>
+        <ol>
+          <li>Subscriber is inserted with <code>status = pending</code>.</li>
+          <li>A <strong>confirmation email</strong> is sent immediately — branded with the form's colours and button style.</li>
+          <li>The subscriber clicks the confirmation link (<code>/slug/confirm/:token</code>) — their status changes to <code>active</code> and the <strong>welcome email</strong> fires at that point.</li>
+        </ol>
+        <p>If a pending subscriber submits the form again, the confirmation email is resent (token refreshed) — no duplicate record is created. Requires email sending to be enabled. The public form shows "check your email" feedback instead of the normal success message.</p>
+        <h3>Email open &amp; click tracking</h3>
+        <p>SignFlow automatically instruments every welcome email for engagement tracking — no configuration required.</p>
+        <ul>
+          <li><strong>Open tracking</strong> — a 1×1 transparent GIF pixel is embedded at the bottom of every welcome email. When the email client loads the image, the server increments <code>open_count</code> and records <code>first_opened_at</code>. Note: email clients that block remote images will not register opens.</li>
+          <li><strong>Click tracking</strong> — all <code>https://</code> links in the email body are rewritten through a redirect proxy. Clicking a link increments <code>click_count</code> and records <code>last_clicked_at</code>, then redirects transparently to the original URL. Unsubscribe, preferences, and confirmation links are excluded.</li>
+        </ul>
+        <p>Open and click counts are visible in the <strong>Email Log</strong> table (👁 and 🖱 columns).</p>
         <h3>Email Log</h3>
-        <p>Every welcome email attempt is recorded in the <strong>Email Log</strong> — including successes and failures. Access it from the <strong>Subscribers</strong> tab via the <strong>Email Log</strong> button in the page header.</p>
-        <p>The log shows: timestamp, recipient email, subject line, send status (✅ sent / ❌ failed), and the full SMTP error message for failures. Failed entries show a <strong>Resend</strong> button that immediately retries the welcome email for that subscriber.</p>
-        <p>Filter by status (All / Sent / Failed) to quickly isolate delivery problems. The log is per-form and paginated at 50 entries per page.</p>
+        <p>Every welcome and confirmation email attempt is recorded in the <strong>Email Log</strong>. Access it from the <strong>Subscribers</strong> tab via the <strong>Email Log</strong> button in the page header.</p>
+        <p>The log shows: timestamp, recipient email, subject line, send status (✅ / ❌), open count, click count, and the SMTP error for failures. Failed entries show a <strong>Resend</strong> button that immediately retries the welcome email.</p>
+        <p>Filter by status (All / Sent / Failed) to isolate delivery problems. The log is per-form and paginated at 50 entries per page.</p>
       </div>
     </div>
 
     <!-- SETTINGS -->
-    <div class="help-group" data-tags="settings site captcha privacy hcaptcha cookie domain slug deduplication duplicate unique key">
+    <div class="help-group" data-tags="settings site captcha privacy hcaptcha cookie domain slug deduplication duplicate unique key double opt-in pending confirmation">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">settings</span> Form Settings
         <span class="material-icons-round mi help-chevron">expand_more</span>
@@ -3325,6 +3395,8 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         </ul>
         <h3>Branding assignment</h3>
         <p>Link a branding to a form here. The live form will use the branding's visual design while keeping form-specific settings (slug, fields, sections) intact.</p>
+        <h3>Double opt-in</h3>
+        <p>Toggle <strong>Require email confirmation</strong> in the <em>Double opt-in</em> Settings card to enable confirmed opt-in for this form. New subscribers receive a confirmation email first; they must click the link to activate. Requires SMTP / email sending to be enabled. See the <strong>Email</strong> section for full flow details.</p>
         <h3>Submission deduplication</h3>
         <p>By default SignFlow prevents the same email from subscribing twice. The <strong>Submission deduplication</strong> card lets you change this behaviour:</p>
         <ul>
@@ -4461,6 +4533,7 @@ function populateControls(){
   const cookiePrev=document.getElementById('c-cookie-preview');
   if(cookiePrev)cookiePrev.innerHTML=cfg.site.cookieBannerText||'<span style="color:var(--ink3);font-size:0.75rem">Click to edit cookie banner text…</span>';
   sv('c-privacy',cfg.site.privacyPolicyUrl);sv('c-sitetitle',cfg.site.title);sv('c-description',cfg.site.description||'');
+  const doiChk=document.getElementById('doi-enabled');if(doiChk)doiChk.checked=!!cfg.site.doubleOptIn;
   const dupChk=document.getElementById('dup-allow-email');if(dupChk){dupChk.checked=!!cfg.site.allowDuplicateEmail;toggleDupKeyFields();_dupSnapshotState();}
   if(cfg.design.backgroundImage){const e=document.getElementById('preview-bg');if(e){e.src=cfg.design.backgroundImage;e.style.display='block';}}
   const ov=document.getElementById('c-overlay');if(ov)ov.value=cfg.design.backgroundOverlay;
@@ -8132,14 +8205,14 @@ async function loadEmailLog(page){
   if(!tbody) return;
   const status = document.getElementById('email-log-status-filter')?.value || '';
   const url = `/api/admin/forms/${currentFormSlug}/email-log?page=${page||1}${status?'&status='+status:''}`;
-  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:16px">Loading…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:16px">Loading…</td></tr>`;
   try {
     const r = await adminFetch(url);
-    if(!r.ok){ tbody.innerHTML=`<tr><td colspan="6" style="color:var(--danger);padding:16px">Failed to load</td></tr>`; return; }
+    if(!r.ok){ tbody.innerHTML=`<tr><td colspan="8" style="color:var(--danger);padding:16px">Failed to load</td></tr>`; return; }
     const data = await r.json();
     if(countEl) countEl.textContent = `${data.total} record${data.total!==1?'s':''}`;
     if(!data.rows.length){
-      tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">No entries yet</td></tr>`;
+      tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">No entries yet</td></tr>`;
       if(pagEl) pagEl.innerHTML=''; return;
     }
     const relTime = d => {
@@ -8152,16 +8225,24 @@ async function loadEmailLog(page){
     tbody.innerHTML = data.rows.map(row => {
       const isFailed = row.status === 'failed';
       const errCell = row.error
-        ? `<span title="${escHtml(row.error)}" style="color:var(--danger);font-size:0.78rem;cursor:help;display:block;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(row.error)}</span>`
+        ? `<span title="${escHtml(row.error)}" style="color:var(--danger);font-size:0.78rem;cursor:help;display:block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(row.error)}</span>`
         : `<span style="color:var(--ink3)">—</span>`;
       const resendBtn = isFailed && row.subscriber_id
         ? `<button class="tbtn tbtn-ghost" style="font-size:0.72rem;padding:2px 6px;gap:3px;color:var(--accent)" onclick="resendEmail('${row.id}',this)"><span class="material-icons-round mi" style="font-size:13px!important">send</span> Resend</button>`
         : '';
+      const openCell = row.open_count > 0
+        ? `<span style="color:var(--accent);font-weight:600">${row.open_count}</span>`
+        : `<span style="color:var(--ink3)">0</span>`;
+      const clickCell = row.click_count > 0
+        ? `<span style="color:var(--accent);font-weight:600">${row.click_count}</span>`
+        : `<span style="color:var(--ink3)">0</span>`;
       return `<tr>
         <td style="white-space:nowrap;color:var(--ink3);font-size:0.78rem" title="${new Date(row.sent_at).toLocaleString()}">${relTime(row.sent_at)}</td>
         <td style="font-size:0.82rem;font-family:monospace">${escHtml(row.email)}</td>
         <td style="font-size:0.82rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(row.subject||'')}">${escHtml(row.subject||'—')}</td>
         <td style="text-align:center">${isFailed?'❌':'✅'}</td>
+        <td style="text-align:center">${openCell}</td>
+        <td style="text-align:center">${clickCell}</td>
         <td>${errCell}</td>
         <td>${resendBtn}</td>
       </tr>`;
@@ -8174,7 +8255,7 @@ async function loadEmailLog(page){
       }
       pagEl.innerHTML=pag;
     }
-  } catch(e){ tbody.innerHTML=`<tr><td colspan="6" style="color:var(--danger);padding:16px">${e.message}</td></tr>`; }
+  } catch(e){ tbody.innerHTML=`<tr><td colspan="8" style="color:var(--danger);padding:16px">${e.message}</td></tr>`; }
 }
 async function resendEmail(logId, btn){
   if(!currentFormSlug) return;
@@ -8241,10 +8322,10 @@ async function loadSubscribers(page){
     const exportedCell=s.exported
       ?`<td><span class="badge exported">✓ exported</span> <button class="btn btn-outline btn-sm" style="padding:1px 5px;font-size:0.68rem" data-action="clear-export" data-id="${escHtml(s.id)}" title="Clear export flag">×</button></td>`
       :`<td style="color:var(--ink3);font-size:0.8rem">—</td>`;
-    const subIcon=s.status==='active'?'person_off':'person_add';
-    const subAction=s.status==='active'?'unsub':'reactivate';
-    const subTitle=s.status==='active'?'Unsubscribe':'Re-activate';
-    const subBtn=`<button class="btn btn-outline btn-sm" data-action="${subAction}" data-id="${escHtml(s.id)}" data-email="${safeEmail}" title="${subTitle}"><span class="material-icons-round mi" style="font-size:13px">${subIcon}</span></button>`;
+    const subIcon=s.status==='active'?'person_off':(s.status==='pending'?'mark_email_read':'person_add');
+    const subAction=s.status==='active'?'unsub':(s.status==='pending'?'resend-confirm':'reactivate');
+    const subTitle=s.status==='active'?'Unsubscribe':(s.status==='pending'?'Resend confirmation':'Re-activate');
+    const subBtn=`<button class="btn btn-outline btn-sm" data-action="${subAction}" data-id="${escHtml(s.id)}" data-email="${safeEmail}" data-slug="${escHtml(s.formSlug||currentFormSlug||'')}" title="${subTitle}"><span class="material-icons-round mi" style="font-size:13px">${subIcon}</span></button>`;
     // Email send status cell
     let emailSentCell;
     if(s.emailStatus==='sent'){
@@ -8278,6 +8359,7 @@ function debounceSearch(val){clearTimeout(searchTimer);subSearch=val;searchTimer
     else if(action==='unsub')adminUnsubscribe(id,email);
     else if(action==='reactivate')adminReactivate(id,email);
     else if(action==='clear-export')clearExportFlag(id);
+    else if(action==='resend-confirm'){ adminResendConfirm(id,email,btn); }
     else if(action==='resend-email'){ const logId=btn.dataset.logId; if(logId)resendEmail(logId,btn); }
   });
 })();
@@ -8320,6 +8402,13 @@ async function adminReactivate(id,email){
   if(!confirm(`Re-activate ${email}?`))return;
   const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/reactivate`,{method:'POST'});
   if(r.ok){toast('Subscriber re-activated','success');loadSubscribers(subPage);}else toast('Failed','error');
+}
+async function adminResendConfirm(id,email,btn){
+  if(!confirm(`Resend confirmation email to ${email}?`))return;
+  if(btn)btn.disabled=true;
+  const r=await adminFetch(`/api/admin/forms/${currentFormSlug}/subscribers/${id}/resend-confirm`,{method:'POST'});
+  if(r.ok){toast('Confirmation email resent','success');}else toast('Failed to resend','error');
+  if(btn)btn.disabled=false;
 }
 function exportData(fmt){
   if(!currentFormSlug){toast('No form selected','error');return;}
@@ -8622,6 +8711,48 @@ async function saveGlobalSettings(){
   const r=await adminFetch('/api/admin/global-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   if(r.ok)showToast('Platform settings saved');
   else showToast('Save failed','error');
+}
+
+// ── Audit Log ──
+async function loadAuditLog(page){
+  const tbody=document.getElementById('audit-log-tbody');
+  const pagEl=document.getElementById('audit-log-pagination');
+  const countEl=document.getElementById('audit-log-count');
+  if(!tbody)return;
+  tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:16px">Loading…</td></tr>`;
+  try{
+    const r=await adminFetch(`/api/admin/audit-log?page=${page||1}&limit=50`);
+    if(!r.ok){tbody.innerHTML=`<tr><td colspan="5" style="color:var(--danger);padding:16px">Failed to load</td></tr>`;return;}
+    const data=await r.json();
+    if(countEl)countEl.textContent=`${data.total} record${data.total!==1?'s':''}`;
+    if(!data.entries.length){
+      tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:20px">No audit entries yet</td></tr>`;
+      if(pagEl)pagEl.innerHTML='';return;
+    }
+    const relTime=d=>{
+      const diff=Math.round((Date.now()-new Date(d))/1000);
+      if(diff<60)return diff+'s ago';
+      if(diff<3600)return Math.floor(diff/60)+'m ago';
+      if(diff<86400)return Math.floor(diff/3600)+'h ago';
+      return new Date(d).toLocaleString();
+    };
+    tbody.innerHTML=data.entries.map(e=>{
+      const detail=e.detail&&Object.keys(e.detail).length?JSON.stringify(e.detail):'';
+      const tid=e.target_id?`<span style="font-family:monospace;font-size:0.72rem">${escHtml(e.target_id.slice(0,16))}${e.target_id.length>16?'…':''}</span>`:'—';
+      return `<tr>
+        <td style="white-space:nowrap;color:var(--ink3);font-size:0.78rem" title="${new Date(e.timestamp).toLocaleString()}">${relTime(e.timestamp)}</td>
+        <td style="font-size:0.78rem;color:var(--ink2)">${escHtml(e.user_email||'—')}</td>
+        <td style="font-size:0.78rem;font-weight:500">${escHtml(e.action)}</td>
+        <td style="font-size:0.78rem;color:var(--ink3)">${escHtml(e.target_type||'—')}</td>
+        <td style="font-size:0.72rem;color:var(--ink3)">${tid}${detail?` <span style="color:var(--ink4)">${escHtml(detail)}</span>`:''}</td>
+      </tr>`;
+    }).join('');
+    if(pagEl){
+      let pag='';
+      for(let i=1;i<=data.pages;i++)pag+=`<button class="page-btn${i===data.page?' active':''}" onclick="loadAuditLog(${i})">${i}</button>`;
+      pagEl.innerHTML=pag;
+    }
+  }catch(e){tbody.innerHTML=`<tr><td colspan="5" style="color:var(--danger);padding:16px">${e.message}</td></tr>`;}
 }
 
 // ── IP Flags ──
