@@ -2913,71 +2913,65 @@ INTERNAL_API_KEY=...   # Claude Code read-only DB access via POST /api/internal/
             </tr>
           </thead>
           <tbody id="mcfry-log-body">
-            <tr><td colspan="6" style="color:var(--ink3);font-style:italic">Loading…</td></tr>
+            <tr><td colspan="6" style="color:var(--ink3);font-style:italic">Open the System tab to load.</td></tr>
           </tbody>
         </table>
       </div>
       <div id="mcfry-log-pages" style="display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap"></div>
     </div>
 
-    <script>
-    (function(){
-      let _mcFryPage = 1;
-      window.loadMcFryLog = async function(page) {
-        _mcFryPage = page || 1;
-        const tbody = document.getElementById('mcfry-log-body');
-        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--ink3);font-style:italic">Loading…</td></tr>';
-        try {
-          const r = await adminFetch('/api/admin/ai-chat-log?page=' + _mcFryPage + '&limit=25');
-          const d = await r.json();
-          document.getElementById('mcfry-log-count').textContent = d.total + ' total rows';
-          if (!d.entries.length) {
-            tbody.innerHTML = '<tr><td colspan="6" style="color:var(--ink3);font-style:italic">No activity yet.</td></tr>';
-          } else {
-            tbody.innerHTML = d.entries.map(e => {
-              const ts = new Date(e.created_at).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'});
-              const tools = (e.tools_called||[]).map(t=>t.name).join(', ') || '—';
-              const tok = (e.tokens_in||0) + '↑ ' + (e.tokens_out||0) + '↓';
-              const msg = (e.user_message||'').substring(0,80) + ((e.user_message||'').length>80?'…':'');
-              const status = e.error
-                ? '<span style="color:#c00" title="'+e.error+'">⚠ error</span>'
-                : '<span style="color:var(--success)">✓ ok</span>';
-              return `<tr>
-                <td style="white-space:nowrap;color:var(--ink3)">${ts}</td>
-                <td style="color:var(--ink2)">${e.user_email||'—'}</td>
-                <td title="${(e.user_message||'').replace(/"/g,'&quot;')}">${msg}</td>
-                <td style="color:var(--ink3)">${tools}</td>
-                <td style="white-space:nowrap;color:var(--ink3)">${tok}</td>
-                <td>${status}</td>
-              </tr>`;
-            }).join('');
-          }
-          // Pagination
-          const pages = document.getElementById('mcfry-log-pages');
-          pages.innerHTML = '';
-          if (d.pages > 1) {
-            for (let i=1; i<=d.pages; i++) {
-              const b = document.createElement('button');
-              b.className = 'ibtn'; b.textContent = i;
-              if (i === _mcFryPage) b.style.fontWeight = '700';
-              b.onclick = () => loadMcFryLog(i);
-              pages.appendChild(b);
-            }
-          }
-        } catch(err) {
-          tbody.innerHTML = '<tr><td colspan="6" style="color:#c00">Failed to load</td></tr>';
-        }
-      };
-      // Auto-load when System tab becomes visible
-      const _origSwitchInner = window.switchInnerTab;
-      window.switchInnerTab = function(tab, btn) {
-        _origSwitchInner && _origSwitchInner(tab, btn);
-        if (tab === 'system') loadMcFryLog(1);
-      };
-    })();
-    </script>
 
 </div><!-- /docs-panel-system -->
+<script>
+(function(){
+  let _mcFryPage = 1;
+  window.loadMcFryLog = async function(page) {
+    _mcFryPage = page || 1;
+    const tbody = document.getElementById('mcfry-log-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--ink3);font-style:italic">Loading…</td></tr>';
+    try {
+      const r = await adminFetch('/api/admin/ai-chat-log?page=' + _mcFryPage + '&limit=25');
+      const d = await r.json();
+      document.getElementById('mcfry-log-count').textContent = d.total + ' total rows';
+      if (!d.entries.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--ink3);font-style:italic">No activity yet.</td></tr>';
+      } else {
+        tbody.innerHTML = d.entries.map(e => {
+          const ts = new Date(e.created_at).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'});
+          const tools = (e.tools_called||[]).map(t=>t.name).join(', ') || '—';
+          const tok = (e.tokens_in||0) + '↑ ' + (e.tokens_out||0) + '↓';
+          const msg = (e.user_message||'').substring(0,80) + ((e.user_message||'').length>80?'…':'');
+          const status = e.error
+            ? '<span style="color:#c00" title="'+e.error+'">⚠ error</span>'
+            : '<span style="color:var(--success)">✓ ok</span>';
+          return `<tr>
+            <td style="white-space:nowrap;color:var(--ink3)">${ts}</td>
+            <td style="color:var(--ink2)">${e.user_email||'—'}</td>
+            <td title="${(e.user_message||'').replace(/"/g,'&quot;')}">${msg}</td>
+            <td style="color:var(--ink3)">${tools}</td>
+            <td style="white-space:nowrap;color:var(--ink3)">${tok}</td>
+            <td>${status}</td>
+          </tr>`;
+        }).join('');
+      }
+      const pages = document.getElementById('mcfry-log-pages');
+      pages.innerHTML = '';
+      if (d.pages > 1) {
+        for (let i=1; i<=d.pages; i++) {
+          const b = document.createElement('button');
+          b.className = 'ibtn'; b.textContent = i;
+          if (i === _mcFryPage) b.style.fontWeight = '700';
+          b.onclick = () => loadMcFryLog(i);
+          pages.appendChild(b);
+        }
+      }
+    } catch(err) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:#c00">Failed to load</td></tr>';
+    }
+  };
+})();
+</script>
 
 <!-- SUBSCRIBERS TAB -->
 <div id="tab-subscribers" class="page">
@@ -8671,6 +8665,7 @@ function switchInnerTab(name,btn){
   if(name==='help')_initHelp();
   if(name==='notes')renderUserNotes();
   if(name==='bugs')loadBugReports();
+  if(name==='system')loadMcFryLog(1);
 }
 // ── Shared print CSS used by both whole-panel and per-section print ──
 const _PRINT_CSS=`*{box-sizing:border-box;margin:0;padding:0;}

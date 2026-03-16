@@ -55,6 +55,8 @@ function _loadHelpContext() {
   try {
     const html = fs.readFileSync(path.join(__dirname, 'admin', 'index.html'), 'utf8');
     const stripTags = s => s
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<pre[^>]*>[\s\S]*?<\/pre>/g, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ')
