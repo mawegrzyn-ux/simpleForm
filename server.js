@@ -2349,6 +2349,7 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders(); // Establish SSE connection immediately before any async work
 
   const systemPrompt =
     `You are a concise, knowledgeable SignFlow admin assistant. ` +
@@ -2368,7 +2369,7 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
 
   // Keepalive: prevent Nginx proxy_read_timeout from dropping the SSE connection
   // during silent gaps while the agentic loop awaits the Anthropic API response.
-  const keepalive = setInterval(() => { try { res.write(': keepalive\n\n'); } catch(e) {} }, 15000);
+  const keepalive = setInterval(() => { try { res.write(': keepalive\n\n'); } catch(e) {} }, 10000);
 
   try {
     while (true) {
