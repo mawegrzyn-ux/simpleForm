@@ -1356,6 +1356,26 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <div><div class="color-lbl">Label colour</div><div id="bcp-field-label"></div></div>
         <div><div class="color-lbl">Border colour</div><div id="bcp-field-border"></div></div>
       </div>
+      <div class="cg" style="margin-top:6px"><label class="cl">Label size</label>
+        <select id="c-label-size" onchange="cfg.design.fieldLabelSize=this.value;schedulePreview()">
+          <option value="0.7rem">Tiny (0.7rem)</option>
+          <option value="0.75rem">Small (0.75rem)</option>
+          <option value="0.8rem">Small-medium (0.8rem)</option>
+          <option value="0.85rem">Default (0.85rem)</option>
+          <option value="0.9rem">Medium (0.9rem)</option>
+          <option value="1rem">Large (1rem)</option>
+        </select>
+      </div>
+      <div class="cg"><label class="cl">Label weight</label>
+        <select id="c-label-weight" onchange="cfg.design.fieldLabelWeight=this.value;schedulePreview()">
+          <option value="300">Light (300)</option>
+          <option value="400">Regular (400)</option>
+          <option value="500">Medium (500)</option>
+          <option value="600">Semi-bold (600)</option>
+          <option value="700">Bold (700)</option>
+          <option value="800">Extra-bold (800)</option>
+        </select>
+      </div>
       <div class="cg"><label class="cl">Border style</label>
         <select id="c-field-border-style" onchange="cfg.design.fieldBorderStyle=this.value;schedulePreview()">
           <option value="solid">Solid</option>
@@ -5111,6 +5131,8 @@ function populateControls(){
   const fbw=cfg.design.fieldBorderWidth??2;
   const fbwr=document.getElementById('c-field-border-w-range');if(fbwr)fbwr.value=fbw;
   const fbwp=document.getElementById('c-field-border-w-px');if(fbwp)fbwp.value=fbw;
+  const lblSz=document.getElementById('c-label-size');if(lblSz)lblSz.value=cfg.design.fieldLabelSize||'0.85rem';
+  const lblWt=document.getElementById('c-label-weight');if(lblWt)lblWt.value=cfg.design.fieldLabelWeight||'600';
   // Button style controls
   const btnBsEl=document.getElementById('c-btn-border-style');if(btnBsEl)btnBsEl.value=cfg.design.btnBorderStyle||'solid';
   const btnBw=cfg.design.btnBorderWidth??0;
@@ -9944,6 +9966,8 @@ function _populateDesignNonColorControls(){
   const fbw=d.fieldBorderWidth??2;
   const fbwr=document.getElementById('c-field-border-w-range');if(fbwr)fbwr.value=fbw;
   const fbwp=document.getElementById('c-field-border-w-px');if(fbwp)fbwp.value=fbw;
+  const tplLblSz=document.getElementById('c-label-size');if(tplLblSz)tplLblSz.value=d.fieldLabelSize||'0.85rem';
+  const tplLblWt=document.getElementById('c-label-weight');if(tplLblWt)tplLblWt.value=d.fieldLabelWeight||'600';
   const btnBsEl=document.getElementById('c-btn-border-style');if(btnBsEl)btnBsEl.value=d.btnBorderStyle||'solid';
   const bw=d.btnBorderWidth??0;
   const bwr=document.getElementById('c-btn-border-w-range');if(bwr)bwr.value=bw;

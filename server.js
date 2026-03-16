@@ -4859,6 +4859,9 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
     --btn-border-color: ${d.btnBorderColor || 'transparent'};
     --btn-border-style: ${d.btnBorderStyle || 'solid'};
     --btn-border-width: ${d.btnBorderWidth ?? 0}px;
+    --sf-lbl: ${d.fieldLabelColor || d.primaryColor};
+    --sf-lbl-size: ${d.fieldLabelSize || '0.85rem'};
+    --sf-lbl-weight: ${d.fieldLabelWeight || '600'};
   }
   body { font-family: var(--font-body); ${bgStyle} min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
   .sf-card { background: #fff; border-radius: ${d.cardRadius || '12px'}; padding: ${d.cardPadding || '48px 40px'}; max-width: var(--container); width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.15); color: var(--text); }
@@ -4872,7 +4875,7 @@ ${s.favicon ? `<link rel="icon" href="${s.favicon}">` : ''}
   h4 { font-family: var(--font-h4); color: var(--primary); font-size: 1.05rem; line-height: 1.4; margin-bottom: 6px; }
   .sf-sub { color: #666; font-size: 1.05rem; text-align: center; margin-bottom: 32px; line-height: 1.6; }
   .sf-field { margin-bottom: 16px; }
-  .sf-field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--sf-lbl, var(--primary)); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
+  .sf-field label { display: block; font-size: var(--sf-lbl-size, 0.85rem); font-weight: var(--sf-lbl-weight, 600); color: var(--sf-lbl, var(--primary)); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
   .req { color: var(--accent); }
   .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 12px 16px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--sf-ff, var(--font-field)); font-size: var(--sf-fsz, 1rem); color: var(--sf-txt, var(--text)); transition: border-color 0.2s; background: var(--sf-fbg, ${d.fieldBg||'#fafafa'}); }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
@@ -5536,6 +5539,9 @@ ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? 
     --btn-border-color: ${d.btnBorderColor || 'transparent'};
     --btn-border-style: ${d.btnBorderStyle || 'solid'};
     --btn-border-width: ${d.btnBorderWidth ?? 0}px;
+    --sf-lbl: ${d.fieldLabelColor || d.primaryColor};
+    --sf-lbl-size: ${d.fieldLabelSize || '0.85rem'};
+    --sf-lbl-weight: ${d.fieldLabelWeight || '600'};
   }
   html, body { background: transparent; }
   body { font-family: var(--font-body); color: var(--text); padding: 4px 2px 16px; }
@@ -5548,7 +5554,7 @@ ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? 
   h3 { font-family: var(--font-h3); color: var(--primary); font-size: clamp(0.95rem, 2.5vw, 1.2rem); line-height: 1.35; margin-bottom: 6px; }
   .sf-sub { color: #666; font-size: 0.97rem; text-align: center; margin-bottom: 22px; line-height: 1.6; }
   .sf-field { margin-bottom: 14px; }
-  .sf-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--sf-lbl, var(--primary)); margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .sf-field label { display: block; font-size: var(--sf-lbl-size, 0.85rem); font-weight: var(--sf-lbl-weight, 600); color: var(--sf-lbl, var(--primary)); margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
   .req { color: var(--accent); }
   .sf-field input, .sf-field select, .sf-field textarea { width: 100%; padding: 10px 14px; border: ${d.fieldBorderWidth||2}px ${d.fieldBorderStyle||'solid'} ${d.fieldBorderColor||'#e0e0e0'}; border-radius: ${d.fieldRadius || '6px'}; font-family: var(--sf-ff, var(--font-field)); font-size: var(--sf-fsz, 0.97rem); color: var(--sf-txt, var(--text)); transition: border-color 0.2s; background: var(--sf-fbg, ${d.fieldBg||'#fafafa'}); }
   .sf-field input:focus, .sf-field select:focus, .sf-field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
