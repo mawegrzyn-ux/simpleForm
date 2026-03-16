@@ -2257,6 +2257,17 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-16 — McFry write tools, activity log, brand analysis, bug fixes</h3>
+        <ul>
+          <li>✅ <strong>McFry write tools</strong> — AI assistant can now create forms, update form design, manage design templates, and analyse external branding. New tools: <code>create_form</code>, <code>update_form_config</code>, <code>list_design_templates</code>, <code>create_design_template</code>, <code>apply_design_template</code>, <code>analyze_website</code>. All write operations require explicit confirmation before executing ("Shall I proceed?").</li>
+          <li>✅ <strong>Brand analysis from URL</strong> — tell McFry a website URL; it fetches the page server-side, extracts brand colours, CSS variables, font families, and logo candidates, then proposes a matching SignFlow design template for confirmation</li>
+          <li>✅ <strong>Brand analysis from image</strong> — upload a photo or logo to the chat (🖼 button); McFry uses Claude vision to extract palette and style, then proposes a design template</li>
+          <li>✅ <strong>Chat image upload</strong> — new image attachment button in McFry chat input; uploads to S3 <code>chat-uploads/</code> folder (separate from Media library); supports JPEG, PNG, GIF, WebP up to 10 MB</li>
+          <li>✅ <strong>McFry activity log</strong> — every conversation turn is logged to new <code>ai_chat_log</code> PostgreSQL table: user email, message, response, tools called (JSONB array), context, token counts (in/out), error. Paginated viewer + CSV export in <strong>Help → System → McFry Activity Log</strong>. Admin API: <code>GET /api/admin/ai-chat-log</code>, export: <code>GET /api/admin/ai-chat-log/export</code>.</li>
+          <li>✅ <strong>McFry "No response" fix</strong> — empty assistant messages are no longer pushed to conversation history; broken history entries are filtered before sending to Anthropic; eliminates cascading "No response" failure across turns</li>
+          <li>✅ <strong>Token-limit handling</strong> — <code>max_tokens</code> stop reason now surfaces a readable cut-off message instead of silent empty response</li>
+          <li>✅ <strong>McFry renamed from McFly</strong> — all UI references updated</li>
+        </ul>
         <h3>2026-03-16 — AI assistant, Logo section, preview fixes, internal query API</h3>
         <ul>
           <li>✅ <strong>Logo section block</strong> — new first-class section type (<code>id:'logo'</code>) injected at position 0 of every form; displayed above Hero; renders the logo image from <code>cfg.design.logoUrl</code> at <code>cfg.design.logoWidth</code>; hidden automatically when Custom mode is toggled (alongside Hero, Form, Footer); Build tab shows a live preview thumbnail with a direct "Edit in Design tab" link; backward-compatible (injected at runtime if not already in <code>cfg.sections</code>)</li>
@@ -2267,7 +2278,6 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
           <li>✅ <strong>AI tool slug guard fix</strong> — <code>submit_feedback</code> and <code>get_feedback</code> tools were silently blocked by a slug guard in <code>_executeAiTool()</code>; guard now exempts tools that don't require a form slug</li>
           <li>✅ <strong>AI duplicate ticket prevention</strong> — system prompt updated: after <code>submit_feedback</code> returns, the assistant always includes the returned <code>id</code> as the reference number; never re-calls <code>submit_feedback</code> for the same report; uses <code>get_feedback</code> to look up existing reports instead</li>
           <li>✅ <strong>Internal DB query API</strong> — new <code>POST /api/internal/query?key=&lt;INTERNAL_API_KEY&gt;</code> endpoint; body: <code>{ sql, params }</code>; enforces read-only via regex keyword guard + <code>BEGIN READ ONLY</code> transaction; max 20 params, max 200 rows; enables Claude Code to run arbitrary SELECT queries against live DB without browser automation</li>
-          <li>✅ <strong>AI assistant renamed to McFry</strong> — floating button and panel header updated; button colour changed to Wingstop green</li>
         </ul>
         <h3>2026-03-15 — Form lifecycle status system</h3>
         <ul>
@@ -2439,30 +2449,30 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <h3>Overview</h3>
         <p><strong>McFry</strong> is the live AI assistant built into the admin panel (🐔 button, bottom-right). It uses Claude (Anthropic) with tool use and SSE streaming. It is context-aware — every message includes the current tab, active form slug, open modal, and panel tab. Responses are tailored to the user's role: super-admins receive full technical detail; market admins/editors receive plain-language answers.</p>
 
-        <h3>Live tools (implemented)</h3>
+        <h3>Read tools</h3>
         <table class="help-table">
           <tr><th>Tool</th><th>Description</th><th>Slug required?</th></tr>
-          <tr><td><code>get_form_config</code></td><td>Full form config JSONB — fields, design, site, email, embed settings</td><td>Yes</td></tr>
+          <tr><td><code>get_form</code></td><td>Full form config JSONB — fields, design, site, email, embed settings</td><td>Yes</td></tr>
           <tr><td><code>get_analytics</code></td><td>Views, submits, errors, unsubscribes counts for a form</td><td>Yes</td></tr>
-          <tr><td><code>get_subscribers_summary</code></td><td>Subscriber counts by status + 5 most recent emails</td><td>Yes</td></tr>
-          <tr><td><code>get_form_list</code></td><td>All form slugs, names, statuses and subscriber counts</td><td>No</td></tr>
-          <tr><td><code>submit_feedback</code></td><td>Log a bug report, change request, or feature suggestion to the <code>bug_reports</code> table. Returns the new ticket <code>id</code>.</td><td>No</td></tr>
-          <tr><td><code>get_feedback</code></td><td>List existing feedback tickets; filter by type and status</td><td>No</td></tr>
+          <tr><td><code>get_subscribers_summary</code></td><td>Subscriber counts by status + 5 most recent emails (no bulk PII)</td><td>Yes</td></tr>
+          <tr><td><code>get_form_list</code></td><td>All form slugs, names, statuses</td><td>No</td></tr>
+          <tr><td><code>get_feedback</code></td><td>List feedback tickets; filter by type and status</td><td>No</td></tr>
+          <tr><td><code>list_design_templates</code></td><td>All saved design templates (id, name, design summary)</td><td>No</td></tr>
+          <tr><td><code>analyze_website</code></td><td>Fetch a public URL, extract brand colours, CSS variables, fonts, and logo candidate — no confirmation needed (read-only)</td><td>No</td></tr>
         </table>
 
-        <h3>Upcoming tools (in development)</h3>
+        <h3>Write tools — all require confirmation</h3>
         <table class="help-table">
           <tr><th>Tool</th><th>Description</th></tr>
-          <tr><td><code>create_form</code></td><td>Create a new form by name; always confirms before writing</td></tr>
-          <tr><td><code>update_form_config</code></td><td>Patch a form's fields, sections, or design settings; always confirms</td></tr>
-          <tr><td><code>create_design_template</code></td><td>Save a design as a named template; always confirms</td></tr>
-          <tr><td><code>apply_design_template</code></td><td>Apply a template to a form; always confirms</td></tr>
-          <tr><td><code>list_design_templates</code></td><td>List all saved design templates</td></tr>
-          <tr><td><code>analyze_website</code></td><td>Fetch a URL, extract brand colours and fonts, propose a design template</td></tr>
+          <tr><td><code>submit_feedback</code></td><td>Log a bug, change request, or feature suggestion; returns ticket <code>id</code></td></tr>
+          <tr><td><code>create_form</code></td><td>Create a new form with a default config; slug auto-derived from name</td></tr>
+          <tr><td><code>update_form_config</code></td><td>Patch a form's display name and/or merge design settings (design_patch)</td></tr>
+          <tr><td><code>create_design_template</code></td><td>Save a design object as a named reusable template</td></tr>
+          <tr><td><code>apply_design_template</code></td><td>Apply a saved template to a form, replacing its current design</td></tr>
         </table>
 
         <h3>Write confirmation policy</h3>
-        <p>All write tools (create, update, apply, delete) require explicit confirmation before executing. McFry will describe what it is about to do and ask <em>"Shall I proceed?"</em> — it will not write until you confirm in the chat.</p>
+        <p>All write tools require explicit confirmation before executing. McFry describes exactly what it will create or change (name, slug, colours, target form) and asks <em>"Shall I proceed?"</em> — it waits for your confirmation in the next message before calling the tool.</p>
 
         <h3>Role-based response depth</h3>
         <table class="help-table">
@@ -2474,14 +2484,18 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <h3>Feedback / ticket workflow</h3>
         <p>To log a bug, change request, or feature idea: describe it to McFry. It will ask for (1) a short title and (2) a description; for bugs it will also ask for steps to reproduce. It then calls <code>submit_feedback</code> and always includes the returned ticket <code>id</code> in its reply as the reference number. It will never re-submit a ticket — if you ask for the ref number again, it reads it from the existing tool result. View and manage tickets in <strong>Help → Feedback</strong>.</p>
 
-        <h3>Brand analysis (upcoming)</h3>
-        <p>Share a website URL or upload a photo to the chat and McFry will extract your brand colours, fonts, and style — then propose a matching SignFlow design template. Confirm, and it saves the template ready to apply to any form.</p>
+        <h3>Brand analysis</h3>
+        <p><strong>From a URL:</strong> give McFry a website address and it fetches the page server-side, parses CSS for colour values, CSS custom properties (<code>--primary</code>, <code>--brand</code> etc.), font-family declarations, and <code>og:image</code>. It presents the extracted palette and proposes a SignFlow design template — confirm to save.</p>
+        <p><strong>From a photo / logo:</strong> click the 🖼 button in the chat input to upload an image (JPEG, PNG, GIF, WebP, max 10 MB). It uploads to S3 <code>chat-uploads/</code> (not shown in Media library) and is passed to Claude vision. McFry analyses colours and style, proposes a design_patch, and saves a template on confirmation.</p>
+
+        <h3>Activity log</h3>
+        <p>Every McFry conversation turn is recorded in the <code>ai_chat_log</code> table — user email, message, full response, tools called (JSONB array with name/input/result), context snapshot, token counts, and any error. View in <strong>Help → System → McFry Activity Log</strong> (paginated, sortable by user). Export as CSV from the same panel or via <code>GET /api/admin/ai-chat-log/export</code>.</p>
 
         <h3>Context injected with every message</h3>
         <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">{ currentTab, currentFormSlug, activeModal, panelTab, userRole }</pre>
 
         <h3>Architecture</h3>
-        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto;white-space:pre">User message + context
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto;white-space:pre">User message + context + history + imageUrls?
         │
         ▼
 POST /api/admin/ai-chat  (adminAuth — never public)
@@ -2490,35 +2504,47 @@ POST /api/admin/ai-chat  (adminAuth — never public)
 System prompt: role guidance + injected page context + help docs section
         │
         ▼
-Claude (claude-sonnet) with tool definitions
+Claude claude-sonnet-4-6 with tool definitions + vision
         │
-  ┌─────┴─────────────────────────────────────┐
-  │  Agentic tool-call loop                   │
-  │  (repeats until stop_reason="end_turn")   │
-  │                                           │
-  │  get_form_config      ←── PostgreSQL      │
-  │  get_analytics        ←── PostgreSQL      │
-  │  get_subscribers_summary ←── PostgreSQL   │
-  │  get_form_list        ←── PostgreSQL      │
-  │  submit_feedback      ←── PostgreSQL      │
-  │  get_feedback         ←── PostgreSQL      │
-  └───────────────────────────────────────────┘
+  ┌─────┴────────────────────────────────────────────────┐
+  │  Agentic tool-call loop                              │
+  │  (repeats until end_turn / max_tokens / error)       │
+  │                                                      │
+  │  READ          get_form, get_analytics,              │
+  │                get_subscribers_summary,              │
+  │                get_form_list, get_feedback,          │
+  │                list_design_templates,                │
+  │                analyze_website  ←── external HTTP   │
+  │                                                      │
+  │  WRITE (⚠ confirm first)                            │
+  │                create_form        ←── PostgreSQL     │
+  │                update_form_config ←── PostgreSQL     │
+  │                create_design_template ←── PostgreSQL │
+  │                apply_design_template  ←── PostgreSQL │
+  │                submit_feedback        ←── PostgreSQL │
+  └──────────────────────────────────────────────────────┘
         │
         ▼
-SSE stream → floating McFry panel  (keepalive every 10s)</pre>
+SSE stream → floating McFry panel  (keepalive every 10s)
+        │
+        ▼
+Fire-and-forget INSERT → ai_chat_log (tokens, tools, error)</pre>
 
         <h3>Security</h3>
         <ul>
           <li>Route behind <code>adminAuth</code> — never publicly accessible</li>
           <li><code>ANTHROPIC_API_KEY</code> server-side only — never sent to browser</li>
+          <li>Image uploads go to S3 <code>chat-uploads/</code> — separate from Media library, not browseable in the UI</li>
           <li><code>get_subscribers_summary</code> returns counts + max 5 emails — no bulk PII exposure</li>
           <li>All tool inputs validated before any DB query; slug guard exempts slug-free tools</li>
-          <li>SSE <code>X-Accel-Buffering: no</code> header prevents Nginx buffering; 10s keepalive prevents proxy timeout drops</li>
+          <li>Write tools gated by system prompt confirmation policy — confirmed separately for every action</li>
+          <li>SSE <code>X-Accel-Buffering: no</code> + 10s keepalive prevents Nginx proxy timeout drops</li>
+          <li>Empty assistant turns not added to history — prevents Anthropic API rejection from malformed message chains</li>
         </ul>
 
         <h3>Environment variables</h3>
         <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">ANTHROPIC_API_KEY=sk-ant-...
-INTERNAL_API_KEY=...   # used by Claude Code for read-only DB access via POST /api/internal/query</pre>
+INTERNAL_API_KEY=...   # Claude Code read-only DB access via POST /api/internal/query</pre>
 
       </div>
     </div>
