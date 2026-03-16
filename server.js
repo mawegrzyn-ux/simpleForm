@@ -2690,6 +2690,45 @@ app.get('/api/internal/feedback', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/internal/query?key=<INTERNAL_API_KEY>
+// Body: { "sql": "SELECT ...", "params": [] }
+// Read-only: only SELECT statements are accepted. Max 200 rows returned.
+app.post('/api/internal/query', async (req, res) => {
+  const key = process.env.INTERNAL_API_KEY;
+  if (!key || req.query.key !== key)
+    return res.status(401).json({ error: 'Unauthorized' });
+
+  const { sql = '', params = [] } = req.body;
+  const trimmed = sql.trim().toLowerCase();
+
+  // Strict read-only guard — must start with SELECT and contain no mutation keywords
+  if (!trimmed.startsWith('select'))
+    return res.status(400).json({ error: 'Only SELECT statements are allowed' });
+  const banned = /\b(insert|update|delete|drop|truncate|alter|create|grant|revoke|copy|execute|perform|do\s+\$\$)\b/i;
+  if (banned.test(sql))
+    return res.status(400).json({ error: 'Statement contains disallowed keywords' });
+  if (!Array.isArray(params))
+    return res.status(400).json({ error: 'params must be an array' });
+  if (params.length > 20)
+    return res.status(400).json({ error: 'Max 20 params' });
+
+  try {
+    // Wrap in a read-only transaction for extra safety
+    await pool.query('BEGIN READ ONLY');
+    let rows;
+    try {
+      ({ rows } = await pool.query(sql, params));
+      await pool.query('COMMIT');
+    } catch(e) {
+      await pool.query('ROLLBACK');
+      throw e;
+    }
+    // Cap at 200 rows to avoid huge responses
+    const capped = rows.length > 200;
+    res.json({ count: rows.length, capped, rows: rows.slice(0, 200) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Branding tab preview — standalone dummy form, no form slug required
 // Uses GENERIC_PREVIEW_SECTIONS/FIELDS with selected form's design (or defaults).
 app.get('/branding-preview', adminAuth, async (req, res) => {
