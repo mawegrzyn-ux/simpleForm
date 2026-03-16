@@ -48,10 +48,44 @@ const _anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
 
-// Extract plain-text help content from admin/index.html at startup (cached in memory).
-// Phase 2: replace with pgvector semantic search (search_docs tool).
-let _helpContext = '';
-function _loadHelpContext() {
+// ── Help context — vector semantic search (Voyage AI) ─────────────────────────
+// Sections are embedded once at startup. Per request we embed the user query and
+// return only the top-N most relevant sections (~500 chars vs 10k flat dump).
+let _helpChunks = []; // [{tags, heading, body, vector:Float32Array|null}]
+let _helpReady  = false;
+
+const _VOYAGE_KEY = process.env.VOYAGE_API_KEY;
+
+async function _voyageEmbed(inputs) {
+  if (!_VOYAGE_KEY) return null;
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ input: inputs, model: 'voyage-3-lite' });
+    const req = https.request({
+      hostname: 'api.voyageai.com', path: '/v1/embeddings', method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_VOYAGE_KEY}`,
+                 'Content-Length': Buffer.byteLength(body) }
+    }, res => {
+      let raw = '';
+      res.on('data', d => raw += d);
+      res.on('end', () => {
+        try { resolve(JSON.parse(raw)); }
+        catch(e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+function _cosineSim(a, b) {
+  let dot = 0, mA = 0, mB = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i]*b[i]; mA += a[i]*a[i]; mB += b[i]*b[i]; }
+  return dot / (Math.sqrt(mA) * Math.sqrt(mB) || 1);
+}
+
+async function _loadHelpContext() {
   try {
     const html = fs.readFileSync(path.join(__dirname, 'admin', 'index.html'), 'utf8');
     const stripTags = s => s
@@ -61,21 +95,78 @@ function _loadHelpContext() {
       .replace(/<[^>]+>/g, ' ')
       .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ')
       .replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-    const chunks = [];
+
+    const raw = [];
     const re = /data-tags="([^"]+)"[\s\S]*?<div class="help-group-head"[^>]*>([\s\S]*?)<\/div>\s*<div class="help-group-body">([\s\S]*?)<\/div>\s*<\/div>/g;
     let m;
     while ((m = re.exec(html)) !== null) {
       const heading = stripTags(m[2]).replace(/expand_more/g, '').trim();
-      const body = stripTags(m[3]);
-      if (body.length > 40) chunks.push(`## ${heading}\n${body}`);
+      const body    = stripTags(m[3]).substring(0, 1500); // cap each section
+      const tags    = m[1];
+      if (body.length > 40) raw.push({ tags, heading, body });
     }
-    _helpContext = chunks.join('\n\n').substring(0, 10000);
-    console.log(`[AI] Help context: ${_helpContext.length} chars, ${chunks.length} sections (capped at 10k)`);
+
+    if (_VOYAGE_KEY && raw.length) {
+      // Embed in batches of 64 (Voyage limit)
+      const BATCH = 64;
+      const allVectors = [];
+      for (let i = 0; i < raw.length; i += BATCH) {
+        const batch = raw.slice(i, i + BATCH);
+        const texts = batch.map(c => `${c.heading} ${c.tags} ${c.body.substring(0, 400)}`);
+        const result = await _voyageEmbed(texts);
+        if (result?.data) allVectors.push(...result.data.map(d => d.embedding));
+        else allVectors.push(...batch.map(() => null));
+      }
+      _helpChunks = raw.map((c, i) => ({ ...c, vector: allVectors[i] ? new Float32Array(allVectors[i]) : null }));
+      const embedded = _helpChunks.filter(c => c.vector).length;
+      console.log(`[AI] Help context: ${raw.length} sections, ${embedded} embedded via Voyage AI`);
+    } else {
+      // No Voyage key — fall back to keyword matching
+      _helpChunks = raw.map(c => ({ ...c, vector: null }));
+      console.log(`[AI] Help context: ${raw.length} sections (no Voyage key — keyword fallback)`);
+    }
+    _helpReady = true;
   } catch(e) {
     console.warn('[AI] Could not load help context:', e.message);
   }
 }
-_loadHelpContext();
+_loadHelpContext(); // async, fire-and-forget — server starts immediately
+
+async function _getRelevantContext(userMessage, currentTab) {
+  if (!_helpReady || !_helpChunks.length) return '';
+  const TOP_N = 4;
+  const query = `${currentTab || ''} ${userMessage}`.trim();
+  let scored;
+
+  if (_VOYAGE_KEY && _helpChunks.some(c => c.vector)) {
+    // Semantic search
+    const result = await _voyageEmbed([query]);
+    if (!result?.data?.[0]) return _keywordFallback(query, TOP_N);
+    const qVec = new Float32Array(result.data[0].embedding);
+    scored = _helpChunks
+      .filter(c => c.vector)
+      .map(c => ({ c, score: _cosineSim(qVec, c.vector) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, TOP_N);
+  } else {
+    scored = _keywordFallback(query, TOP_N);
+  }
+
+  return scored.map(({ c }) => `## ${c.heading}\n${c.body}`).join('\n\n');
+}
+
+function _keywordFallback(query, topN) {
+  const words = query.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+  return _helpChunks
+    .map(c => {
+      const text = `${c.heading} ${c.tags} ${c.body}`.toLowerCase();
+      const score = words.reduce((s, w) => s + (text.split(w).length - 1), 0);
+      return { c, score };
+    })
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN);
+}
 
 // ── AWS S3 ─────────────────────────────────────────────────────────────────────
 const s3        = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -2609,6 +2700,9 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     ? `The current user is a super-admin: provide full technical detail including config paths, DB field names, code-level explanations, and exact server behaviour where relevant.`
     : `The current user is a market admin or editor (non-technical). Keep responses functional and jargon-free: describe what the issue is, give a plain-language workaround, and suggest logging a support ticket if the issue needs escalation. Avoid config paths, DB fields, or code-level detail.`;
 
+  // Semantic search: fetch only the relevant help sections for this message
+  const _relevantDocs = await _getRelevantContext(message, context.currentTab);
+
   const systemPrompt =
     `You are a concise, knowledgeable SignFlow admin assistant. ` +
     `Answer in 2–4 sentences unless complexity genuinely requires more. ` +
@@ -2622,7 +2716,7 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     `Current admin context: tab="${context.currentTab || '?'}", ` +
     `form="${context.currentFormSlug || 'none'}", ` +
     `modal="${context.activeModal || 'none'}", panel="${context.panelTab || 'none'}", role="${_userRole}".` +
-    (_helpContext ? `\n\n--- SignFlow Documentation ---\n${_helpContext}` : '');
+    (_relevantDocs ? `\n\n--- Relevant SignFlow Documentation ---\n${_relevantDocs}` : '');
 
   const messages = [
     ...history.slice(-10),
