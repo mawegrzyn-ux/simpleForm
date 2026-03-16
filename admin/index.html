@@ -10197,6 +10197,16 @@ function toggleAiChat() {
   if (opening) setTimeout(() => document.getElementById('ai-chat-input').focus(), 50);
 }
 
+function resetAiContext() {
+  _aiHistory = [];
+  const msgs = document.getElementById('ai-chat-msgs');
+  const marker = document.createElement('div');
+  marker.style.cssText = 'text-align:center;font-size:0.7rem;color:var(--ink3);padding:6px 0;display:flex;align-items:center;gap:8px;margin:2px 0';
+  marker.innerHTML = '<span style="flex:1;height:1px;background:var(--brd)"></span>⟳ context reset<span style="flex:1;height:1px;background:var(--brd)"></span>';
+  msgs.appendChild(marker);
+  msgs.scrollTop = 9999;
+}
+
 function clearAiChat() {
   _aiHistory = [];
   _aiPendingImages = [];
@@ -10362,7 +10372,9 @@ async function sendAiMessage() {
     border-bottom:1px solid var(--brd);background:var(--bg2);flex-shrink:0">
     <span style="font-size:18px;line-height:1">🐔</span>
     <span style="font-weight:600;font-size:0.88rem;flex:1">McFry</span>
-    <button onclick="clearAiChat()" title="Clear conversation"
+    <button onclick="resetAiContext()" title="Reset context — keeps chat visible but starts a fresh conversation with the AI"
+      style="background:none;border:none;cursor:pointer;color:var(--ink3);font-size:0.72rem">↺ Reset</button>
+    <button onclick="clearAiChat()" title="Clear conversation and context"
       style="background:none;border:none;cursor:pointer;color:var(--ink3);font-size:0.72rem">Clear</button>
     <button onclick="toggleAiChat()"
       style="background:none;border:none;cursor:pointer;color:var(--ink3);display:flex">
