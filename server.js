@@ -2366,6 +2366,10 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     { role: 'user', content: message }
   ];
 
+  // Keepalive: prevent Nginx proxy_read_timeout from dropping the SSE connection
+  // during silent gaps while the agentic loop awaits the Anthropic API response.
+  const keepalive = setInterval(() => { try { res.write(': keepalive\n\n'); } catch(e) {} }, 15000);
+
   try {
     while (true) {
       const response = await _anthropic.messages.create({
@@ -2406,6 +2410,8 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     }
   } catch(e) {
     res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+  } finally {
+    clearInterval(keepalive);
   }
 
   res.write('data: [DONE]\n\n');
