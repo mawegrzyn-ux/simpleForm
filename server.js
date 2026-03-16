@@ -69,8 +69,8 @@ function _loadHelpContext() {
       const body = stripTags(m[3]);
       if (body.length > 40) chunks.push(`## ${heading}\n${body}`);
     }
-    _helpContext = chunks.join('\n\n').substring(0, 80000);
-    console.log(`[AI] Help context: ${_helpContext.length} chars, ${chunks.length} sections`);
+    _helpContext = chunks.join('\n\n').substring(0, 10000);
+    console.log(`[AI] Help context: ${_helpContext.length} chars, ${chunks.length} sections (capped at 10k)`);
   } catch(e) {
     console.warn('[AI] Could not load help context:', e.message);
   }
@@ -2650,7 +2650,7 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     while (true) {
       const response = await _anthropic.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: systemPrompt,
         tools: _AI_TOOLS,
         messages
