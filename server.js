@@ -2285,7 +2285,7 @@ async function _executeAiTool(name, input) {
     const { rows } = await pool.query('SELECT slug, name FROM forms ORDER BY name');
     return rows;
   }
-  if (!slug) return { error: 'slug required' };
+  if (!slug && !['get_feedback','submit_feedback'].includes(name)) return { error: 'slug required' };
   if (name === 'get_form') {
     const { rows } = await pool.query('SELECT config FROM forms WHERE slug=$1', [slug]);
     return rows.length ? rows[0].config : { error: 'Form not found' };
