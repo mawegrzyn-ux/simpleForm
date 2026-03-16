@@ -956,6 +956,21 @@ async function initDb() {
     ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'bug';
     CREATE INDEX IF NOT EXISTS idx_bug_reports_status ON bug_reports(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_bug_reports_type   ON bug_reports(type, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS ai_chat_log (
+      id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      user_email   TEXT,
+      user_message TEXT        NOT NULL,
+      response     TEXT,
+      tools_called JSONB       NOT NULL DEFAULT '[]',
+      context      JSONB       NOT NULL DEFAULT '{}',
+      tokens_in    INT,
+      tokens_out   INT,
+      error        TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_chat_log_created ON ai_chat_log(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ai_chat_log_user    ON ai_chat_log(user_email, created_at DESC);
   `);
   console.log('✔ Database tables ready');
 }
@@ -2122,6 +2137,49 @@ app.get('/api/admin/audit-log', requireAdminOrSuperAdmin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// AI chat activity log API
+app.get('/api/admin/ai-chat-log', requireAdminOrSuperAdmin, async (req, res) => {
+  try {
+    const page   = Math.max(1, parseInt(req.query.page) || 1);
+    const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+    const userFilter = req.query.user || null;
+    const params = [limit, offset];
+    let where = '';
+    if (userFilter) { params.push(userFilter); where = `WHERE user_email=$${params.length}`; }
+    const [{ rows }, { rows: cnt }] = await Promise.all([
+      pool.query(
+        `SELECT id, created_at, user_email, user_message, response,
+                tools_called, context, tokens_in, tokens_out, error
+         FROM ai_chat_log ${where} ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+        params
+      ),
+      pool.query(`SELECT COUNT(*) FROM ai_chat_log ${where}`, userFilter ? [userFilter] : [])
+    ]);
+    res.json({ entries: rows, total: parseInt(cnt[0].count), page, pages: Math.ceil(parseInt(cnt[0].count) / limit) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// AI chat log CSV export
+app.get('/api/admin/ai-chat-log/export', requireAdminOrSuperAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT created_at, user_email, user_message, response,
+              tools_called, tokens_in, tokens_out, error
+       FROM ai_chat_log ORDER BY created_at DESC LIMIT 5000`
+    );
+    const esc = v => v == null ? '' : `"${String(v).replace(/"/g, '""')}"`;
+    const header = 'created_at,user_email,user_message,response,tools_called,tokens_in,tokens_out,error';
+    const lines = rows.map(r =>
+      [r.created_at, r.user_email, r.user_message, r.response,
+       JSON.stringify(r.tools_called), r.tokens_in, r.tokens_out, r.error].map(esc).join(',')
+    );
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="mcfry-chat-log-${Date.now()}.csv"`);
+    res.send([header, ...lines].join('\n'));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Current user context ──────────────────────────────────────────────────────
 app.get('/api/admin/me', adminAuth, (req, res) => {
   const { dbId, systemRole, markets, email, name, picture } = req.session.user || {};
@@ -2581,6 +2639,11 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
   // during silent gaps while the agentic loop awaits the Anthropic API response.
   const keepalive = setInterval(() => { try { res.write(': keepalive\n\n'); } catch(e) {} }, 10000);
 
+  // Activity log accumulators
+  const _logToolsCalled = [];
+  let _logResponse = '';
+  let _logTokensIn = 0, _logTokensOut = 0, _logError = null;
+
   try {
     while (true) {
       const response = await _anthropic.messages.create({
@@ -2591,10 +2654,31 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
         messages
       });
 
+      // Accumulate token usage
+      if (response.usage) {
+        _logTokensIn  += response.usage.input_tokens  || 0;
+        _logTokensOut += response.usage.output_tokens || 0;
+      }
+
       if (response.stop_reason === 'end_turn') {
-        for (const block of response.content)
-          if (block.type === 'text')
+        const textBlocks = response.content.filter(b => b.type === 'text');
+        if (textBlocks.length === 0) {
+          const fallback = 'I processed your request but had nothing to add. Please try rephrasing or ask a follow-up.';
+          res.write(`data: ${JSON.stringify({ text: fallback })}\n\n`);
+          _logResponse = fallback;
+        } else {
+          for (const block of textBlocks) {
             res.write(`data: ${JSON.stringify({ text: block.text })}\n\n`);
+            _logResponse += block.text;
+          }
+        }
+        break;
+      }
+
+      if (response.stop_reason === 'max_tokens') {
+        const cutoff = '\n\n*(Response was too long and got cut off — please ask a more specific question.)*';
+        res.write(`data: ${JSON.stringify({ text: cutoff })}\n\n`);
+        _logResponse += cutoff;
         break;
       }
 
@@ -2612,6 +2696,7 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
             result = await _executeAiTool(block.name, toolInput);
           }
           catch(e) { result = { error: e.message }; }
+          _logToolsCalled.push({ name: block.name, input: block.input, result });
           toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
         }
         messages.push({ role: 'user', content: toolResults });
@@ -2620,9 +2705,25 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
       }
     }
   } catch(e) {
+    _logError = e.message;
     res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
   } finally {
     clearInterval(keepalive);
+    // Fire-and-forget activity log — never blocks the response
+    pool.query(
+      `INSERT INTO ai_chat_log (user_email, user_message, response, tools_called, context, tokens_in, tokens_out, error)
+       VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8)`,
+      [
+        req.session?.user?.email || null,
+        message.substring(0, 4000),
+        _logResponse.substring(0, 8000) || null,
+        JSON.stringify(_logToolsCalled),
+        JSON.stringify(context || {}),
+        _logTokensIn || null,
+        _logTokensOut || null,
+        _logError || null
+      ]
+    ).catch(() => {}); // silently ignore log failures
   }
 
   res.write('data: [DONE]\n\n');
