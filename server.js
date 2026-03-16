@@ -2229,6 +2229,32 @@ app.put('/api/admin/forms/:slug/markets', requireSuperAdmin, async (req, res) =>
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── AI Chat Upload ─────────────────────────────────────────────────────────────
+// Uploads image for AI chat; stored under chat-uploads/ in S3, NOT in the media table.
+app.post('/api/admin/chat-upload', adminAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowed.includes(req.file.mimetype))
+      return res.status(400).json({ error: 'Only JPEG, PNG, GIF and WebP images are allowed' });
+    if (req.file.size > 10 * 1024 * 1024)
+      return res.status(400).json({ error: 'Max file size is 10 MB' });
+    const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const key = `chat-uploads/${uuidv4()}.${ext}`;
+    await s3.send(new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET,
+      Key: key,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype
+    }));
+    const url = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    res.json({ url });
+  } catch(e) {
+    console.error('Chat upload error:', e);
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
 // ── AI Chat ───────────────────────────────────────────────────────────────────
 const _AI_TOOLS = [
   {
@@ -2276,6 +2302,71 @@ const _AI_TOOLS = [
       },
       required: ['type', 'title', 'description']
     }
+  },
+  {
+    name: 'create_form',
+    description: 'Create a new form. ALWAYS describe the form name and slug to the user and ask "Shall I create it?" BEFORE calling this tool. Never call without explicit confirmation.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Human-readable form name (e.g. "Summer Newsletter")' },
+        slug: { type: 'string', description: 'URL slug — lowercase letters, numbers and hyphens only. Auto-derived from name if omitted.' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'update_form_config',
+    description: 'Update a form\'s display name and/or merge design settings into its existing design. ALWAYS describe what will change and ask "Shall I proceed?" BEFORE calling this tool.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        slug: { type: 'string', description: 'Slug of the form to update' },
+        name: { type: 'string', description: 'New display name for the form (optional)' },
+        design_patch: { type: 'object', description: 'Partial design object to merge into the existing design (e.g. {"primaryColor":"#e63946","fontFamily":"Raleway"})' }
+      },
+      required: ['slug']
+    }
+  },
+  {
+    name: 'list_design_templates',
+    description: 'List all saved design templates. Use when the user asks what templates exist or before applying one.',
+    input_schema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'create_design_template',
+    description: 'Save a design as a named template. ALWAYS show the template name and key colours/fonts to the user and ask "Shall I save this?" BEFORE calling.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Template name (e.g. "Ocean Blue")' },
+        design: { type: 'object', description: 'Full design settings object (primaryColor, bgColor, fontFamily, logoUrl, etc.)' }
+      },
+      required: ['name', 'design']
+    }
+  },
+  {
+    name: 'apply_design_template',
+    description: 'Apply a saved design template to a form, replacing its current design. ALWAYS confirm the template name and target form with the user before calling.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        template_id: { type: 'string', description: 'Template UUID from list_design_templates' },
+        slug: { type: 'string', description: 'Form slug to apply the template to' }
+      },
+      required: ['template_id', 'slug']
+    }
+  },
+  {
+    name: 'analyze_website',
+    description: 'Fetch a public website and extract brand colours, fonts, and logo candidate for design recommendations. Call this before suggesting or creating a brand template from a URL. No confirmation needed — read-only.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Full URL to analyse (must start with http:// or https://)' }
+      },
+      required: ['url']
+    }
   }
 ];
 
@@ -2285,7 +2376,8 @@ async function _executeAiTool(name, input) {
     const { rows } = await pool.query('SELECT slug, name FROM forms ORDER BY name');
     return rows;
   }
-  if (!slug && !['get_feedback','submit_feedback'].includes(name)) return { error: 'slug required' };
+  const _NO_SLUG_TOOLS = ['get_form_list','get_feedback','submit_feedback','create_form','list_design_templates','create_design_template','analyze_website'];
+  if (!slug && !_NO_SLUG_TOOLS.includes(name)) return { error: 'slug required' };
   if (name === 'get_form') {
     const { rows } = await pool.query('SELECT config FROM forms WHERE slug=$1', [slug]);
     return rows.length ? rows[0].config : { error: 'Form not found' };
@@ -2335,6 +2427,106 @@ async function _executeAiTool(name, input) {
     );
     return { ok: true, id: rows[0].id, type, created_at: rows[0].created_at };
   }
+  if (name === 'create_form') {
+    const formName = (input.name || '').trim().substring(0, 100);
+    if (!formName) return { error: 'name required' };
+    let formSlug = (input.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if (!formSlug) formSlug = formName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
+    const { rows: ex } = await pool.query('SELECT slug FROM forms WHERE slug=$1', [formSlug]);
+    if (ex.length) return { error: `Slug "${formSlug}" is already taken. Provide a different name or a custom slug.` };
+    const defaultCfg = {
+      fields: [{ id: 'email', type: 'email', label: 'Email address', required: true }],
+      sections: [
+        { id: 'logo', type: 'logo', visible: true },
+        { id: 'hero', type: 'hero', visible: true },
+        { id: 'form', type: 'form', visible: true },
+        { id: 'footer', type: 'footer', visible: true }
+      ],
+      design: {}, email: {}
+    };
+    await pool.query(
+      'INSERT INTO forms (slug, name, config, status) VALUES ($1,$2,$3::jsonb,$4)',
+      [formSlug, formName, JSON.stringify(defaultCfg), 'draft']
+    );
+    return { ok: true, slug: formSlug, name: formName, status: 'draft' };
+  }
+  if (name === 'update_form_config') {
+    const { rows } = await pool.query('SELECT slug FROM forms WHERE slug=$1', [slug]);
+    if (!rows.length) return { error: 'Form not found' };
+    const setClauses = []; const params = [slug];
+    if (input.name && typeof input.name === 'string') {
+      params.push(input.name.trim().substring(0, 100));
+      setClauses.push(`name=$${params.length}`);
+    }
+    if (input.design_patch && typeof input.design_patch === 'object') {
+      params.push(JSON.stringify(input.design_patch));
+      setClauses.push(`config = jsonb_set(config, '{design}', COALESCE(config->'design','{}') || $${params.length}::jsonb)`);
+    }
+    if (!setClauses.length) return { error: 'No updates provided — supply name and/or design_patch' };
+    await pool.query(`UPDATE forms SET ${setClauses.join(', ')} WHERE slug=$1`, params);
+    return { ok: true, slug, updated: setClauses.map(c => c.split('=')[0].trim()) };
+  }
+  if (name === 'list_design_templates') {
+    const { rows } = await pool.query('SELECT id, name, created_at FROM design_templates ORDER BY name');
+    return { count: rows.length, templates: rows };
+  }
+  if (name === 'create_design_template') {
+    const tplName = (input.name || '').trim().substring(0, 100);
+    if (!tplName) return { error: 'name required' };
+    if (!input.design || typeof input.design !== 'object') return { error: 'design object required' };
+    const { rows } = await pool.query(
+      'INSERT INTO design_templates (name, design) VALUES ($1,$2::jsonb) RETURNING id, name',
+      [tplName, JSON.stringify(input.design)]
+    );
+    return { ok: true, id: rows[0].id, name: rows[0].name };
+  }
+  if (name === 'apply_design_template') {
+    const tplId = (input.template_id || '').trim();
+    if (!tplId) return { error: 'template_id required' };
+    const { rows: tpl } = await pool.query('SELECT design FROM design_templates WHERE id=$1', [tplId]);
+    if (!tpl.length) return { error: 'Template not found' };
+    const { rows: frm } = await pool.query('SELECT slug FROM forms WHERE slug=$1', [slug]);
+    if (!frm.length) return { error: 'Form not found' };
+    await pool.query(
+      "UPDATE forms SET config = jsonb_set(config, '{design}', $1::jsonb) WHERE slug=$2",
+      [JSON.stringify(tpl[0].design), slug]
+    );
+    return { ok: true, slug, template_id: tplId };
+  }
+  if (name === 'analyze_website') {
+    const rawUrl = (input.url || '').trim();
+    if (!rawUrl) return { error: 'url required' };
+    let parsedUrl;
+    try { parsedUrl = new URL(rawUrl); } catch(e) { return { error: 'Invalid URL' }; }
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) return { error: 'Only http/https URLs are supported' };
+    const fetchHtml = (targetUrl) => new Promise((resolve, reject) => {
+      const mod = targetUrl.startsWith('https') ? require('https') : require('http');
+      const req = mod.get(targetUrl, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SignFlow/1.0)' } }, (res) => {
+        if ([301,302,303,307,308].includes(res.statusCode) && res.headers.location) {
+          resolve({ redirect: new URL(res.headers.location, targetUrl).href }); return;
+        }
+        let data = '';
+        res.on('data', chunk => { data += chunk; if (data.length > 400000) req.destroy(); });
+        res.on('end', () => resolve({ html: data }));
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    });
+    let fetched = await fetchHtml(rawUrl);
+    if (fetched.redirect) fetched = await fetchHtml(fetched.redirect).catch(() => ({ html: '' }));
+    const html = fetched.html || '';
+    const hexColors = [...new Set((html.match(/#[0-9a-fA-F]{6}\b/g) || []).map(c => c.toLowerCase()))].slice(0, 30);
+    const cssVars = {};
+    for (const m of html.matchAll(/--([a-zA-Z-]*(?:color|primary|secondary|accent|brand|bg|background|fore|text|heading)[a-zA-Z-]*)\s*:\s*(#[0-9a-fA-F]{3,6}|rgba?\([^)]+\)|[a-zA-Z]+)\s*[;}\n]/gi))
+      cssVars[`--${m[1].trim()}`] = m[2].trim();
+    const fonts = [...new Set((html.match(/font-family\s*:\s*([^;}"'\n]+)/gi) || [])
+      .map(m => m.replace(/font-family\s*:\s*/i,'').replace(/['"]/g,'').split(',')[0].trim())
+      .filter(Boolean))].slice(0, 5);
+    const ogImage = (html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) || [])[1] || null;
+    const title = (html.match(/<title[^>]*>([^<]+)<\/title>/i) || [])[1]?.trim() || null;
+    return { url: rawUrl, title, topColors: hexColors.slice(0,12), cssVars: Object.keys(cssVars).length ? cssVars : undefined, fonts: fonts.length ? fonts : undefined, suggestedLogo: ogImage };
+  }
   return { error: 'Unknown tool' };
 }
 
@@ -2342,7 +2534,8 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
   if (!_anthropic)
     return res.status(503).json({ error: 'AI not configured — add ANTHROPIC_API_KEY to .env' });
 
-  const { message, context = {}, history = [] } = req.body;
+  const { message, context = {}, history = [], imageUrls = [] } = req.body;
+  const _hasImages = Array.isArray(imageUrls) && imageUrls.length > 0;
   if (!message || typeof message !== 'string' || message.length > 2000)
     return res.status(400).json({ error: 'Invalid message' });
 
@@ -2363,6 +2556,9 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     `Never guess live data — use tools to fetch it first. ` +
     `${_roleGuidance} ` +
     `If the user wants to report a bug, request a change, or suggest a feature: ask for (1) a short title, (2) a description. For bugs also ask for steps to reproduce. Then call submit_feedback with the correct type (bug/change/feature). IMPORTANT: After submit_feedback returns, ALWAYS include the returned id as the reference number in your reply (e.g. "Logged — ref: abc123"). NEVER call submit_feedback more than once for the same report; if the user asks for a ref number after you already submitted, extract the id from the previous tool result in this conversation — do NOT submit again. Use get_feedback to look up existing reports.\n\n` +
+    `WRITE OPERATIONS — create_form, update_form_config, create_design_template, apply_design_template: ALWAYS describe exactly what you will create or change (name, slug, colours, template, target form) and ask "Shall I proceed?" then WAIT for the user to confirm in their next message before calling the tool. Never call a write tool without explicit user confirmation.\n\n` +
+    `BRAND TEMPLATES FROM WEBSITES: When the user provides a URL and asks to match or use its branding, call analyze_website first. Present the extracted colours, fonts, and logo to the user. Then propose a design_patch or template design, confirm with the user ("Shall I save this as a template?" or "Shall I apply these colours to [form]?"), and only then call create_design_template or update_form_config.\n\n` +
+    `BRAND TEMPLATES FROM IMAGES: When the user uploads or shares an image (logo, screenshot, brand asset), analyse the colours and style visible in the image. Propose a matching design_patch covering primaryColor, bgColor, fontFamily and any other relevant fields. Confirm before calling any write tool.\n\n` +
     `Current admin context: tab="${context.currentTab || '?'}", ` +
     `form="${context.currentFormSlug || 'none'}", ` +
     `modal="${context.activeModal || 'none'}", panel="${context.panelTab || 'none'}", role="${_userRole}".` +
@@ -2370,7 +2566,15 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
 
   const messages = [
     ...history.slice(-10),
-    { role: 'user', content: message }
+    {
+      role: 'user',
+      content: _hasImages
+        ? [
+            ...imageUrls.slice(0, 4).map(url => ({ type: 'image', source: { type: 'url', url } })),
+            { type: 'text', text: message }
+          ]
+        : message
+    }
   ];
 
   // Keepalive: prevent Nginx proxy_read_timeout from dropping the SSE connection
