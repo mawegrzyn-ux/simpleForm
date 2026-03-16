@@ -2802,7 +2802,20 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     }
   } catch(e) {
     _logError = e.message;
-    res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+    if (e.status === 429) {
+      // Anthropic rate limit — extract reset timing from response headers
+      const retryAfter = parseInt(e.headers?.['retry-after'] || '0', 10);
+      const resetAt = e.headers?.['x-ratelimit-reset-tokens'] || e.headers?.['x-ratelimit-reset-requests'];
+      let waitSecs = retryAfter;
+      if (!waitSecs && resetAt) {
+        waitSecs = Math.max(1, Math.ceil((new Date(resetAt) - Date.now()) / 1000));
+      }
+      if (!waitSecs) waitSecs = 30; // safe fallback
+      const waitMsg = `Rate limit reached — AI is temporarily throttled. Try again in ${waitSecs}s.`;
+      res.write(`data: ${JSON.stringify({ error: waitMsg, rateLimited: true, retryAfterSecs: waitSecs })}\n\n`);
+    } else {
+      res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+    }
   } finally {
     clearInterval(keepalive);
     // Fire-and-forget activity log — never blocks the response

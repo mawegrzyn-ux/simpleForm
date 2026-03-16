@@ -10423,7 +10423,8 @@ async function sendAiMessage() {
           } else if (ev.tool) {
             _aiAppend('🔧 ' + ev.tool.replace(/_/g, ' '), 'ai-msg-tool');
           } else if (ev.error) {
-            botEl.innerHTML = '<em style="color:#c00">Error: ' + ev.error + '</em>';
+            botEl.innerHTML = '<em style="color:#c00">⚠️ ' + ev.error + '</em>';
+            if (ev.rateLimited && ev.retryAfterSecs) _aiStartCooldown(ev.retryAfterSecs);
           }
         } catch(e) {}
       }
@@ -10445,6 +10446,29 @@ async function sendAiMessage() {
   } finally {
     _aiStreaming = false;
   }
+}
+
+function _aiStartCooldown(secs) {
+  const sendBtn = document.querySelector('#ai-chat-panel button[onclick="sendAiMessage()"]');
+  const input   = document.getElementById('ai-chat-input');
+  if (!sendBtn || !input) return;
+  input.disabled = true;
+  sendBtn.disabled = true;
+  let remaining = secs;
+  const origHtml = sendBtn.innerHTML;
+  const tick = () => {
+    sendBtn.innerHTML = `<span style="font-size:0.75rem;font-weight:600">${remaining}s</span>`;
+    if (remaining <= 0) {
+      sendBtn.innerHTML = origHtml;
+      sendBtn.disabled = false;
+      input.disabled = false;
+      input.focus();
+      return;
+    }
+    remaining--;
+    setTimeout(tick, 1000);
+  };
+  tick();
 }
 </script>
 
