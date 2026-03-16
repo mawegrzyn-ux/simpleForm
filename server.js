@@ -2813,6 +2813,8 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
       if (!waitSecs) waitSecs = 30; // safe fallback
       const waitMsg = `Rate limit reached — AI is temporarily throttled. Try again in ${waitSecs}s.`;
       res.write(`data: ${JSON.stringify({ error: waitMsg, rateLimited: true, retryAfterSecs: waitSecs })}\n\n`);
+    } else if (e.status === 400 && e.message?.includes('credit balance')) {
+      res.write(`data: ${JSON.stringify({ error: 'AI unavailable — Anthropic account credits exhausted. Please top up at console.anthropic.com.' })}\n\n`);
     } else {
       res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
     }
