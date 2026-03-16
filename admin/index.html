@@ -168,7 +168,7 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .psz:hover{border-color:var(--ink3);color:var(--ink);}
 .psz.active{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
 .prev-lbl{color:var(--ink3);font-size:0.72rem;margin-left:auto;letter-spacing:0.06em;font-weight:600;text-transform:uppercase;}
-#prev-frame-wrap{padding:24px;display:flex;justify-content:center;align-items:flex-start;width:100%;}
+#prev-frame-wrap{flex:1;min-height:0;padding:24px;display:flex;flex-direction:column;align-items:center;width:100%;}
 #preview-frame{border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff;transition:width .3s ease;}
 /* Block cards */
 .bk{background:var(--panel);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:box-shadow 120ms;margin-bottom:5px;flex-shrink:0;}
@@ -193,12 +193,17 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 .bk-hero>.bk-head .bk-dh,.bk-hero>.bk-head .bk-icon,.bk-hero>.bk-head .bk-chevron,.bk-hero>.bk-head .bk-vis,.bk-hero>.bk-head .bk-del,.bk-hero>.bk-head .bk-lock,
 .bk-form>.bk-head .bk-dh,.bk-form>.bk-head .bk-icon,.bk-form>.bk-head .bk-chevron,.bk-form>.bk-head .bk-vis,.bk-form>.bk-head .bk-del,.bk-form>.bk-head .bk-lock,
 .bk-footer>.bk-head .bk-dh,.bk-footer>.bk-head .bk-icon,.bk-footer>.bk-head .bk-chevron,.bk-footer>.bk-head .bk-vis,.bk-footer>.bk-head .bk-del,.bk-footer>.bk-head .bk-lock{color:rgba(255,255,255,.6);}
+.bk-logo>.bk-head{background:linear-gradient(135deg,#0f172a,#1e3a8a);}
+.bk-logo>.bk-head .bk-title{color:#fff;}
+.bk-logo>.bk-head .bk-vis,.bk-logo>.bk-head .bk-del:hover{color:rgba(255,255,255,.6);}
+.bk-logo>.bk-head .bk-vis.on,.bk-logo>.bk-head .bk-vis:hover{color:#fff;}
+.bk-logo>.bk-head .bk-del:hover{color:#ff8a8a;background:rgba(255,255,255,.08);}
 .bk-hero>.bk-head .bk-vis.on,.bk-hero>.bk-head .bk-vis:hover,
 .bk-form>.bk-head .bk-vis.on,.bk-form>.bk-head .bk-vis:hover,
 .bk-footer>.bk-head .bk-vis.on,.bk-footer>.bk-head .bk-vis:hover{color:#fff;}
 .bk-hero>.bk-head .bk-del:hover,.bk-form>.bk-head .bk-del:hover,.bk-footer>.bk-head .bk-del:hover{color:#ff8a8a;background:rgba(255,255,255,.08);}
 .bk-hero>.bk-head .bk-title,.bk-form>.bk-head .bk-title,.bk-footer>.bk-head .bk-title{color:#fff;}
-#bl-scroll.custom-mode .bk-hero,#bl-scroll.custom-mode .bk-form,#bl-scroll.custom-mode .bk-footer{display:none;}
+#bl-scroll.custom-mode .bk-logo,#bl-scroll.custom-mode .bk-hero,#bl-scroll.custom-mode .bk-form,#bl-scroll.custom-mode .bk-footer{display:none;}
 #custom-mode-btn.active{background:var(--accent);color:#fff;}
 .bk-dh{color:var(--border);cursor:grab;font-size:18px!important;flex-shrink:0;transition:color 120ms;}
 .bk-dh:hover{color:var(--ink3);}
@@ -527,7 +532,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 #forms-list-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;}
 #forms-preview-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 #forms-prev-toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:5px;flex-shrink:0;}
-#forms-prev-frame-wrap{flex:1;overflow:auto;padding:24px;display:flex;justify-content:center;align-items:flex-start;background:var(--bg2);}
+#forms-prev-frame-wrap{flex:1;min-height:0;padding:24px;display:flex;flex-direction:column;align-items:center;background:var(--bg2);}
 #forms-preview-frame{border:none;border-radius:var(--rlg);box-shadow:var(--shadow-lg);background:#fff;transition:width .3s ease,height .3s ease;}
 #forms-preview-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:14px;color:var(--ink3);background:var(--bg2);}
 #forms-preview-placeholder .material-icons-round{font-size:52px;opacity:.2;}
@@ -725,7 +730,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <span class="prev-lbl">Preview</span>
     </div>
     <div id="forms-prev-frame-wrap" style="display:none">
-      <iframe id="forms-preview-frame" src="about:blank" style="width:100%;height:700px"></iframe>
+      <iframe id="forms-preview-frame" src="about:blank" style="width:100%;flex:1;min-height:0;"></iframe>
     </div>
     <div id="forms-preview-placeholder">
       <span class="material-icons-round">dynamic_form</span>
@@ -1168,7 +1173,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
       <span class="prev-lbl">Live preview</span>
     </div>
     <div id="prev-frame-wrap">
-      <iframe id="preview-frame" src="about:blank" style="width:100%;height:680px"></iframe>
+      <iframe id="preview-frame" src="about:blank" style="width:100%;flex:1;min-height:0;"></iframe>
     </div>
   </div>
 </div>
@@ -3279,7 +3284,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
     </div>
 
     <!-- FORM BUILDER -->
-    <div class="help-group" data-tags="build section hero form container content block field wysiwyg divider spacer video spin wheel confirmation iconselect yearmonthday tile icon grid picker">
+    <div class="help-group" data-tags="build section hero form container content block field wysiwyg divider spacer video prizedraw prize draw spin wheel confirmation iconselect yearmonthday tile icon grid picker">
       <div class="help-group-head" onclick="toggleHelp(this)">
         <span class="material-icons-round mi">edit</span> Form Builder
         <span class="material-icons-round mi help-chevron">expand_more</span>
@@ -3296,7 +3301,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <tr><td><strong>Divider</strong></td><td>Visual separator — line, dots, wave or space-only. Configurable colour and thickness.</td></tr>
           <tr><td><strong>Spacer</strong></td><td>Fixed-height empty space (px). Use between sections for breathing room.</td></tr>
           <tr><td><strong>Video</strong></td><td>Embedded YouTube, Vimeo or direct .mp4 video with configurable aspect ratio and autoplay.</td></tr>
-          <tr><td><strong>Spin Wheel</strong></td><td>Interactive prize wheel. Configure rewards, probabilities and button label. Subscribers are shown their result before signing up.</td></tr>
+          <tr><td><strong>Prizedraw</strong></td><td>Interactive prize wheel (spin-to-win). Configure rewards, probabilities and button label. Subscribers are shown their result before signing up.</td></tr>
           <tr><td><strong>Confirmation</strong></td><td>Shown in place of the form after a successful submission. Add any content blocks here — thank-you messages, downloadable offers, social links etc.</td></tr>
           <tr><td><strong>Footer</strong></td><td>Small text or links shown beneath the form — privacy policy, powered-by, etc.</td></tr>
         </table>
@@ -4284,7 +4289,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
       <button class="block-type-btn" onclick="addBlock('container')"><span class="material-icons-round mi">view_agenda</span><span class="block-type-label">Container</span></button>
       <button class="block-type-btn" onclick="addBlock('divider')"><span class="material-icons-round mi">horizontal_rule</span><span class="block-type-label">Divider</span></button>
       <button class="block-type-btn" onclick="addBlock('video')"><span class="material-icons-round mi">play_circle</span><span class="block-type-label">Video</span></button>
-      <button class="block-type-btn" onclick="addBlock('spinwheel')"><span class="material-icons-round mi">casino</span><span class="block-type-label">Spin Wheel</span></button>
+      <button class="block-type-btn" onclick="addBlock('spinwheel')"><span class="material-icons-round mi">casino</span><span class="block-type-label">Prizedraw</span></button>
     </div>
   </div>
 </div>
@@ -6118,16 +6123,16 @@ function _blockArray(id){
 }
 
 // ── Build panel ──
-const BK_ICONS={hero:'auto_awesome',form:'edit_square',footer:'notes',divider:'horizontal_rule',video:'play_circle',spinwheel:'casino',content:'widgets',container:'view_agenda'};
-const BK_LABELS={hero:'Hero',form:'Form',footer:'Footer',divider:'Divider',video:'Video',spinwheel:'Spin Wheel',content:'Content',container:'Container'};
+const BK_ICONS={logo:'image',hero:'auto_awesome',form:'edit_square',footer:'notes',divider:'horizontal_rule',video:'play_circle',spinwheel:'casino',content:'widgets',container:'view_agenda'};
+const BK_LABELS={logo:'Logo',hero:'Hero',form:'Form',footer:'Footer',divider:'Divider',video:'Video',spinwheel:'Prizedraw',content:'Content',container:'Container'};
 
-function isBkFixed(s){return s.id==='hero'||s.id==='footer'||s.id==='form'||s.type==='form';}
-function isBkDeletable(s){return s.id!=='hero'&&s.id!=='footer'&&s.id!=='form';}
+function isBkFixed(s){return s.id==='logo'||s.id==='hero'||s.id==='footer'||s.id==='form'||s.type==='form';}
+function isBkDeletable(s){return s.id!=='logo'&&s.id!=='hero'&&s.id!=='footer'&&s.id!=='form';}
 
 function toggleCustomMode(){
   const on=!cfg.site.customFormMode;
   cfg.site.customFormMode=on;
-  const defaultIds=['hero','form','footer'];
+  const defaultIds=['logo','hero','form','footer'];
   (cfg.sections||[]).forEach(s=>{
     if(defaultIds.includes(s.id)||s.type==='form')s.visible=!on;
   });
@@ -6147,11 +6152,17 @@ function _applyCustomMode(){
 }
 
 function renderBuildPanel(){
+  // Ensure logo section exists at position 0 (backward compat for older form configs)
+  if(!(cfg.sections||[]).some(s=>s.id==='logo')){
+    cfg.sections.unshift({id:'logo',type:'logo',visible:true});
+  }
   const scroll=document.getElementById('bl-scroll');scroll.innerHTML='';
+  const logo=cfg.sections.find(s=>s.id==='logo');
+  if(logo){const card=makeBkCard(logo);scroll.appendChild(card);initBlockBcps(logo,card.querySelector('.bk-body'));}
   const hero=cfg.sections.find(s=>s.id==='hero');
   if(hero){const card=makeBkCard(hero);scroll.appendChild(card);initBlockBcps(hero,card.querySelector('.bk-body'));}
   // Render all middle sections in array order (form block included, fixed + locked)
-  cfg.sections.filter(s=>s.id!=='hero'&&s.id!=='footer').forEach(s=>{
+  cfg.sections.filter(s=>s.id!=='logo'&&s.id!=='hero'&&s.id!=='footer').forEach(s=>{
     const card=makeBkCard(s);
     if(!isBkFixed(s))setupBkDrag(card,s.id,'sections');
     scroll.appendChild(card);
@@ -6233,6 +6244,7 @@ function makeBkCard(s,isConfirmation){
 }
 
 function getBkBody(s){
+  if(s.id==='logo'||s.type==='logo')return logoBkBody();
   if(s.id==='hero'||s.type==='hero')return heroBkBody(s);
   if(s.id==='form'||s.type==='form')return formBkBody();
   if(s.id==='footer'||s.type==='footer')return footerBkBody(s);
@@ -6242,6 +6254,16 @@ function getBkBody(s){
   if(s.type==='content')return contentBkBody(s);
   if(s.type==='container')return containerBkBody(s);
   return '';
+}
+
+function logoBkBody(){
+  const url=cfg.design&&cfg.design.logoUrl;
+  const w=cfg.design&&cfg.design.logoWidth||'180px';
+  if(url)return `<div style="padding:8px 0;display:flex;align-items:center;gap:12px">
+    <img src="${escHtml(url)}" style="max-height:48px;max-width:160px;object-fit:contain;border-radius:4px;border:1px solid var(--brd)">
+    <span style="font-size:0.75rem;color:var(--ink3)">Width: ${escHtml(w)} &nbsp;·&nbsp; <a href="#" onclick="event.preventDefault();switchTab('design')" style="color:var(--accent)">Edit in Design tab</a></span>
+  </div>`;
+  return `<p style="font-size:0.8rem;color:var(--ink3);padding:6px 0">No logo set. <a href="#" onclick="event.preventDefault();switchTab('design')" style="color:var(--accent)">Add one in the Design tab</a>.</p>`;
 }
 
 function heroBkBody(s){

@@ -2351,15 +2351,21 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders(); // Establish SSE connection immediately before any async work
 
+  const _userRole = req.session?.user?.systemRole || 'admin';
+  const _roleGuidance = _userRole === 'super-admin'
+    ? `The current user is a super-admin: provide full technical detail including config paths, DB field names, code-level explanations, and exact server behaviour where relevant.`
+    : `The current user is a market admin or editor (non-technical). Keep responses functional and jargon-free: describe what the issue is, give a plain-language workaround, and suggest logging a support ticket if the issue needs escalation. Avoid config paths, DB fields, or code-level detail.`;
+
   const systemPrompt =
     `You are a concise, knowledgeable SignFlow admin assistant. ` +
     `Answer in 2–4 sentences unless complexity genuinely requires more. ` +
     `Always reference exact UI locations (tab names, button labels, setting names). ` +
     `Never guess live data — use tools to fetch it first. ` +
+    `${_roleGuidance} ` +
     `If the user wants to report a bug, request a change, or suggest a feature: ask for (1) a short title, (2) a description. For bugs also ask for steps to reproduce. Then call submit_feedback with the correct type (bug/change/feature). IMPORTANT: After submit_feedback returns, ALWAYS include the returned id as the reference number in your reply (e.g. "Logged — ref: abc123"). NEVER call submit_feedback more than once for the same report; if the user asks for a ref number after you already submitted, extract the id from the previous tool result in this conversation — do NOT submit again. Use get_feedback to look up existing reports.\n\n` +
     `Current admin context: tab="${context.currentTab || '?'}", ` +
     `form="${context.currentFormSlug || 'none'}", ` +
-    `modal="${context.activeModal || 'none'}", panel="${context.panelTab || 'none'}".` +
+    `modal="${context.activeModal || 'none'}", panel="${context.panelTab || 'none'}", role="${_userRole}".` +
     (_helpContext ? `\n\n--- SignFlow Documentation ---\n${_helpContext}` : '');
 
   const messages = [
@@ -3821,6 +3827,12 @@ function renderSectionBlock(section, cfg, formSection, formFields, opts = {}) {
   const d = cfg.design;
   const s = cfg.site;
 
+  // Logo
+  if (section.id === 'logo' || section.type === 'logo') {
+    if (!d.logoUrl) return '';
+    return `<div class="sf-logo"><img src="${escapeHtml(d.logoUrl)}" alt="Logo" style="max-width:${escapeHtml(d.logoWidth||'180px')}"></div>`;
+  }
+
   // Hero
   if (section.id === 'hero' || section.type === 'hero') {
     const h = section;
@@ -4339,7 +4351,12 @@ function renderPublicPage(cfg, sharedFonts = [], templates = [], opts = {}) {
   const s = cfg.site;
   const formSection = cfg.sections.find(sec => sec.id === 'form');
 
-  const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
+  // Fields placed in custom containers should not also render in the default form section
+  const _fieldsInContainers = new Set(
+    (cfg.sections||[]).filter(s => s.type === 'container' && s.visible !== false)
+      .flatMap(s => (s.items||[]).filter(i => i.type === 'field').map(i => i.fieldId))
+  );
+  const formFields = cfg.fields.filter(f => !_fieldsInContainers.has(f.id)).map(f => renderFormField(f, cfg)).join('');
 
   const overlayRgb = hexToRgb(d.backgroundOverlayColor||'#000000');
   const bgStyle = d.backgroundImage
@@ -4456,8 +4473,7 @@ ${opts.testingPin ? buildPinOverlayHtml(opts.testingPin, d.primaryColor) : ''}
 <div class="sf-card">
   <form id="sf-form" novalidate>
     <div id="sf-form-content">
-      ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
-      ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
+      ${(() => { const secs = (cfg.sections||[]).some(s => s.id==='logo') ? cfg.sections : [{id:'logo',type:'logo',visible:true}, ...cfg.sections]; return secs.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  '); })()}
     </div>
     <!-- Anti-bot honeypot — invisible to humans, bots fill it in -->
     <div style="position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden" aria-hidden="true">
@@ -5023,7 +5039,11 @@ function renderEmbedPage(cfg, sharedFonts = [], templates = [], opts = {}) {
   const s = cfg.site;
   const formSection = cfg.sections.find(sec => sec.id === 'form');
 
-  const formFields = cfg.fields.map(f => renderFormField(f, cfg)).join('');
+  const _fieldsInContainers = new Set(
+    (cfg.sections||[]).filter(s => s.type === 'container' && s.visible !== false)
+      .flatMap(s => (s.items||[]).filter(i => i.type === 'field').map(i => i.fieldId))
+  );
+  const formFields = cfg.fields.filter(f => !_fieldsInContainers.has(f.id)).map(f => renderFormField(f, cfg)).join('');
   const confirmationBlocks = (cfg.confirmation || []).map(sec => renderSectionBlock(sec, cfg, null, '', {confirmationCtx: true})).join('\n  ');
   const _pdPlaced = new Set();
   (cfg.confirmation || []).forEach(sec => {
@@ -5102,8 +5122,7 @@ ${globalSettings.captchaMode === 'hcaptcha' && globalSettings.hcaptchaSiteKey ? 
 ${opts.testingPin ? buildPinOverlayHtml(opts.testingPin, d.primaryColor) : ''}
   <form id="sf-form" novalidate>
     <div id="sf-form-content">
-      ${d.logoUrl ? `<div class="sf-logo"><img src="${d.logoUrl}" alt="Logo"></div>` : ''}
-      ${cfg.sections.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  ')}
+      ${(() => { const secs = (cfg.sections||[]).some(s => s.id==='logo') ? cfg.sections : [{id:'logo',type:'logo',visible:true}, ...cfg.sections]; return secs.map(sec => renderSectionBlock(sec, cfg, formSection, formFields)).join('\n  '); })()}
     </div>
   </form>
   ${(confirmationBlocks || prizedrawWidgets) ? `<div id="sf-confirmation" style="display:none">${confirmationBlocks}${prizedrawWidgets}</div>` : ''}
