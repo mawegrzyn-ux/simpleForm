@@ -2356,7 +2356,7 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     `Answer in 2–4 sentences unless complexity genuinely requires more. ` +
     `Always reference exact UI locations (tab names, button labels, setting names). ` +
     `Never guess live data — use tools to fetch it first. ` +
-    `If the user wants to report a bug, request a change, or suggest a feature: ask for (1) a short title, (2) a description. For bugs also ask for steps to reproduce. Then call submit_feedback with the correct type (bug/change/feature). Tell them to check the Feedback tab in Help.\n\n` +
+    `If the user wants to report a bug, request a change, or suggest a feature: ask for (1) a short title, (2) a description. For bugs also ask for steps to reproduce. Then call submit_feedback with the correct type (bug/change/feature). IMPORTANT: After submit_feedback returns, ALWAYS include the returned id as the reference number in your reply (e.g. "Logged — ref: abc123"). NEVER call submit_feedback more than once for the same report; if the user asks for a ref number after you already submitted, extract the id from the previous tool result in this conversation — do NOT submit again. Use get_feedback to look up existing reports.\n\n` +
     `Current admin context: tab="${context.currentTab || '?'}", ` +
     `form="${context.currentFormSlug || 'none'}", ` +
     `modal="${context.activeModal || 'none'}", panel="${context.panelTab || 'none'}".` +
