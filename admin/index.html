@@ -1351,7 +1351,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center">
       <input type="search" id="system-search" placeholder="Search system docs…" style="flex:1;max-width:340px" oninput="filterSystem(this.value)">
       <button class="ibtn" onclick="toggleAiChat()" style="display:flex;align-items:center;gap:4px;font-size:0.78rem;white-space:nowrap;margin-left:auto">
-        <span class="material-icons-round mi" style="font-size:15px">smart_toy</span> Ask AI
+        <span style="font-size:15px;line-height:1">🐔</span> Ask McFly
       </button>
     </div>
     <div id="system-sections">
@@ -1660,7 +1660,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>renderPreferencePage(cfg, data, sharedFonts)</code></td><td>Subscriber preference centre — update fields, resubscribe, unsubscribe</td></tr>
           <tr><td><code>renderPrivacyPage(cfg, sharedFonts)</code></td><td>Admin-authored privacy policy page</td></tr>
           <tr><td><code>renderBlockElement(el, cfg)</code></td><td>Renders a single top-level section block (heading, paragraph, image, divider, spacer, video, wysiwyg)</td></tr>
-          <tr><td><code>renderSectionBlock(section, cfg, formSection, formFields)</code></td><td>Renders a form section (hero, form, container, content, divider, video, spinwheel, confirmation)</td></tr>
+          <tr><td><code>renderSectionBlock(section, cfg, formSection, formFields)</code></td><td>Renders a form section (logo, hero, form, container, content, divider, video, prizedraw, confirmation). Logo section auto-injected at position 0 if not already in <code>cfg.sections</code>.</td></tr>
           <tr><td><code>renderFormField(f, cfg)</code></td><td>Renders a single form field by type (text, email, phone, number, textarea, select, checkbox, date, year, yearmonth, yearmonthday, age, slider, iconselect)</td></tr>
           <tr><td><code>sendWelcomeEmail(cfg, sub)</code></td><td>Builds HTML email from template, replaces merge tags, sends via Nodemailer; auto-appends unsubscribe footer if <code>{{unsubscribeUrl}}</code> not found in body</td></tr>
           <tr><td><code>replaceMergeTags(text, cfg, sub, unsubUrl)</code></td><td>Replaces <code>{{email}}</code>, <code>{{firstName}}</code>, <code>{{formName}}</code>, <code>{{unsubscribeUrl}}</code>, <code>{{preferencesUrl}}</code></td></tr>
@@ -1767,6 +1767,12 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>GET /api/admin/forms/:slug/markets</code></td><td>List markets assigned to a form</td></tr>
           <tr><td><code>PUT /api/admin/forms/:slug/markets</code></td><td>Replace a form's market assignments; body: <code>{ marketIds: [] }</code> (super-admin only)</td></tr>
           <tr><td><code>GET /branding-preview</code></td><td>Render a standalone branding preview iframe (uses generic demo content)</td></tr>
+        </table>
+        <h3>Internal read-only API (Claude Code access)</h3>
+        <table class="help-table">
+          <tr><th>Method + Path</th><th>Description</th></tr>
+          <tr><td><code>GET /api/internal/feedback?key=…</code></td><td>List <code>bug_reports</code> rows; filter by <code>type</code>, <code>status</code>, <code>limit</code>. Read-only, key-authenticated.</td></tr>
+          <tr><td><code>POST /api/internal/query?key=…</code></td><td>Run an arbitrary <code>SELECT</code> query against the DB. Body: <code>{ sql, params[] }</code>. Enforces read-only via keyword guard + <code>BEGIN READ ONLY</code> transaction. Max 20 params, max 200 rows returned. Used by Claude Code to inspect live data without browser automation.</td></tr>
         </table>
       </div>
     </div>
@@ -2251,6 +2257,18 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-16 — AI assistant, Logo section, preview fixes, internal query API</h3>
+        <ul>
+          <li>✅ <strong>Logo section block</strong> — new first-class section type (<code>id:'logo'</code>) injected at position 0 of every form; displayed above Hero; renders the logo image from <code>cfg.design.logoUrl</code> at <code>cfg.design.logoWidth</code>; hidden automatically when Custom mode is toggled (alongside Hero, Form, Footer); Build tab shows a live preview thumbnail with a direct "Edit in Design tab" link; backward-compatible (injected at runtime if not already in <code>cfg.sections</code>)</li>
+          <li>✅ <strong>Prizedraw rename</strong> — "Spin Wheel" renamed to <strong>Prizedraw</strong> throughout: block type button label, <code>BK_LABELS</code>, help table, data-tags, and all UI strings</li>
+          <li>✅ <strong>Preview pane height fix</strong> — all three preview iframes (Build, Forms list, Design) changed from fixed <code>height:680px</code> to <code>flex:1; min-height:0</code> inside flex-column wrappers; iframes now fill their available height correctly at any viewport size</li>
+          <li>✅ <strong>Fields-in-containers exclusion</strong> — fields explicitly placed inside custom Container sections are now excluded from the default Form section's field list; prevents duplicate rendering; implemented via <code>_fieldsInContainers</code> Set built from <code>cfg.sections</code> at render time (both <code>renderFormPage</code> and <code>renderFormPageFull</code>)</li>
+          <li>✅ <strong>Role-based AI verbosity</strong> — AI assistant now tailors response depth to the logged-in user's <code>systemRole</code>: super-admin receives full technical detail (config paths, DB field names, code-level explanations); market admin/editor receives plain-language functional answers with escalation prompts</li>
+          <li>✅ <strong>AI tool slug guard fix</strong> — <code>submit_feedback</code> and <code>get_feedback</code> tools were silently blocked by a slug guard in <code>_executeAiTool()</code>; guard now exempts tools that don't require a form slug</li>
+          <li>✅ <strong>AI duplicate ticket prevention</strong> — system prompt updated: after <code>submit_feedback</code> returns, the assistant always includes the returned <code>id</code> as the reference number; never re-calls <code>submit_feedback</code> for the same report; uses <code>get_feedback</code> to look up existing reports instead</li>
+          <li>✅ <strong>Internal DB query API</strong> — new <code>POST /api/internal/query?key=&lt;INTERNAL_API_KEY&gt;</code> endpoint; body: <code>{ sql, params }</code>; enforces read-only via regex keyword guard + <code>BEGIN READ ONLY</code> transaction; max 20 params, max 200 rows; enables Claude Code to run arbitrary SELECT queries against live DB without browser automation</li>
+          <li>✅ <strong>AI assistant renamed to McFly</strong> — floating button and panel header updated; button colour changed to Wingstop green</li>
+        </ul>
         <h3>2026-03-15 — Form lifecycle status system</h3>
         <ul>
           <li>✅ <strong>Form status column</strong> — <code>forms</code> table gains two real columns: <code>status TEXT NOT NULL DEFAULT 'draft'</code> and <code>testing_pin CHAR(4)</code>. All new forms start as <strong>Draft</strong>; existing rows get a random 4-digit PIN on next boot.</li>
@@ -2392,205 +2410,115 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
       </div>
     </div>
 
-    <!-- CONTEXTUAL AI CHAT -->
-    <div class="help-group" data-tags="ai chat rag vector pgvector tool use function calling claude anthropic knowledge base contextual assistant embeddings streaming sse agentic loop voyageai openai">
+    <!-- RECENT CHANGES (Help tab) -->
+    <div class="help-group" data-tags="changelog recent changes updates 2026">
       <div class="help-group-head" onclick="toggleHelp(this)">
-        <span class="material-icons-round mi">smart_toy</span> Contextual AI Chat — Design &amp; Architecture
+        <span class="material-icons-round mi">new_releases</span> Recent Changes
+        <span class="material-icons-round mi help-chevron">expand_more</span>
+      </div>
+      <div class="help-group-body">
+        <h3>2026-03-16 — Logo section, McFly AI assistant, preview fixes</h3>
+        <ul>
+          <li>✅ <strong>Logo section block</strong> — new first-class section above Hero; shows your logo from the Branding tab; hidden in Custom mode; Build tab shows a thumbnail preview with a direct link to the Branding tab</li>
+          <li>✅ <strong>Prizedraw renamed</strong> — "Spin Wheel" → <strong>Prizedraw</strong> throughout the builder, help docs, and block labels</li>
+          <li>✅ <strong>Preview pane height fix</strong> — all preview iframes now fill their available panel height correctly instead of clipping to a fixed pixel size</li>
+          <li>✅ <strong>Fields-in-containers fix</strong> — fields placed inside custom Container sections no longer appear twice (once in the container, once in the default Form section)</li>
+          <li>✅ <strong>McFly AI assistant</strong> — the AI chat assistant is now named McFly (🐔 button, Wingstop green); improved feedback tool reliability, duplicate-ticket prevention, and role-based response depth (super-admin gets technical detail; market admins get plain-language answers)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- CONTEXTUAL AI CHAT -->
+    <div class="help-group" data-tags="ai chat mcfly tool use function calling claude anthropic contextual assistant streaming sse agentic loop feedback submit bug report form create template branding analysis">
+      <div class="help-group-head" onclick="toggleHelp(this)">
+        <span class="material-icons-round mi">smart_toy</span> McFly AI Assistant — Architecture &amp; Tools
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
 
         <h3>Overview</h3>
-        <p>A planned feature: a floating AI assistant panel in the admin that answers questions with awareness of the current page, active form config, and live data. Architecture combines <strong>RAG</strong> (semantic search over help docs via pgvector) with <strong>Tool Use / Function Calling</strong> so Claude can both explain how things work <em>and</em> inspect the user's actual live state before answering.</p>
+        <p><strong>McFly</strong> is the live AI assistant built into the admin panel (🐔 button, bottom-right). It uses Claude (Anthropic) with tool use and SSE streaming. It is context-aware — every message includes the current tab, active form slug, open modal, and panel tab. Responses are tailored to the user's role: super-admins receive full technical detail; market admins/editors receive plain-language answers.</p>
 
-        <h3>Why RAG + Tool Use together?</h3>
+        <h3>Live tools (implemented)</h3>
         <table class="help-table">
-          <tr><th>Technique</th><th>Answers</th><th>Limitation alone</th></tr>
-          <tr><td><strong>RAG</strong></td><td>"How does X work?"</td><td>Can't see live data — gives generic advice</td></tr>
-          <tr><td><strong>Tool use</strong></td><td>"What is happening?"</td><td>No knowledge of docs — can't explain features</td></tr>
-          <tr><td><strong>Combined</strong></td><td>"Why isn't X working <em>for me</em>?"</td><td>—</td></tr>
+          <tr><th>Tool</th><th>Description</th><th>Slug required?</th></tr>
+          <tr><td><code>get_form_config</code></td><td>Full form config JSONB — fields, design, site, email, embed settings</td><td>Yes</td></tr>
+          <tr><td><code>get_analytics</code></td><td>Views, submits, errors, unsubscribes counts for a form</td><td>Yes</td></tr>
+          <tr><td><code>get_subscribers_summary</code></td><td>Subscriber counts by status + 5 most recent emails</td><td>Yes</td></tr>
+          <tr><td><code>get_form_list</code></td><td>All form slugs, names, statuses and subscriber counts</td><td>No</td></tr>
+          <tr><td><code>submit_feedback</code></td><td>Log a bug report, change request, or feature suggestion to the <code>bug_reports</code> table. Returns the new ticket <code>id</code>.</td><td>No</td></tr>
+          <tr><td><code>get_feedback</code></td><td>List existing feedback tickets; filter by type and status</td><td>No</td></tr>
         </table>
-        <p style="margin-top:8px">Example: <em>"Why is my embed blank?"</em> → <code>search_docs("embed blank page")</code> retrieves the relevant doc chunks → <code>get_form("wing-signup")</code> fetches actual <code>embedAllowedDomains</code> value → Claude answers with the user's specific settings, not generic steps.</p>
-        <p>Key: <code>search_docs</code> is itself a Claude tool — Claude decides <em>when</em> to search and <em>with what query</em>, and can retry with different terms if the first result is weak.</p>
+
+        <h3>Upcoming tools (in development)</h3>
+        <table class="help-table">
+          <tr><th>Tool</th><th>Description</th></tr>
+          <tr><td><code>create_form</code></td><td>Create a new form by name; always confirms before writing</td></tr>
+          <tr><td><code>update_form_config</code></td><td>Patch a form's fields, sections, or design settings; always confirms</td></tr>
+          <tr><td><code>create_design_template</code></td><td>Save a design as a named template; always confirms</td></tr>
+          <tr><td><code>apply_design_template</code></td><td>Apply a template to a form; always confirms</td></tr>
+          <tr><td><code>list_design_templates</code></td><td>List all saved design templates</td></tr>
+          <tr><td><code>analyze_website</code></td><td>Fetch a URL, extract brand colours and fonts, propose a design template</td></tr>
+        </table>
+
+        <h3>Write confirmation policy</h3>
+        <p>All write tools (create, update, apply, delete) require explicit confirmation before executing. McFly will describe what it is about to do and ask <em>"Shall I proceed?"</em> — it will not write until you confirm in the chat.</p>
+
+        <h3>Role-based response depth</h3>
+        <table class="help-table">
+          <tr><th>Role</th><th>Response style</th></tr>
+          <tr><td><strong>super-admin</strong></td><td>Full technical detail — config paths, DB field names, code-level explanations, exact server behaviour</td></tr>
+          <tr><td><strong>market admin / editor</strong></td><td>Plain-language functional answers — describes the issue, gives a workaround, suggests escalation if needed. No config paths or code detail.</td></tr>
+        </table>
+
+        <h3>Feedback / ticket workflow</h3>
+        <p>To log a bug, change request, or feature idea: describe it to McFly. It will ask for (1) a short title and (2) a description; for bugs it will also ask for steps to reproduce. It then calls <code>submit_feedback</code> and always includes the returned ticket <code>id</code> in its reply as the reference number. It will never re-submit a ticket — if you ask for the ref number again, it reads it from the existing tool result. View and manage tickets in <strong>Help → Feedback</strong>.</p>
+
+        <h3>Brand analysis (upcoming)</h3>
+        <p>Share a website URL or upload a photo to the chat and McFly will extract your brand colours, fonts, and style — then propose a matching SignFlow design template. Confirm, and it saves the template ready to apply to any form.</p>
+
+        <h3>Context injected with every message</h3>
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">{ currentTab, currentFormSlug, activeModal, panelTab, userRole }</pre>
 
         <h3>Architecture</h3>
-        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto;white-space:pre">User message + { currentTab, currentFormSlug, activeModal }
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto;white-space:pre">User message + context
         │
         ▼
-POST /api/admin/ai-chat   (adminAuth — never public)
+POST /api/admin/ai-chat  (adminAuth — never public)
         │
         ▼
-System prompt: role + injected page context (thin — no docs stuffed)
+System prompt: role guidance + injected page context + help docs section
         │
         ▼
 Claude (claude-sonnet) with tool definitions
         │
-  ┌─────┴───────────────────────────────────┐
-  │  Agentic tool-call loop (repeats until  │
-  │  stop_reason === "end_turn")            │
-  │                                         │
-  │  search_docs(query)  ←── pgvector       │
-  │  get_form(slug)      ←── PostgreSQL     │
-  │  get_analytics(slug) ←── PostgreSQL     │
-  │  get_subscribers(s)  ←── PostgreSQL     │
-  │  get_form_list()     ←── PostgreSQL     │
-  └─────────────────────────────────────────┘
+  ┌─────┴─────────────────────────────────────┐
+  │  Agentic tool-call loop                   │
+  │  (repeats until stop_reason="end_turn")   │
+  │                                           │
+  │  get_form_config      ←── PostgreSQL      │
+  │  get_analytics        ←── PostgreSQL      │
+  │  get_subscribers_summary ←── PostgreSQL   │
+  │  get_form_list        ←── PostgreSQL      │
+  │  submit_feedback      ←── PostgreSQL      │
+  │  get_feedback         ←── PostgreSQL      │
+  └───────────────────────────────────────────┘
         │
         ▼
-SSE stream text chunks → floating chat panel in browser</pre>
-
-        <h3>RAG pipeline — pgvector (zero new infrastructure)</h3>
-        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">-- One migration
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE TABLE doc_embeddings (
-  id        SERIAL PRIMARY KEY,
-  chunk_id  TEXT UNIQUE,       -- e.g. "help-embed-1", "system-security-2"
-  content   TEXT,              -- 200–400 token plain-text chunk
-  embedding vector(1536),      -- from text-embedding-3-small or Voyage AI
-  metadata  JSONB              -- { section, tab, tags[] }
-);
-CREATE INDEX ON doc_embeddings USING ivfflat (embedding vector_cosine_ops);</pre>
-
-        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">// scripts/embed-docs.js — run once at deploy; re-run when docs change
-// 1. Parse Help + System tab HTML into plain-text chunks (~300 tokens each)
-// 2. Embed each chunk:
-//    • OpenAI text-embedding-3-small  ($0.02 / 1M tokens — pennies for ~150 chunks)
-//    • OR Voyage AI voyage-3-lite     (Anthropic's recommended embedding partner)
-// 3. Upsert into doc_embeddings (ON CONFLICT chunk_id DO UPDATE)
-
-async function search_docs(query, limit = 4) {
-  const qEmbed = await embedText(query);
-  const { rows } = await pool.query(
-    `SELECT content, metadata, 1 - (embedding &lt;=&gt; $1) AS similarity
-     FROM doc_embeddings ORDER BY embedding &lt;=&gt; $1 LIMIT $2`,
-    [pgvector.toSql(qEmbed), limit]
-  );
-  return rows;
-}</pre>
-
-        <h3>Tool definitions (5 tools)</h3>
-        <table class="help-table">
-          <tr><th>Tool</th><th>Description</th><th>When Claude uses it</th></tr>
-          <tr><td><code>search_docs(query, limit?)</code></td><td>Semantic search over help + system docs</td><td>Any how-to or troubleshooting question</td></tr>
-          <tr><td><code>get_form(slug)</code></td><td>Full form config — fields, design, site, email, embed settings</td><td>Question is about a specific form's behaviour</td></tr>
-          <tr><td><code>get_analytics(slug)</code></td><td>Views, submits, errors, unsubscribes counts</td><td>Conversion or performance questions</td></tr>
-          <tr><td><code>get_subscribers_summary(slug)</code></td><td>Count by status + 5 most recent emails</td><td>Subscriber / growth questions</td></tr>
-          <tr><td><code>get_form_list()</code></td><td>All form slugs and names</td><td>Non-form-specific or "what forms do I have" questions</td></tr>
-        </table>
-
-        <h3>Server route — agentic loop with SSE streaming</h3>
-        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">app.post('/api/admin/ai-chat', adminAuth, async (req, res) =&gt; {
-  const { message, context, history = [] } = req.body;
-  // context = { currentTab, currentFormSlug, activeModal, panelTab }
-  // history = prior [ {role,content} ] turns for multi-turn awareness
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-
-  const system =
-    `You are a concise SignFlow admin assistant. Max 3–4 sentences unless genuinely ` +
-    `needed. Reference exact setting names and their location in the UI. ` +
-    `Context: tab="${context.currentTab}", form="${context.currentFormSlug||'none'}", ` +
-    `modal="${context.activeModal||'none'}". ` +
-    `Always call tools before answering — never guess from memory alone.`;
-
-  const messages = [
-    ...history,
-    { role: 'user', content: message }
-  ];
-
-  // Agentic loop — Claude may call tools multiple times before final answer
-  while (true) {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5', max_tokens: 1024,
-      system, tools, messages
-    });
-
-    if (response.stop_reason === 'end_turn') {
-      for (const block of response.content)
-        if (block.type === 'text')
-          res.write(`data: ${JSON.stringify({ text: block.text })}\n\n`);
-      break;
-    }
-
-    if (response.stop_reason === 'tool_use') {
-      messages.push({ role: 'assistant', content: response.content });
-      const results = [];
-      for (const block of response.content) {
-        if (block.type !== 'tool_use') continue;
-        const result = await executeTool(block.name, block.input);
-        results.push({ type: 'tool_result', tool_use_id: block.id,
-                       content: JSON.stringify(result) });
-      }
-      messages.push({ role: 'user', content: results });
-      // loop → Claude sees results, may call more tools or produce final answer
-    }
-  }
-
-  res.write('data: [DONE]\n\n');
-  res.end();
-});</pre>
-
-        <h3>Browser context object (sent with every message)</h3>
-        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">// Captured just before sending each message:
-function buildAiContext() {
-  return {
-    currentTab:      currentTab,           // 'build' | 'design' | 'pfsettings' | 'help' …
-    currentFormSlug: currentFormSlug,      // null if on forms list
-    activeModal:     getActiveModal(),     // 'field-modal' | 'block-modal' | null
-    panelTab:        _panelTab || null,    // 'email' | 'fields' | 'response' …
-  };
-}</pre>
-
-        <h3>Example interactions</h3>
-        <table class="help-table">
-          <tr><th>Question</th><th>Tools called</th><th>Why better than RAG alone</th></tr>
-          <tr><td>"Why is my embed blank?"</td><td>search_docs + get_form</td><td>Reads actual embedAllowedDomains — gives specific fix</td></tr>
-          <tr><td>"Why only 12 subscribers in 2 weeks?"</td><td>get_analytics + get_form + search_docs</td><td>Sees 28 errors, spots gdprCheckboxRequired is on</td></tr>
-          <tr><td>"How do I add a slider field?"</td><td>search_docs</td><td>Retrieves exact doc chunk — no live data needed</td></tr>
-          <tr><td>"What forms do I have?"</td><td>get_form_list</td><td>Returns live list, not cached or guessed</td></tr>
-          <tr><td>"Is email sending enabled on wing-signup?"</td><td>get_form</td><td>Reads emailEnabled directly from cfg</td></tr>
-        </table>
-
-        <h3>Cost model</h3>
-        <table class="help-table">
-          <tr><th>Item</th><th>Cost</th><th>Notes</th></tr>
-          <tr><td>Embed all docs once</td><td>~$0.000003</td><td>~150 chunks × 300 tokens</td></tr>
-          <tr><td>Re-embed on doc change</td><td>Same</td><td>Re-run embed-docs.js</td></tr>
-          <tr><td>Per chat message (Haiku)</td><td>~$0.002–0.005</td><td>Includes 2–4 tool calls; good for simple Qs</td></tr>
-          <tr><td>Per chat message (Sonnet)</td><td>~$0.01–0.03</td><td>Better reasoning for complex multi-tool Qs</td></tr>
-          <tr><td>pgvector hosting</td><td>$0</td><td>Existing Lightsail DB</td></tr>
-          <tr><td>Admin-only usage estimate</td><td>&lt;$1 / month</td><td>Easily absorbed</td></tr>
-        </table>
-
-        <h3>Build order</h3>
-        <ol>
-          <li><strong>pgvector migration</strong> — <code>CREATE EXTENSION vector</code> + <code>doc_embeddings</code> table + ivfflat index</li>
-          <li><strong>embed-docs.js script</strong> — parse Help + System tab HTML → chunk (~300 tokens) → embed → upsert to DB</li>
-          <li><strong>executeTool() dispatcher</strong> — routes tool name to DB query; returns structured JSON</li>
-          <li><strong>POST /api/admin/ai-chat route</strong> — agentic loop, SSE streaming, adminAuth guard</li>
-          <li><strong>Floating panel UI</strong> — chat bubble bottom-right, expands to 360px panel, SSE reader, conversation history client-side</li>
-          <li><strong>Context injection</strong> — <code>buildAiContext()</code> called on every send; passes tab, slug, modal</li>
-          <li><em>Phase 2:</em> feedback thumbs, session rate limiting (20 msg / 5 min), public form variant</li>
-        </ol>
-
-        <h3>Dependencies &amp; environment variables</h3>
-        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">npm install @anthropic-ai/sdk pgvector openai   # openai for embeddings only
-# alternative embedding: npm install voyageai
-
-# .env additions:
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...       # for text-embedding-3-small
-# VOYAGE_API_KEY=pa-...     # alternative — Anthropic's recommended partner</pre>
+SSE stream → floating McFly panel  (keepalive every 10s)</pre>
 
         <h3>Security</h3>
         <ul>
           <li>Route behind <code>adminAuth</code> — never publicly accessible</li>
           <li><code>ANTHROPIC_API_KEY</code> server-side only — never sent to browser</li>
           <li><code>get_subscribers_summary</code> returns counts + max 5 emails — no bulk PII exposure</li>
-          <li>Suggested rate limit: 20 messages / 5 min per session to cap runaway costs</li>
-          <li>Tool inputs validated server-side (slug regex, etc.) before any DB query</li>
+          <li>All tool inputs validated before any DB query; slug guard exempts slug-free tools</li>
+          <li>SSE <code>X-Accel-Buffering: no</code> header prevents Nginx buffering; 10s keepalive prevents proxy timeout drops</li>
         </ul>
+
+        <h3>Environment variables</h3>
+        <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">ANTHROPIC_API_KEY=sk-ant-...
+INTERNAL_API_KEY=...   # used by Claude Code for read-only DB access via POST /api/internal/query</pre>
 
       </div>
     </div>
@@ -3299,6 +3227,7 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
         <p>A form is made up of <em>sections</em> stacked vertically inside the card. Each section type serves a different purpose:</p>
         <table class="help-table">
           <tr><th>Type</th><th>Description</th></tr>
+          <tr><td><strong>Logo</strong></td><td>Displays your brand logo above the Hero section. Uses the logo image and width set in the <strong>Branding</strong> tab. Always the first section; hidden automatically when Custom mode is toggled on. The Logo block links directly to the Branding tab.</td></tr>
           <tr><td><strong>Hero</strong></td><td>Heading, subheading and optional hero image. Supports per-section background and text colour overrides.</td></tr>
           <tr><td><strong>Form</strong></td><td>The actual input fields and submit button. Always required.</td></tr>
           <tr><td><strong>Container</strong></td><td>A free-layout block holding mixed items: fields, submit button, headings, images, dividers, spacers, videos and WYSIWYG text. Supports 1- or 2-column layout.</td></tr>
@@ -3371,8 +3300,10 @@ OPENAI_API_KEY=sk-...       # for text-embedding-3-small
           <li><strong>Done</strong> — exit template editing, return to form design</li>
         </ul>
         <p>Assign a template to a form via <strong>Settings → Design Template</strong>. The live form uses the template's design without overwriting the form's own settings.</p>
+        <h3>Logo</h3>
+        <p>Upload and configure your logo in the <strong>Branding</strong> tab → Logo section. Set the image URL and max-width. The logo is displayed by the <strong>Logo</strong> section block at the top of every form (above Hero). The Logo block in the Build tab links directly here. In Custom mode the Logo section is hidden along with Hero, Form, and Footer.</p>
         <h3>Brand palette</h3>
-        <p>Define a set of named brand colours on the Design tab. Every colour picker across the admin shows your palette swatches for one-click access. Palette colours are stored per-template or per-form design.</p>
+        <p>Define a set of named brand colours in the <strong>Branding</strong> tab. Every colour picker across the admin shows your palette swatches for one-click access. Palette colours are stored per-template or per-form design.</p>
       </div>
     </div>
 
@@ -6266,9 +6197,9 @@ function logoBkBody(){
   const w=cfg.design&&cfg.design.logoWidth||'180px';
   if(url)return `<div style="padding:8px 0;display:flex;align-items:center;gap:12px">
     <img src="${escHtml(url)}" style="max-height:48px;max-width:160px;object-fit:contain;border-radius:4px;border:1px solid var(--brd)">
-    <span style="font-size:0.75rem;color:var(--ink3)">Width: ${escHtml(w)} &nbsp;·&nbsp; <a href="#" onclick="event.preventDefault();switchTab('design')" style="color:var(--accent)">Edit in Design tab</a></span>
+    <span style="font-size:0.75rem;color:var(--ink3)">Width: ${escHtml(w)} &nbsp;·&nbsp; <a href="#" onclick="event.preventDefault();switchTab('design')" style="color:var(--accent)">Edit in Branding tab</a></span>
   </div>`;
-  return `<p style="font-size:0.8rem;color:var(--ink3);padding:6px 0">No logo set. <a href="#" onclick="event.preventDefault();switchTab('design')" style="color:var(--accent)">Add one in the Design tab</a>.</p>`;
+  return `<p style="font-size:0.8rem;color:var(--ink3);padding:6px 0">No logo set. <a href="#" onclick="event.preventDefault();switchTab('design')" style="color:var(--accent)">Add one in the Branding tab</a>.</p>`;
 }
 
 function heroBkBody(s){
@@ -7267,7 +7198,7 @@ function openItemEdit(blockId,idx){
     const st=item.style||{};
     body.innerHTML=`
       <p style="font-size:0.82rem;color:var(--ink3);margin-bottom:4px">Field: <strong>${fld?fld.label:item.fieldId}</strong></p>
-      <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:10px">Leave blank to inherit from Design tab defaults.</p>
+      <p style="font-size:0.75rem;color:var(--ink3);margin-bottom:10px">Leave blank to inherit from Branding tab defaults.</p>
       <input type="hidden" id="ie-style-label-hex" value="${st.labelColor||''}">
       <input type="hidden" id="ie-style-text-hex" value="${st.textColor||''}">
       <input type="hidden" id="ie-style-bg-hex" value="${st.bg||''}">
@@ -10300,10 +10231,10 @@ async function sendAiMessage() {
 </script>
 
 <!-- ── AI Chat Assistant ──────────────────────────────────────────────────── -->
-<button id="ai-chat-btn" onclick="toggleAiChat()" title="Ask AI assistant"
+<button id="ai-chat-btn" onclick="toggleAiChat()" title="Ask McFly"
   style="position:fixed;bottom:72px;right:22px;z-index:8000;
     width:48px;height:48px;border-radius:50%;border:none;
-    background:var(--accent,#4f46e5);color:#fff;cursor:pointer;
+    background:#5cb85c;color:#fff;cursor:pointer;
     box-shadow:0 4px 16px rgba(0,0,0,.25);display:flex;
     align-items:center;justify-content:center;transition:transform .15s">
   <span style="font-size:24px;line-height:1">🐔</span>
@@ -10318,7 +10249,7 @@ async function sendAiMessage() {
   <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;
     border-bottom:1px solid var(--brd);background:var(--bg2);flex-shrink:0">
     <span style="font-size:18px;line-height:1">🐔</span>
-    <span style="font-weight:600;font-size:0.88rem;flex:1">SignFlow Assistant</span>
+    <span style="font-weight:600;font-size:0.88rem;flex:1">McFly</span>
     <button onclick="clearAiChat()" title="Clear conversation"
       style="background:none;border:none;cursor:pointer;color:var(--ink3);font-size:0.72rem">Clear</button>
     <button onclick="toggleAiChat()"
@@ -10327,7 +10258,7 @@ async function sendAiMessage() {
   </div>
   <div id="ai-chat-msgs"
     style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:120px">
-    <div class="ai-msg ai-msg-bot">Hi! I'm your SignFlow assistant. Ask me anything about the platform, your forms, or subscribers.</div>
+    <div class="ai-msg ai-msg-bot">Hey, McFly here 🐔 — ask me anything about your forms, subscribers, or how things work.</div>
   </div>
   <div id="ai-img-preview"></div>
   <div style="padding:10px 12px;border-top:1px solid var(--brd);flex-shrink:0;display:flex;gap:6px;align-items:flex-end">
