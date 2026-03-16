@@ -851,30 +851,96 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
 
   <!-- Logs panel -->
   <div id="gsp-logs" class="gs-panel" style="flex:1;overflow:auto;display:none">
-    <div class="page-body" style="max-width:860px">
+    <div class="page-body" style="max-width:1000px">
       <div class="page-head">
-        <h2>Audit Log</h2>
-        <p>All admin actions — form create/delete/save, subscriber deletions, settings changes — are recorded here.</p>
+        <h2>Logs</h2>
+        <p>Admin audit trail, McFry AI activity, and feedback tickets.</p>
       </div>
-      <div class="card" style="padding:16px" id="audit-log-card">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <button class="tbtn tbtn-ghost" onclick="loadAuditLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
-          <span id="audit-log-count" style="font-size:0.75rem;color:var(--ink3);margin-left:auto"></span>
-        </div>
-        <div class="tscroll" style="max-height:calc(100vh - 280px)">
-          <table>
-            <thead><tr>
-              <th style="width:140px">Time</th>
-              <th style="width:160px">User</th>
-              <th style="width:160px">Action</th>
-              <th style="width:100px">Target type</th>
-              <th>Target ID / Detail</th>
-            </tr></thead>
-            <tbody id="audit-log-tbody"><tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
-          </table>
-        </div>
-        <div class="table-foot"><div class="pagination" id="audit-log-pagination"></div></div>
+
+      <!-- Log sub-tabs -->
+      <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--brd);padding-bottom:0">
+        <button id="log-tab-audit-btn" class="bl-tab active" onclick="switchLogTab('audit')" style="border-radius:6px 6px 0 0;margin-bottom:-1px">
+          <span class="material-icons-round mi" style="font-size:14px">manage_history</span> Audit Log
+        </button>
+        <button id="log-tab-mcfry-btn" class="bl-tab" onclick="switchLogTab('mcfry')" style="border-radius:6px 6px 0 0;margin-bottom:-1px">
+          🐔 McFry Chat
+        </button>
+        <button id="log-tab-feedback-btn" class="bl-tab" onclick="switchLogTab('feedback')" style="border-radius:6px 6px 0 0;margin-bottom:-1px">
+          <span class="material-icons-round mi" style="font-size:14px">feedback</span> Feedback
+        </button>
       </div>
+
+      <!-- Audit Log sub-panel -->
+      <div id="log-panel-audit">
+        <div class="card" style="padding:16px" id="audit-log-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <button class="tbtn tbtn-ghost" onclick="loadAuditLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+            <span id="audit-log-count" style="font-size:0.75rem;color:var(--ink3);margin-left:auto"></span>
+          </div>
+          <div class="tscroll" style="max-height:calc(100vh - 320px)">
+            <table>
+              <thead><tr>
+                <th style="width:140px">Time</th>
+                <th style="width:160px">User</th>
+                <th style="width:160px">Action</th>
+                <th style="width:100px">Target type</th>
+                <th>Target ID / Detail</th>
+              </tr></thead>
+              <tbody id="audit-log-tbody"><tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
+            </table>
+          </div>
+          <div class="table-foot"><div class="pagination" id="audit-log-pagination"></div></div>
+        </div>
+      </div>
+
+      <!-- McFry Chat Log sub-panel -->
+      <div id="log-panel-mcfry" style="display:none">
+        <div class="card" style="padding:16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <button class="tbtn tbtn-ghost" onclick="loadMcFryLog(1)" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+            <a href="/api/admin/ai-chat-log/export" class="tbtn tbtn-ghost" style="gap:4px;text-decoration:none;font-size:0.78rem"><span class="material-icons-round mi" style="font-size:15px">download</span> Export CSV</a>
+            <span id="mcfry-log-count" style="font-size:0.75rem;color:var(--ink3);margin-left:auto"></span>
+          </div>
+          <div class="tscroll" style="max-height:calc(100vh - 320px)">
+            <table>
+              <thead><tr>
+                <th style="width:130px">Time</th>
+                <th style="width:150px">User</th>
+                <th>Message</th>
+                <th style="width:140px">Tools</th>
+                <th style="width:90px">Tokens</th>
+                <th style="width:70px">Status</th>
+              </tr></thead>
+              <tbody id="mcfry-log-body"><tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
+            </table>
+          </div>
+          <div class="table-foot"><div class="pagination" id="mcfry-log-pages"></div></div>
+        </div>
+      </div>
+
+      <!-- Feedback sub-panel -->
+      <div id="log-panel-feedback" style="display:none">
+        <div class="card" style="padding:16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <button class="tbtn tbtn-ghost" onclick="loadLogsPageFeedback()" style="gap:4px"><span class="material-icons-round mi" style="font-size:15px">refresh</span> Refresh</button>
+            <span id="logs-feedback-count" style="font-size:0.75rem;color:var(--ink3);margin-left:auto"></span>
+          </div>
+          <div class="tscroll" style="max-height:calc(100vh - 320px)">
+            <table>
+              <thead><tr>
+                <th style="width:130px">Created</th>
+                <th style="width:70px">Type</th>
+                <th>Title</th>
+                <th style="width:140px">Reported by</th>
+                <th style="width:100px">Status</th>
+                <th style="width:80px">Actions</th>
+              </tr></thead>
+              <tbody id="logs-feedback-tbody"><tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">Click Refresh to load</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -2263,7 +2329,7 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
           <li>✅ <strong>Brand analysis from URL</strong> — tell McFry a website URL; it fetches the page server-side, extracts brand colours, CSS variables, font families, and logo candidates, then proposes a matching SignFlow design template for confirmation</li>
           <li>✅ <strong>Brand analysis from image</strong> — upload a photo or logo to the chat (🖼 button); McFry uses Claude vision to extract palette and style, then proposes a design template</li>
           <li>✅ <strong>Chat image upload</strong> — new image attachment button in McFry chat input; uploads to S3 <code>chat-uploads/</code> folder (separate from Media library); supports JPEG, PNG, GIF, WebP up to 10 MB</li>
-          <li>✅ <strong>McFry activity log</strong> — every conversation turn is logged to new <code>ai_chat_log</code> PostgreSQL table: user email, message, response, tools called (JSONB array), context, token counts (in/out), error. Paginated viewer + CSV export in <strong>Help → System → McFry Activity Log</strong>. Admin API: <code>GET /api/admin/ai-chat-log</code>, export: <code>GET /api/admin/ai-chat-log/export</code>.</li>
+          <li>✅ <strong>McFry activity log</strong> — every conversation turn is logged to new <code>ai_chat_log</code> PostgreSQL table: user email, message, response, tools called (JSONB array), context, token counts (in/out), error. Paginated viewer + CSV export in <strong>Platform Settings → Logs → McFry Chat</strong>. Admin API: <code>GET /api/admin/ai-chat-log</code>, export: <code>GET /api/admin/ai-chat-log/export</code>.</li>
           <li>✅ <strong>McFry "No response" fix</strong> — empty assistant messages are no longer pushed to conversation history; broken history entries are filtered before sending to Anthropic; eliminates cascading "No response" failure across turns</li>
           <li>✅ <strong>Token-limit handling</strong> — <code>max_tokens</code> stop reason now surfaces a readable cut-off message instead of silent empty response</li>
           <li>✅ <strong>McFry renamed from McFly</strong> — all UI references updated</li>
@@ -2489,7 +2555,7 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <p><strong>From a photo / logo:</strong> click the 🖼 button in the chat input to upload an image (JPEG, PNG, GIF, WebP, max 10 MB). It uploads to S3 <code>chat-uploads/</code> (not shown in Media library) and is passed to Claude vision. McFry analyses colours and style, proposes a design_patch, and saves a template on confirmation.</p>
 
         <h3>Activity log</h3>
-        <p>Every McFry conversation turn is recorded in the <code>ai_chat_log</code> table — user email, message, full response, tools called (JSONB array with name/input/result), context snapshot, token counts, and any error. View in <strong>Help → System → McFry Activity Log</strong> (paginated, sortable by user). Export as CSV from the same panel or via <code>GET /api/admin/ai-chat-log/export</code>.</p>
+        <p>Every McFry conversation turn is recorded in the <code>ai_chat_log</code> table — user email, message, full response, tools called (JSONB array with name/input/result), context snapshot, token counts, and any error. View in <strong>Platform Settings → Logs → McFry Chat</strong> (paginated, with status indicator per turn). Export as CSV via the Export button or <code>GET /api/admin/ai-chat-log/export</code>.</p>
 
         <h3>Context injected with every message</h3>
         <pre style="background:var(--bg2);border-radius:6px;padding:12px;font-size:0.77rem;line-height:1.7;overflow-x:auto">{ currentTab, currentFormSlug, activeModal, panelTab, userRole }</pre>
@@ -2891,35 +2957,6 @@ INTERNAL_API_KEY=...   # Claude Code read-only DB access via POST /api/internal/
     </div>
 
     </div><!-- /system-sections -->
-
-    <!-- McFry Activity Log -->
-    <div style="margin-top:28px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <h3 style="margin:0;font-size:0.95rem;font-weight:600">🐔 McFry Activity Log</h3>
-        <button class="ibtn" onclick="loadMcFryLog(1)" style="font-size:0.76rem">↺ Refresh</button>
-        <a id="mcfry-export-btn" href="/api/admin/ai-chat-log/export" class="ibtn" style="font-size:0.76rem;text-decoration:none">⬇ Export CSV</a>
-        <span id="mcfry-log-count" style="font-size:0.76rem;color:var(--ink3);margin-left:auto"></span>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="help-table" id="mcfry-log-table" style="font-size:0.78rem;min-width:700px">
-          <thead>
-            <tr>
-              <th style="width:130px">Time</th>
-              <th>User</th>
-              <th>Message</th>
-              <th>Tools</th>
-              <th style="width:80px">Tokens</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="mcfry-log-body">
-            <tr><td colspan="6" style="color:var(--ink3);font-style:italic">Open the System tab to load.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div id="mcfry-log-pages" style="display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap"></div>
-    </div>
-
 
 </div><!-- /docs-panel-system -->
 <script>
@@ -8649,7 +8686,7 @@ function switchGsTab(name) {
   if (name === 'security') { loadIpFlags(); loadGlobalSettings(); applyRoleUI(); }
   if (name === 'markets')  { loadMarketsAdmin(); applyRoleUI(); }
   if (name === 'users')    { loadUsersAdmin(); applyRoleUI(); }
-  if (name === 'logs')     { loadAuditLog(1); }
+  if (name === 'logs')     { switchLogTab('audit'); }
 }
 
 function switchInnerTab(name,btn){
@@ -8665,7 +8702,7 @@ function switchInnerTab(name,btn){
   if(name==='help')_initHelp();
   if(name==='notes')renderUserNotes();
   if(name==='bugs')loadBugReports();
-  if(name==='system')loadMcFryLog(1);
+  // McFry log moved to Platform Settings → Logs → McFry Chat
 }
 // ── Shared print CSS used by both whole-panel and per-section print ──
 const _PRINT_CSS=`*{box-sizing:border-box;margin:0;padding:0;}
@@ -9320,6 +9357,65 @@ async function saveGlobalSettings(){
   const r=await adminFetch('/api/admin/global-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   if(r.ok)showToast('Platform settings saved');
   else showToast('Save failed','error');
+}
+
+// ── Logs tab sub-tabs ──
+let _logTab = 'audit';
+function switchLogTab(name) {
+  _logTab = name;
+  ['audit','mcfry','feedback'].forEach(t => {
+    const btn = document.getElementById('log-tab-'+t+'-btn');
+    const panel = document.getElementById('log-panel-'+t);
+    if (btn) btn.classList.toggle('active', t === name);
+    if (panel) panel.style.display = t === name ? '' : 'none';
+  });
+  if (name === 'audit')    loadAuditLog(1);
+  if (name === 'mcfry')    loadMcFryLog(1);
+  if (name === 'feedback') loadLogsPageFeedback();
+}
+
+async function loadLogsPageFeedback() {
+  const tbody = document.getElementById('logs-feedback-tbody');
+  const countEl = document.getElementById('logs-feedback-count');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:16px">Loading…</td></tr>`;
+  try {
+    const r = await adminFetch('/api/admin/bug-reports');
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger);padding:16px">Failed to load</td></tr>`; return; }
+    const rows = await r.json();
+    if (countEl) countEl.textContent = rows.length + ' ticket' + (rows.length !== 1 ? 's' : '');
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">No feedback yet</td></tr>`; return; }
+    const TYPE_COLOURS = { bug:'#dc2626', change:'#d97706', feature:'#2563eb' };
+    const STATUS_COLOURS = { open:'var(--danger)', 'in-progress':'#d97706', resolved:'var(--success)', 'wont-fix':'var(--ink3)' };
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td style="white-space:nowrap;font-size:0.78rem;color:var(--ink3)">${new Date(r.created_at).toLocaleDateString('en-GB')}</td>
+      <td><span style="font-size:0.7rem;font-weight:600;color:#fff;background:${TYPE_COLOURS[r.type]||'#888'};padding:2px 7px;border-radius:10px">${escHtml(r.type)}</span></td>
+      <td style="font-size:0.82rem" title="${escHtml(r.description||'')}">${escHtml(r.title)}</td>
+      <td style="font-size:0.78rem;color:var(--ink3)">${escHtml(r.reported_by||'—')}</td>
+      <td><select style="font-size:0.75rem;padding:2px 4px;border-radius:4px;border:1px solid var(--brd);color:${STATUS_COLOURS[r.status]||'inherit'}"
+          onchange="updateFeedbackStatusLogs('${r.id}',this.value,this)">
+        ${['open','in-progress','resolved','wont-fix'].map(s=>`<option value="${s}"${r.status===s?' selected':''}>${s}</option>`).join('')}
+      </select></td>
+      <td><button class="tbtn tbtn-ghost" style="padding:3px 6px;font-size:0.72rem;color:var(--danger)" onclick="deleteFeedbackLogs('${r.id}',this)">Delete</button></td>
+    </tr>`).join('');
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger);padding:16px">${e.message}</td></tr>`; }
+}
+
+async function updateFeedbackStatusLogs(id, status, el) {
+  try {
+    const r = await adminFetch('/api/admin/bug-reports/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status }) });
+    if (!r.ok) { el.value = el.dataset.prev || el.value; showToast('Failed to update status','error'); }
+    else { el.dataset.prev = status; el.style.color = ({open:'var(--danger)','in-progress':'#d97706',resolved:'var(--success)','wont-fix':'var(--ink3)'}[status]||'inherit'); }
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+async function deleteFeedbackLogs(id, btn) {
+  if (!confirm('Delete this feedback ticket?')) return;
+  try {
+    const r = await adminFetch('/api/admin/bug-reports/'+id, { method:'DELETE' });
+    if (r.ok) { btn.closest('tr').remove(); }
+    else showToast('Delete failed','error');
+  } catch(e) { showToast(e.message,'error'); }
 }
 
 // ── Audit Log ──
