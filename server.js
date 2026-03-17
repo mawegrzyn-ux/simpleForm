@@ -16,9 +16,15 @@ const { Pool }   = require('pg');
 const { S3Client, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const multerS3   = require('multer-s3');
 const Anthropic  = require('@anthropic-ai/sdk');
+const integrationsRouter = require('./routes/integrations');
+const reportsRouter      = require('./routes/reports');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+// Live getters so route files always read current module-level values
+Object.defineProperty(app.locals, '_helpReady',  { get: () => _helpReady,  configurable: true, enumerable: true });
+Object.defineProperty(app.locals, '_helpChunks', { get: () => _helpChunks, configurable: true, enumerable: true });
 
 // ── Auth0 config (from .env) ──────────────────────────────────────────────────
 const AUTH0_DOMAIN        = process.env.AUTH0_DOMAIN        || '';   // e.g. dev-abc123.us.auth0.com
@@ -187,6 +193,12 @@ function getMailer() {
   }
   return _mailer;
 }
+
+// Expose s3 + transporter to route files via app.locals
+app.locals.s3         = s3;
+app.locals.S3_BUCKET  = S3_BUCKET;
+// transporter getter — getMailer() caches internally, returns null if SMTP unconfigured
+Object.defineProperty(app.locals, 'transporter', { get: () => getMailer(), configurable: true, enumerable: true });
 
 // ── HTML escaping ─────────────────────────────────────────────────────────────
 // Used in every page renderer to prevent XSS from admin-entered text fields.
@@ -1372,6 +1384,14 @@ app.get('/auth/me', (req, res) => {
 app.get('/admin', adminAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'index.html'));
 });
+
+// ── Integrations & Reports pages + API routers ────────────────────────────────
+app.get('/admin/integrations', adminAuth, (req, res) =>
+  res.sendFile(path.join(__dirname, 'admin', 'integrations', 'index.html')));
+app.get('/admin/reports', adminAuth, (req, res) =>
+  res.sendFile(path.join(__dirname, 'admin', 'reports', 'index.html')));
+app.use('/api/admin/integrations', adminAuth, csrfCheck, (req, _, next) => { req.pool = pool; next(); }, integrationsRouter);
+app.use('/api/admin/reports',      adminAuth, csrfCheck, (req, _, next) => { req.pool = pool; next(); }, reportsRouter);
 
 // Return total file size of all media items for a form (from DB)
 async function getFormMediaSize(slug) {
@@ -2743,7 +2763,7 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
   try {
     while (true) {
       const response = await _anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-haiku-4-5',
         max_tokens: 2048,
         system: systemPrompt,
         tools: _AI_TOOLS,

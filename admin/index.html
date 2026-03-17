@@ -665,6 +665,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
     <button class="t-tab active" id="tab-forms-btn" onclick="switchTab('forms',this)">Forms<span id="t-form-name-chip" class="t-form-chip" style="display:none"></span></button>
     <button class="t-tab" onclick="switchTab('design',this)">Branding</button>
     <button class="t-tab" onclick="openMediaPicker('manage')"><span class="material-icons-round mi" style="font-size:15px;vertical-align:-3px">perm_media</span> Media</button>
+    <a href="/admin/reports" class="t-tab" title="Analytics &amp; Reports"><span class="material-icons-round mi" style="font-size:15px;vertical-align:-3px">bar_chart</span> Reports</a>
+    <a href="/admin/integrations" class="t-tab" title="Integrations &amp; API Status"><span class="material-icons-round mi" style="font-size:15px;vertical-align:-3px">cable</span> Integrations</a>
   </nav>
   <div class="t-spacer"></div>
   <div class="t-actions">
@@ -4920,7 +4922,7 @@ function renderFormsList(){
         ${hasAnalytics&&(a.errors||0)>0?`<span class="analytics-stat errors" title="Submit errors"><span class="material-icons-round mi">error_outline</span> ${fmtNum(a.errors)}</span>`:''}
         <button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:0.7rem;padding:1px 6px" onclick="event.stopPropagation();resetAnalytics('${f.slug}')" title="Reset analytics">reset</button>
       </div>`;
-    return`<div class="form-card${isSelected?' selected':''}" onclick="openFormEditor('${f.slug}')">
+    return`<div class="form-card${isSelected?' selected':''}" onclick="openFormEditor('${f.slug}')" onmouseenter="selectFormPreview('${f.slug}')">
       <div class="form-card-top">
         <div class="form-card-info">
           <div class="form-card-name">${escHtml(f.name)}</div>
@@ -5241,14 +5243,20 @@ async function previewSaveJpg(frameId,btnId){
     img.src='/api/admin/media/img-proxy?key='+encodeURIComponent(m[1]);
   })));
   try{
+    // Scroll iframe to top before capture — prevents blank offset space in output
+    const _iframeDoc = f.contentDocument.documentElement;
+    const _prevScroll = _iframeDoc.scrollTop;
+    _iframeDoc.scrollTop = 0;
     const canvas=await html2canvas(f.contentDocument.body,{
       useCORS:true,allowTaint:false,
       width:f.contentDocument.body.scrollWidth,
       height:f.contentDocument.body.scrollHeight,
       windowWidth:f.contentDocument.body.scrollWidth,
       windowHeight:f.contentDocument.body.scrollHeight,
+      scrollX:0,scrollY:0,
       scale:2
     });
+    _iframeDoc.scrollTop = _prevScroll; // restore scroll position
     const a=document.createElement('a');
     a.download=(currentFormSlug||'form')+'-preview.jpg';
     a.href=canvas.toDataURL('image/jpeg',0.92);

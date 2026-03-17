@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Integrations — SignFlow</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<style>
+:root{
+  --ink:#1A1A1A;--ink2:#666;--ink3:#999;--brd:#E6E2DC;--brd2:#EEE9E3;
+  --bg:#F7F4F0;--bg2:#EDE9E3;--panel:#FFFFFF;--accent:#C94B39;--accent-h:#A83B2B;
+  --accent-bg:#FDF1EF;--success:#2E7D52;--sbg:#EAF5EE;--danger:#C0392B;
+  --warn:#996A1A;--wbg:#FEF9EC;
+  --font:'DM Sans',sans-serif;--r:8px;--rlg:12px;
+  --shadow:0 4px 16px rgba(0,0,0,.07),0 1px 4px rgba(0,0,0,.04);
+  --shadow-lg:0 20px 60px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.06);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+/* ── Top bar ── */
+#topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:52px;
+  background:var(--panel);border-bottom:1px solid var(--brd);position:sticky;top:0;z-index:100}
+.t-logo{font-size:1.05rem;font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+.t-logo em{color:#7ab648;font-style:italic}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--ink3)}
+.breadcrumb a:hover{color:var(--ink)}
+.t-spacer{flex:1}
+#user-email{font-size:0.78rem;color:var(--ink3)}
+
+/* ── Layout ── */
+.page-wrap{max-width:1100px;margin:0 auto;padding:32px 24px}
+.page-header{margin-bottom:28px}
+.page-header h1{font-size:1.4rem;font-weight:600;margin-bottom:4px}
+.page-header p{font-size:0.85rem;color:var(--ink3)}
+.page-header-row{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.refresh-info{font-size:0.78rem;color:var(--ink3);flex:1}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--r);
+  border:none;cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:500;transition:opacity .15s}
+.btn-ghost{background:var(--bg2);color:var(--ink2)}
+.btn-ghost:hover{background:var(--brd)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-h)}
+.mi{font-family:'Material Icons Round';font-style:normal;font-size:16px;line-height:1;vertical-align:-3px}
+
+/* ── Service grid ── */
+.svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.svc-card{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rlg);
+  padding:16px;display:flex;flex-direction:column;gap:10px;transition:box-shadow .15s}
+.svc-card:hover{box-shadow:var(--shadow)}
+.svc-card-head{display:flex;align-items:center;gap:8px}
+.svc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dot-ok{background:#2E7D52}
+.dot-error{background:var(--danger)}
+.dot-unconfigured{background:#ccc}
+.dot-checking{background:var(--warn);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.svc-name{font-size:0.85rem;font-weight:600;flex:1}
+.svc-portal-btn{display:inline-flex;align-items:center;color:var(--ink3);border:none;
+  background:none;cursor:pointer;padding:2px;border-radius:4px;line-height:1}
+.svc-portal-btn:hover{color:var(--accent)}
+.svc-detail{font-size:0.75rem;color:var(--ink3);min-height:16px}
+.svc-latency{font-size:0.7rem;color:var(--ink3)}
+.svc-actions{display:flex;gap:6px;margin-top:2px}
+.svc-actions .btn{padding:5px 10px;font-size:0.75rem}
+
+/* ── Config panel (expands below card) ── */
+.svc-config{display:none;border-top:1px solid var(--brd2);padding-top:10px;
+  flex-direction:column;gap:8px}
+.svc-config.open{display:flex}
+.svc-config label{font-size:0.72rem;font-weight:500;color:var(--ink3);display:block;margin-bottom:3px}
+.svc-config input{width:100%;padding:6px 9px;border:1.5px solid var(--brd);border-radius:6px;
+  font-size:0.8rem;font-family:var(--font);background:var(--bg)}
+.svc-config input:focus{outline:none;border-color:var(--accent)}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:20px;right:20px;z-index:9999;pointer-events:none}
+.toast-msg{background:#1a1a1a;color:#fff;padding:10px 16px;border-radius:8px;
+  font-size:0.82rem;margin-top:8px;opacity:0;transform:translateY(6px);
+  transition:all .25s;pointer-events:none}
+.toast-msg.show{opacity:1;transform:translateY(0)}
+.toast-msg.success{background:var(--success)}
+.toast-msg.error{background:var(--danger)}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="t-logo">Wing<em>Vibes</em></div>
+  <div class="breadcrumb">
+    <span class="material-icons-round mi" style="font-size:14px;color:var(--ink3)">chevron_right</span>
+    <a href="/admin">Admin</a>
+    <span class="material-icons-round mi" style="font-size:14px;color:var(--ink3)">chevron_right</span>
+    <span>Integrations</span>
+  </div>
+  <div class="t-spacer"></div>
+  <span id="user-email"></span>
+</div>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <h1><span class="material-icons-round mi" style="font-size:22px;vertical-align:-5px;color:var(--accent)">cable</span> Integrations</h1>
+    <p>Status of all connected external services. Click Test to re-check a service, or Configure to add credentials.</p>
+  </div>
+
+  <div class="page-header-row">
+    <span class="refresh-info" id="refresh-info">Checking services…</span>
+    <button class="btn btn-ghost" onclick="loadAll()">
+      <span class="material-icons-round mi">refresh</span> Refresh All
+    </button>
+  </div>
+
+  <div class="svc-grid" id="svc-grid">
+    <!-- Cards rendered by JS -->
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let _csrfToken = '';
+
+function adminFetch(url, opts = {}) {
+  const base = { 'X-CSRF-Token': _csrfToken };
+  if (!(opts.body instanceof FormData)) base['Content-Type'] = 'application/json';
+  opts.headers = Object.assign(base, opts.headers || {});
+  return fetch(url, opts);
+}
+
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast-msg' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  document.getElementById('toast').appendChild(el);
+  requestAnimationFrame(() => { el.classList.add('show'); });
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+const PORTALS = {
+  anthropic:  'https://console.anthropic.com',
+  voyage:     'https://dash.voyageai.com',
+  s3:         'https://s3.console.aws.amazon.com',
+  postgres:   'https://lightsail.aws.amazon.com',
+  auth0:      'https://manage.auth0.com',
+  smtp:       'https://myaccount.google.com/security',
+  mailchimp:  'https://login.mailchimp.com',
+  klaviyo:    'https://www.klaviyo.com/login',
+  hubspot:    'https://app.hubspot.com',
+  salesforce: 'https://login.salesforce.com',
+};
+
+const CONFIGURABLE = ['mailchimp','klaviyo','hubspot','salesforce'];
+
+function dotClass(status) {
+  return { ok:'dot-ok', error:'dot-error', unconfigured:'dot-unconfigured', checking:'dot-checking' }[status] || 'dot-unconfigured';
+}
+
+function renderCard(svc) {
+  const isConf = CONFIGURABLE.includes(svc.id);
+  const portal = PORTALS[svc.id] || svc.portal;
+  const latency = svc.latencyMs != null ? `<div class="svc-latency">${svc.latencyMs}ms</div>` : '';
+  const configFields = {
+    mailchimp:  [{ key:'mailchimp_key',  label:'API Key' }],
+    klaviyo:    [{ key:'klaviyo_key',    label:'API Key' }],
+    hubspot:    [{ key:'hubspot_token',  label:'Access Token' }],
+    salesforce: [{ key:'salesforce_instance', label:'Instance (e.g. na1.salesforce.com)' },
+                 { key:'salesforce_token',    label:'Access Token' }],
+  };
+  const fields = (configFields[svc.id] || []).map(f =>
+    `<div><label>${f.label}</label><input type="password" id="cfg-${svc.id}-${f.key}" placeholder="Enter ${f.label.toLowerCase()}"></div>`
+  ).join('');
+
+  return `<div class="svc-card" id="card-${svc.id}">
+    <div class="svc-card-head">
+      <div class="svc-dot ${dotClass(svc.status)}" id="dot-${svc.id}"></div>
+      <div class="svc-name">${svc.name}</div>
+      ${portal ? `<a href="${portal}" target="_blank" rel="noopener" class="svc-portal-btn" title="Open portal"><span class="material-icons-round mi">open_in_new</span></a>` : ''}
+    </div>
+    <div class="svc-detail" id="detail-${svc.id}">${svc.detail || ''}</div>
+    ${latency ? `<div id="latency-${svc.id}">${latency}</div>` : `<div id="latency-${svc.id}"></div>`}
+    <div class="svc-actions">
+      <button class="btn btn-ghost" onclick="testService('${svc.id}')" id="test-btn-${svc.id}">
+        <span class="material-icons-round mi">bolt</span> Test
+      </button>
+      ${isConf && svc.status === 'unconfigured' ? `<button class="btn btn-primary" onclick="toggleConfig('${svc.id}')">Configure</button>` : ''}
+    </div>
+    ${isConf ? `<div class="svc-config" id="config-panel-${svc.id}">
+      ${fields}
+      <button class="btn btn-primary" onclick="saveConfig('${svc.id}')"><span class="material-icons-round mi">save</span> Save</button>
+    </div>` : ''}
+  </div>`;
+}
+
+function updateCard(svc) {
+  const dot = document.getElementById(`dot-${svc.id}`);
+  const detail = document.getElementById(`detail-${svc.id}`);
+  const latency = document.getElementById(`latency-${svc.id}`);
+  if (dot) { dot.className = `svc-dot ${dotClass(svc.status)}`; }
+  if (detail) detail.textContent = svc.detail || '';
+  if (latency) latency.innerHTML = svc.latencyMs != null ? `<div class="svc-latency">${svc.latencyMs}ms</div>` : '';
+}
+
+async function loadAll() {
+  document.getElementById('refresh-info').textContent = 'Checking services…';
+  // Set all dots to checking
+  document.querySelectorAll('.svc-dot').forEach(d => { d.className = 'svc-dot dot-checking'; });
+  try {
+    const r = await adminFetch('/api/admin/integrations/status');
+    const { services } = await r.json();
+    const grid = document.getElementById('svc-grid');
+    // Initial render or update
+    if (!grid.children.length) {
+      grid.innerHTML = services.map(renderCard).join('');
+    } else {
+      services.forEach(updateCard);
+    }
+    const t = new Date().toLocaleTimeString();
+    document.getElementById('refresh-info').textContent = `Last refreshed: ${t}`;
+  } catch(e) {
+    document.getElementById('refresh-info').textContent = 'Failed to load — check server';
+    toast('Could not reach server', 'error');
+  }
+}
+
+async function testService(id) {
+  const btn = document.getElementById(`test-btn-${id}`);
+  const dot = document.getElementById(`dot-${id}`);
+  if (btn) btn.disabled = true;
+  if (dot) dot.className = 'svc-dot dot-checking';
+  try {
+    const r = await adminFetch(`/api/admin/integrations/test/${id}`, { method: 'POST', body: '{}' });
+    const data = await r.json();
+    updateCard(data);
+    toast(data.status === 'ok' ? `${id} — OK` : `${id} — ${data.detail}`, data.status === 'ok' ? 'success' : 'error');
+  } catch(e) {
+    toast('Test failed: ' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function toggleConfig(id) {
+  const panel = document.getElementById(`config-panel-${id}`);
+  if (!panel) return;
+  panel.classList.toggle('open');
+}
+
+async function saveConfig(id) {
+  const configFields = {
+    mailchimp:  ['mailchimp_key'],
+    klaviyo:    ['klaviyo_key'],
+    hubspot:    ['hubspot_token'],
+    salesforce: ['salesforce_instance','salesforce_token'],
+  };
+  const body = {};
+  for (const k of (configFields[id] || [])) {
+    const el = document.getElementById(`cfg-${id}-${k}`);
+    if (el && el.value.trim()) body[k] = el.value.trim();
+  }
+  if (!Object.keys(body).length) { toast('Enter at least one value', 'error'); return; }
+  try {
+    const r = await adminFetch('/api/admin/integrations/config', { method: 'PATCH', body: JSON.stringify(body) });
+    if (r.ok) {
+      toast('Saved — testing connection…', 'success');
+      toggleConfig(id);
+      await testService(id);
+    } else {
+      toast('Save failed', 'error');
+    }
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  const r = await fetch('/api/admin/csrf-token');
+  if (r.status === 401) { location.href = '/auth/login'; return; }
+  const { token } = await r.json();
+  _csrfToken = token;
+  // Get user email
+  try {
+    const me = await adminFetch('/api/admin/me').then(r => r.json());
+    if (me?.email) document.getElementById('user-email').textContent = me.email;
+  } catch(e) {}
+  await loadAll();
+  // Auto-refresh every 60 s
+  setInterval(loadAll, 60000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

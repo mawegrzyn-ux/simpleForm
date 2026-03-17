@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reports — SignFlow</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<style>
+:root{
+  --ink:#1A1A1A;--ink2:#666;--ink3:#999;--brd:#E6E2DC;--brd2:#EEE9E3;
+  --bg:#F7F4F0;--bg2:#EDE9E3;--panel:#FFFFFF;--accent:#C94B39;--accent-h:#A83B2B;
+  --accent-bg:#FDF1EF;--success:#2E7D52;--sbg:#EAF5EE;--danger:#C0392B;
+  --font:'DM Sans',sans-serif;--r:8px;--rlg:12px;
+  --shadow:0 4px 16px rgba(0,0,0,.07),0 1px 4px rgba(0,0,0,.04);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+/* ── Top bar ── */
+#topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:52px;
+  background:var(--panel);border-bottom:1px solid var(--brd);position:sticky;top:0;z-index:100}
+.t-logo{font-size:1.05rem;font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+.t-logo em{color:#7ab648;font-style:italic}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--ink3)}
+.breadcrumb a:hover{color:var(--ink)}
+.t-spacer{flex:1}
+#user-email{font-size:0.78rem;color:var(--ink3)}
+
+/* ── Layout ── */
+.page-wrap{max-width:1200px;margin:0 auto;padding:32px 24px}
+.page-header{margin-bottom:24px}
+.page-header h1{font-size:1.4rem;font-weight:600;margin-bottom:4px}
+.page-header p{font-size:0.85rem;color:var(--ink3)}
+.mi{font-family:'Material Icons Round';font-style:normal;font-size:16px;line-height:1;vertical-align:-3px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--r);
+  border:none;cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:500;transition:opacity .15s}
+.btn-ghost{background:var(--bg2);color:var(--ink2)}
+.btn-ghost:hover{background:var(--brd)}
+.btn-ghost.active{background:var(--accent-bg);color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-h)}
+
+/* ── Summary strip ── */
+.summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rlg);padding:16px 20px}
+.stat-value{font-size:1.8rem;font-weight:600;letter-spacing:-.02em;margin-bottom:2px}
+.stat-label{font-size:0.75rem;color:var(--ink3);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+@media(max-width:700px){.summary-strip{grid-template-columns:repeat(2,1fr)}}
+
+/* ── Period + export bar ── */
+.controls-bar{display:flex;align-items:center;gap:8px;margin-bottom:24px}
+.period-btns{display:flex;gap:4px}
+.t-spacer-small{flex:1}
+
+/* ── Cards ── */
+.card{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rlg);padding:20px;margin-bottom:16px}
+.card-title{font-size:0.92rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:7px}
+
+/* ── Tables ── */
+.rep-table{width:100%;border-collapse:collapse;font-size:0.82rem}
+.rep-table th{text-align:left;font-size:0.72rem;font-weight:600;color:var(--ink3);
+  text-transform:uppercase;letter-spacing:.04em;padding:0 10px 10px;border-bottom:1px solid var(--brd)}
+.rep-table td{padding:9px 10px;border-bottom:1px solid var(--brd2)}
+.rep-table tr:last-child td{border-bottom:none}
+.rep-table tr:hover td{background:var(--bg)}
+.pct-bar-wrap{display:flex;align-items:center;gap:8px}
+.pct-bar{height:6px;border-radius:3px;background:var(--accent);flex-shrink:0;min-width:2px}
+.empty-row{text-align:center;color:var(--ink3);padding:24px;font-size:0.85rem}
+
+/* ── Sparkline chart ── */
+.chart-wrap{overflow-x:auto}
+.chart-wrap svg{display:block}
+.chart-area{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart-fill{fill:var(--accent);opacity:.08}
+.chart-axis{font-size:10px;fill:var(--ink3)}
+.chart-label-row{display:flex;justify-content:space-between;font-size:0.7rem;color:var(--ink3);margin-top:4px}
+
+/* ── Two-col grid ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:20px;right:20px;z-index:9999;pointer-events:none}
+.toast-msg{background:#1a1a1a;color:#fff;padding:10px 16px;border-radius:8px;
+  font-size:0.82rem;margin-top:8px;opacity:0;transform:translateY(6px);
+  transition:all .25s;pointer-events:none}
+.toast-msg.show{opacity:1;transform:translateY(0)}
+.toast-msg.success{background:var(--success)}
+.toast-msg.error{background:var(--danger)}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="t-logo">Wing<em>Vibes</em></div>
+  <div class="breadcrumb">
+    <span class="material-icons-round mi" style="font-size:14px;color:var(--ink3)">chevron_right</span>
+    <a href="/admin">Admin</a>
+    <span class="material-icons-round mi" style="font-size:14px;color:var(--ink3)">chevron_right</span>
+    <span>Reports</span>
+  </div>
+  <div class="t-spacer"></div>
+  <span id="user-email"></span>
+</div>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <h1><span class="material-icons-round mi" style="font-size:22px;vertical-align:-5px;color:var(--accent)">bar_chart</span> Reports</h1>
+    <p>Subscriber growth, form performance and email metrics across all your forms.</p>
+  </div>
+
+  <!-- Summary strip -->
+  <div class="summary-strip">
+    <div class="stat-card"><div class="stat-value" id="stat-forms">—</div><div class="stat-label">Active forms</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-subs">—</div><div class="stat-label">Active subscribers</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-emails">—</div><div class="stat-label">Emails sent</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-submissions">—</div><div class="stat-label">Submissions</div></div>
+  </div>
+
+  <!-- Period picker + export -->
+  <div class="controls-bar">
+    <div class="period-btns">
+      <button class="btn btn-ghost active" data-period="30d" onclick="setPeriod('30d',this)">30 days</button>
+      <button class="btn btn-ghost" data-period="90d" onclick="setPeriod('90d',this)">90 days</button>
+      <button class="btn btn-ghost" data-period="1y" onclick="setPeriod('1y',this)">1 year</button>
+    </div>
+    <div class="t-spacer-small"></div>
+    <a href="/api/admin/reports/export" class="btn btn-ghost" id="export-btn">
+      <span class="material-icons-round mi">download</span> Export CSV
+    </a>
+  </div>
+
+  <!-- Subscriber growth + form performance -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">trending_up</span> Subscriber Growth</div>
+      <div class="chart-wrap" id="chart-wrap">
+        <div style="color:var(--ink3);font-size:0.82rem">Loading…</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="material-icons-round mi">table_chart</span> Form Performance</div>
+      <div id="forms-table-wrap"><div style="color:var(--ink3);font-size:0.82rem">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- Email metrics -->
+  <div class="card">
+    <div class="card-title"><span class="material-icons-round mi">mail</span> Email Metrics</div>
+    <div id="email-table-wrap"><div style="color:var(--ink3);font-size:0.82rem">Loading…</div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let _csrfToken = '';
+let _period = '30d';
+
+function adminFetch(url, opts = {}) {
+  const base = { 'X-CSRF-Token': _csrfToken };
+  if (!(opts.body instanceof FormData)) base['Content-Type'] = 'application/json';
+  opts.headers = Object.assign(base, opts.headers || {});
+  return fetch(url, opts);
+}
+
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast-msg' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  document.getElementById('toast').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+function fmt(n) { return n == null ? '—' : Number(n).toLocaleString(); }
+
+// ── Period toggle ─────────────────────────────────────────────────────────────
+function setPeriod(p, btn) {
+  _period = p;
+  document.querySelectorAll('.period-btns .btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadPeriodData();
+}
+
+// ── SVG Sparkline ─────────────────────────────────────────────────────────────
+function buildSparkline(rows) {
+  if (!rows.length) return '<div class="empty-row">No subscriber data for this period.</div>';
+  const W = 400, H = 120, PAD = { t:10, r:10, b:30, l:40 };
+  const iW = W - PAD.l - PAD.r, iH = H - PAD.t - PAD.b;
+  const counts = rows.map(r => r.count);
+  const maxV = Math.max(...counts, 1);
+  const minV = 0;
+  const pts = rows.map((r, i) => {
+    const x = PAD.l + (i / Math.max(rows.length - 1, 1)) * iW;
+    const y = PAD.t + iH - ((r.count - minV) / (maxV - minV)) * iH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const fillPts = `${PAD.l},${PAD.t + iH} ${pts} ${PAD.l + iW},${PAD.t + iH}`;
+
+  // Y-axis labels
+  const yLabels = [0, Math.round(maxV/2), maxV].map(v => {
+    const y = PAD.t + iH - ((v - minV) / (maxV - minV)) * iH;
+    return `<text x="${PAD.l - 5}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" class="chart-axis">${v}</text>`;
+  }).join('');
+
+  // X-axis labels (first, middle, last)
+  const xIdxs = [0, Math.floor(rows.length/2), rows.length-1].filter((v,i,a) => a.indexOf(v)===i);
+  const xLabels = xIdxs.map(i => {
+    const x = PAD.l + (i / Math.max(rows.length-1,1)) * iW;
+    const d = rows[i]?.day ? rows[i].day.substring(5) : '';
+    return `<text x="${x.toFixed(1)}" y="${PAD.t + iH + 16}" text-anchor="middle" class="chart-axis">${d}</text>`;
+  }).join('');
+
+  return `<div class="chart-wrap">
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+      <polygon points="${fillPts}" class="chart-fill"/>
+      <polyline points="${pts}" class="chart-area"/>
+      ${yLabels}${xLabels}
+    </svg>
+  </div>`;
+}
+
+// ── Form performance table ────────────────────────────────────────────────────
+function buildFormsTable(rows) {
+  if (!rows.length) return '<div class="empty-row">No form data available.</div>';
+  const maxConv = Math.max(...rows.map(r => r.conversionPct), 1);
+  const body = rows.map(r => `<tr>
+    <td><strong>${r.name}</strong><br><span style="font-size:0.72rem;color:var(--ink3)">${r.slug}</span></td>
+    <td style="text-align:right">${fmt(r.visits)}</td>
+    <td style="text-align:right">${fmt(r.submissions)}</td>
+    <td>
+      <div class="pct-bar-wrap">
+        <div class="pct-bar" style="width:${Math.round((r.conversionPct/maxConv)*60)}px"></div>
+        <span>${r.conversionPct}%</span>
+      </div>
+    </td>
+    <td style="text-align:right">${fmt(r.subscribers)}</td>
+  </tr>`).join('');
+  return `<table class="rep-table">
+    <thead><tr>
+      <th>Form</th><th style="text-align:right">Visits</th>
+      <th style="text-align:right">Submissions</th><th>Conv %</th>
+      <th style="text-align:right">Subscribers</th>
+    </tr></thead>
+    <tbody>${body}</tbody>
+  </table>`;
+}
+
+// ── Email metrics table ───────────────────────────────────────────────────────
+function buildEmailTable(rows) {
+  if (!rows.length) return '<div class="empty-row">No email data for this period.</div>';
+  const body = rows.map(r => `<tr>
+    <td>${r.form_slug}</td>
+    <td style="text-align:right">${fmt(r.sent)}</td>
+    <td style="text-align:right">${fmt(r.opened)}</td>
+    <td style="text-align:right">${r.openPct}%</td>
+    <td style="text-align:right">${fmt(r.clicked)}</td>
+    <td style="text-align:right">${r.clickPct}%</td>
+    <td style="text-align:right">${fmt(r.bounced)}</td>
+  </tr>`).join('');
+  return `<table class="rep-table">
+    <thead><tr>
+      <th>Form</th><th style="text-align:right">Sent</th>
+      <th style="text-align:right">Opened</th><th style="text-align:right">Open %</th>
+      <th style="text-align:right">Clicked</th><th style="text-align:right">Click %</th>
+      <th style="text-align:right">Bounced</th>
+    </tr></thead>
+    <tbody>${body}</tbody>
+  </table>`;
+}
+
+// ── Data loaders ──────────────────────────────────────────────────────────────
+async function loadSummary() {
+  try {
+    const r = await adminFetch('/api/admin/reports/summary');
+    const d = await r.json();
+    document.getElementById('stat-forms').textContent       = fmt(d.forms);
+    document.getElementById('stat-subs').textContent        = fmt(d.subscribers);
+    document.getElementById('stat-emails').textContent      = fmt(d.emailsSent);
+    document.getElementById('stat-submissions').textContent = fmt(d.submissions);
+  } catch(e) { toast('Could not load summary', 'error'); }
+}
+
+async function loadPeriodData() {
+  const p = _period;
+  document.getElementById('chart-wrap').innerHTML = '<div style="color:var(--ink3);font-size:0.82rem">Loading…</div>';
+  document.getElementById('forms-table-wrap').innerHTML = '<div style="color:var(--ink3);font-size:0.82rem">Loading…</div>';
+  document.getElementById('email-table-wrap').innerHTML = '<div style="color:var(--ink3);font-size:0.82rem">Loading…</div>';
+  try {
+    const [subR, formR, emailR] = await Promise.all([
+      adminFetch(`/api/admin/reports/subscribers?period=${p}`).then(r => r.json()),
+      adminFetch(`/api/admin/reports/forms?period=${p}`).then(r => r.json()),
+      adminFetch(`/api/admin/reports/email?period=${p}`).then(r => r.json()),
+    ]);
+    document.getElementById('chart-wrap').innerHTML      = buildSparkline(subR.rows || []);
+    document.getElementById('forms-table-wrap').innerHTML = buildFormsTable(formR.rows || []);
+    document.getElementById('email-table-wrap').innerHTML = buildEmailTable(emailR.rows || []);
+  } catch(e) {
+    toast('Could not load report data', 'error');
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  const r = await fetch('/api/admin/csrf-token');
+  if (r.status === 401) { location.href = '/auth/login'; return; }
+  const { token } = await r.json();
+  _csrfToken = token;
+  try {
+    const me = await adminFetch('/api/admin/me').then(r => r.json());
+    if (me?.email) document.getElementById('user-email').textContent = me.email;
+  } catch(e) {}
+  await Promise.all([loadSummary(), loadPeriodData()]);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
