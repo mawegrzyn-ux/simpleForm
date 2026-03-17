@@ -10,6 +10,18 @@
 
 ## Changelog
 
+### 2026-03-17
+- **AI assistant (McFry)**: Switched model from `claude-sonnet-4-6` to `claude-haiku-4-5` (4× faster, ~3× cheaper)
+- **AI assistant**: Rate-limit error handling — 429 responses now show a live countdown timer disabling the send button until the API resets
+- **AI assistant**: Billing error handling — 400 "credit balance too low" responses show a clear top-up prompt instead of a generic error
+- **Admin nav**: Added **Reports** and **Integrations** top-bar navigation links (real `<a href>` navigations, not SPA tabs)
+- **Integrations page** (`/admin/integrations`): New standalone SPA — live health board for all 10 external services (Anthropic, Voyage AI, S3, Auth0, SMTP, Mailchimp, Klaviyo, HubSpot, Salesforce, PostgreSQL). Each card shows status dot, latency, detail text, portal link, [Test] button, and [Configure] panel for third-party credentials (Mailchimp/Klaviyo/HubSpot/Salesforce keys stored in `global_settings`). Auto-refreshes every 60 s.
+- **Reports page** (`/admin/reports`): New standalone SPA — summary KPIs (forms, subscribers, emails sent, submissions), period picker (30 d / 90 d / 1 y), SVG sparkline for subscriber growth (no external chart library), form performance table, email metrics table (open rate, click rate, bounces), CSV export.
+- **Backend**: New route files `routes/integrations.js` and `routes/reports.js` mounted in `server.js`
+- **Branding**: Added **Label size** and **Label weight** dropdowns to Branding → Field Style card; wired to `--sf-lbl-size` / `--sf-lbl-weight` CSS custom properties in both desktop and mobile form templates
+- **Form list hover preview**: Fixed bug where hovering any form card always showed the first form's preview; each card now sets preview to its own slug on `mouseenter`
+- **JPEG export**: Fixed blank space at top of exported image when page was scrolled — now resets scroll before capture
+
 ### 2026-03-12
 - **New field — Year+Month+Day picker**: three scroll-drum date picker submitting `YYYY-MM-DD`
 - **New field — Icon / tile selector (`iconselect`)**: horizontal-scroll or grid layout of selectable tiles (Material Icons, emoji, or image via media library); single or multi-select; configurable tile size, highlight style (border/fill), highlight colour
@@ -144,13 +156,15 @@ SignFlow is a self-hosted platform for building, managing, and embedding beautif
 | Admin SPA | Vanilla JS (no build step) | — |
 | UI icons | Google Material Icons Round | CDN |
 | Fonts | Google Fonts API | CDN |
-| Storage | JSON flat files | — |
+| Database | PostgreSQL | 16 (AWS Lightsail Managed DB) |
+| Object storage | Amazon S3 | — |
+| AI assistant | Anthropic Claude (Haiku 4.5) + Voyage AI (embeddings) | — |
 
 ### Intentional architectural choices
 
-- **Single `server.js` file** (~1700+ lines) — deliberate; avoids module-split complexity for a single-developer project. All business logic is co-located and easy to navigate.
-- **Single `admin/index.html` file** — full SPA with no bundler, no framework, no npm. Edit and deploy with no build step.
-- **JSON flat files** — zero database setup, trivial backup (copy a directory), human-readable data. The tradeoff is no concurrent-write safety and limited query capability. See [Enterprise Roadmap §12](#12-enterprise-roadmap) for PostgreSQL migration path.
+- **Single `server.js` file** (~3000+ lines) — deliberate; avoids module-split complexity for a single-developer project. All core business logic is co-located. Feature-specific route files (`routes/integrations.js`, `routes/reports.js`) are kept separate only where they form a clean, bounded concern.
+- **Single `admin/index.html` file** — full SPA with no bundler, no framework, no npm. Edit and deploy with no build step. Secondary admin pages (`admin/integrations/index.html`, `admin/reports/index.html`) follow the same pattern — self-contained, no build step.
+- **PostgreSQL 16 + Amazon S3** — all subscriber, form, and analytics data in PostgreSQL (AWS Lightsail Managed DB); all media and font files in S3. Zero local disk state beyond the codebase itself.
 
 ---
 
@@ -623,6 +637,8 @@ The admin panel is a single-page application served at `/admin`. It is a single 
 | Tab | Description |
 |---|---|
 | **Forms** | List of all forms; create / delete / switch between forms |
+| **Reports** | Analytics & reports page (`/admin/reports`) — subscriber growth, form performance, email metrics, CSV export |
+| **Integrations** | Integration health board (`/admin/integrations`) — live status of all external services, Test/Configure per service |
 | **Help** | Searchable accordion: Getting Started, Form Builder, Design, Subscribers, Embed, Email, Settings, Keyboard Shortcuts, Enterprise Roadmap |
 
 ### Form subnav (active form)
@@ -948,4 +964,4 @@ Current JSON flat files will not scale past ~50k subscribers per form without no
 
 ---
 
-*Last updated: 2026-03-12 · SignFlow v2.1*
+*Last updated: 2026-03-17 · SignFlow v2.2*

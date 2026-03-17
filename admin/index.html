@@ -1569,7 +1569,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <rect x="199" y="160" width="222" height="120" rx="4" fill="white" stroke="#e2e8f0" stroke-width="1.5"/>
           <rect x="199" y="160" width="4" height="120" rx="2" fill="#22c55e"/>
           <text x="212" y="179" font-family="system-ui,sans-serif" font-weight="700" font-size="11.5" fill="#0f172a">Node.js 20 LTS · Express 4</text>
-          <text x="212" y="196" font-family="system-ui,sans-serif" font-size="9.5" fill="#64748b">server.js · ~2800 lines</text>
+          <text x="212" y="196" font-family="system-ui,sans-serif" font-size="9.5" fill="#64748b">server.js · ~3000+ lines · routes/*.js</text>
           <text x="212" y="211" font-family="system-ui,sans-serif" font-size="9.5" fill="#64748b">Joi · sanitize-html · rate-limit</text>
           <text x="212" y="226" font-family="system-ui,sans-serif" font-size="9.5" fill="#64748b">multer-s3 · CSRF · helmet</text>
           <text x="212" y="241" font-family="system-ui,sans-serif" font-size="9.5" fill="#64748b">connect-pg-simple · openid-client</text>
@@ -1605,7 +1605,7 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
         <table class="help-table">
           <tr><th>Layer</th><th>Technology</th><th>Notes</th></tr>
           <tr><td>Runtime</td><td>Node.js 20 LTS</td><td>Long-term support release</td></tr>
-          <tr><td>Web framework</td><td>Express 4</td><td>Single <code>server.js</code> (~2600 lines)</td></tr>
+          <tr><td>Web framework</td><td>Express 4</td><td>Single <code>server.js</code> (~3000+ lines); feature route files: <code>routes/integrations.js</code>, <code>routes/reports.js</code></td></tr>
           <tr><td>Auth</td><td>openid-client v5 (Auth0)</td><td>OIDC, role claim via Action</td></tr>
           <tr><td>Email</td><td>Nodemailer</td><td>SMTP relay, HTML templates</td></tr>
           <tr><td>File uploads</td><td>multer-s3 v3</td><td>Streams directly to S3; 25 MB limit; UUID-based keys; multi-file batch route</td></tr>
@@ -1618,7 +1618,8 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td>Reverse proxy</td><td>Nginx</td><td>TLS termination, proxy_pass :3000</td></tr>
           <tr><td>TLS</td><td>Let's Encrypt (Certbot)</td><td>Auto-renewal via certbot timer</td></tr>
           <tr><td>Hosting</td><td>AWS Lightsail</td><td>Ubuntu 24.04, eu-west-3 (Paris)</td></tr>
-          <tr><td>Admin SPA</td><td>Vanilla JS</td><td>No build step, no framework</td></tr>
+          <tr><td>Admin SPA</td><td>Vanilla JS</td><td>No build step, no framework; 3 SPAs: <code>admin/index.html</code>, <code>admin/integrations/index.html</code>, <code>admin/reports/index.html</code></td></tr>
+          <tr><td>AI assistant</td><td>Anthropic Claude Haiku 4.5</td><td>SSE streaming, tool use; Voyage AI for help-doc embeddings</td></tr>
           <tr><td>Icons</td><td>Google Material Icons Round</td><td>CDN loaded</td></tr>
         </table>
         <h3>Architecture decisions</h3>
@@ -1855,6 +1856,17 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;paddi
           <tr><td><code>GET /api/admin/forms/:slug/markets</code></td><td>List markets assigned to a form</td></tr>
           <tr><td><code>PUT /api/admin/forms/:slug/markets</code></td><td>Replace a form's market assignments; body: <code>{ marketIds: [] }</code> (super-admin only)</td></tr>
           <tr><td><code>GET /branding-preview</code></td><td>Render a standalone branding preview iframe (uses generic demo content)</td></tr>
+          <tr><td><code>GET /admin/integrations</code></td><td>Serve integrations health board SPA (<code>admin/integrations/index.html</code>); requires <code>adminAuth</code></td></tr>
+          <tr><td><code>GET /admin/reports</code></td><td>Serve analytics &amp; reports SPA (<code>admin/reports/index.html</code>); requires <code>adminAuth</code></td></tr>
+          <tr><td><code>GET /api/admin/integrations/status</code></td><td>Health snapshot of all 10 external services in parallel (Anthropic, Voyage, S3, Auth0, SMTP, Mailchimp, Klaviyo, HubSpot, Salesforce, PostgreSQL); each returns <code>{ status, detail, latencyMs }</code></td></tr>
+          <tr><td><code>POST /api/admin/integrations/test/:service</code></td><td>On-demand connectivity test for a single named service; same response shape as status</td></tr>
+          <tr><td><code>GET /api/admin/integrations/config</code></td><td>Returns masked integration credentials from <code>global_settings.value-&gt;'integrations'</code> (keys truncated to first 4 chars)</td></tr>
+          <tr><td><code>PATCH /api/admin/integrations/config</code></td><td>Save integration credentials (Mailchimp/Klaviyo/HubSpot/Salesforce keys) to <code>global_settings</code>. Core keys (Anthropic, Voyage, S3, Auth0, SMTP) are <code>.env</code>-only.</td></tr>
+          <tr><td><code>GET /api/admin/reports/summary</code></td><td>Platform totals: active forms, active subscribers, emails sent, total submissions</td></tr>
+          <tr><td><code>GET /api/admin/reports/subscribers</code></td><td>Daily new subscriber counts for sparkline chart; <code>?period=30d|90d|1y</code></td></tr>
+          <tr><td><code>GET /api/admin/reports/forms</code></td><td>Per-form performance: visits, submissions, conversion %, active subscriber count, errors</td></tr>
+          <tr><td><code>GET /api/admin/reports/email</code></td><td>Email metrics per form: sent, opened, clicked, bounced + open% and click%; <code>?period=</code> filter</td></tr>
+          <tr><td><code>GET /api/admin/reports/export</code></td><td>CSV download of full form performance summary</td></tr>
         </table>
         <h3>Internal read-only API (Claude Code access)</h3>
         <table class="help-table">
@@ -2345,6 +2357,18 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
         <span class="material-icons-round mi help-chevron">expand_more</span>
       </div>
       <div class="help-group-body">
+        <h3>2026-03-17 — Integrations page, Reports page, Haiku model, billing/rate-limit errors, label typography</h3>
+        <ul>
+          <li>✅ <strong>Integrations page</strong> (<code>/admin/integrations</code>) — new standalone SPA; live health board for all 10 external services (Anthropic, Voyage AI, Amazon S3, Auth0, SMTP, Mailchimp, Klaviyo, HubSpot, Salesforce, PostgreSQL). Each card shows a status dot (ok / error / unconfigured / checking with pulsing animation), latency in ms, a detail line, a portal link (<code>open_in_new</code>), a [Test] button that re-checks live, and a [Configure] expand panel for third-party credentials. Mailchimp/Klaviyo/HubSpot/Salesforce keys saved to <code>global_settings.value-&gt;'integrations'</code>. Core keys (Anthropic, Voyage, S3, Auth0, SMTP) read from <code>.env</code> only. Auto-refreshes every 60 s. Backed by new Express router <code>routes/integrations.js</code> mounted at <code>/api/admin/integrations</code>.</li>
+          <li>✅ <strong>Reports page</strong> (<code>/admin/reports</code>) — new standalone SPA; summary KPI strip (forms count, active subscribers, emails sent, total submissions); period picker (30 d / 90 d / 1 y); pure SVG sparkline for subscriber growth (no external chart library, <code>&lt;polyline&gt;</code> + fill); form performance table (visits, submissions, conversion %, subscriber count); email metrics table (sent, opens, clicks, bounces, open%, click%); CSV export. Backed by new Express router <code>routes/reports.js</code> mounted at <code>/api/admin/reports</code>.</li>
+          <li>✅ <strong>Admin nav links</strong> — Reports and Integrations added as real <code>&lt;a href&gt;</code> navigation items in the main admin top bar (full page navigations, not SPA tabs)</li>
+          <li>✅ <strong>McFry model → Haiku 4.5</strong> — switched from <code>claude-sonnet-4-6</code> to <code>claude-haiku-4-5</code>; ~4× faster, ~3× cheaper per token; same tool-use support</li>
+          <li>✅ <strong>Rate-limit error handling</strong> — Anthropic 429 responses extract <code>retry-after</code> / <code>x-ratelimit-reset-*</code> headers; SSE streams <code>{ rateLimited: true, retryAfterSecs }</code> to client; <code>_aiStartCooldown(secs)</code> disables the send button with a live countdown timer</li>
+          <li>✅ <strong>Billing error handling</strong> — Anthropic 400 "credit balance too low" errors show a clear top-up prompt (<code>console.anthropic.com</code>) instead of a generic error string</li>
+          <li>✅ <strong>Label typography controls</strong> — Branding → Field Style card gains Label size (0.7rem – 1rem) and Label weight (300–800) dropdowns; wired to <code>--sf-lbl-size</code> and <code>--sf-lbl-weight</code> CSS custom properties in both desktop and mobile public form templates; also fixed <code>--sf-lbl</code> (label colour) which was stored in <code>cfg.design.fieldLabelColor</code> but never emitted into the form's <code>:root</code> CSS block</li>
+          <li>✅ <strong>Form hover preview fix</strong> — hovering any form card in the Forms tab now correctly loads that card's form into the preview iframe; previously the first form was always shown regardless of which card was hovered</li>
+          <li>✅ <strong>JPEG export scroll fix</strong> — exporting a JPEG preview when the page was scrolled down produced a blank strip at the top equal to the scroll offset; fixed by resetting <code>scrollTop</code> on the iframe document before <code>html2canvas</code> capture and restoring it after</li>
+        </ul>
         <h3>2026-03-16 — McFry write tools, activity log, brand analysis, bug fixes</h3>
         <ul>
           <li>✅ <strong>McFry write tools</strong> — AI assistant can now create forms, update form design, manage design templates, and analyse external branding. New tools: <code>create_form</code>, <code>update_form_config</code>, <code>list_design_templates</code>, <code>create_design_template</code>, <code>apply_design_template</code>, <code>analyze_website</code>. All write operations require explicit confirmation before executing ("Shall I proceed?").</li>
@@ -2535,7 +2559,13 @@ dispatchEvent('signflow:success')      → custom listeners       ✓</div>
       <div class="help-group-body">
 
         <h3>Overview</h3>
-        <p><strong>McFry</strong> is the live AI assistant built into the admin panel (🐔 button, bottom-right). It uses Claude (Anthropic) with tool use and SSE streaming. It is context-aware — every message includes the current tab, active form slug, open modal, and panel tab. Responses are tailored to the user's role: super-admins receive full technical detail; market admins/editors receive plain-language answers.</p>
+        <p><strong>McFry</strong> is the live AI assistant built into the admin panel (🐔 button, bottom-right). It uses <strong>Claude Haiku 4.5</strong> (Anthropic) with tool use and SSE streaming — fast and cost-efficient (~4× faster, ~3× cheaper than Sonnet). It is context-aware: every message includes the current tab, active form slug, open modal, and panel tab. Responses are tailored to the user's role: super-admins receive full technical detail; market admins/editors receive plain-language answers.</p>
+        <h3>Error states</h3>
+        <table class="help-table">
+          <tr><th>Error</th><th>What you see</th></tr>
+          <tr><td>Rate limit (429)</td><td>Countdown timer on the send button; re-enables automatically when the limit resets (extracted from <code>retry-after</code> / <code>x-ratelimit-reset-*</code> headers)</td></tr>
+          <tr><td>Credits exhausted (400)</td><td>Message with a direct link to <code>console.anthropic.com</code> billing page; API access restored automatically once credits are topped up</td></tr>
+        </table>
 
         <h3>Read tools</h3>
         <table class="help-table">
@@ -2996,7 +3026,8 @@ INTERNAL_API_KEY=...   # Claude Code read-only DB access via POST /api/internal/
       if (!d.entries.length) {
         tbody.innerHTML = '<tr><td colspan="6" style="color:var(--ink3);font-style:italic">No activity yet.</td></tr>';
       } else {
-        tbody.innerHTML = d.entries.map(e => {
+        const _mcfryE = d.entries;
+        tbody.innerHTML = _mcfryE.map((e, idx) => {
           const ts = new Date(e.created_at).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'});
           const tools = (e.tools_called||[]).map(t=>t.name).join(', ') || '—';
           const tok = (e.tokens_in||0) + '↑ ' + (e.tokens_out||0) + '↓';
@@ -3004,7 +3035,7 @@ INTERNAL_API_KEY=...   # Claude Code read-only DB access via POST /api/internal/
           const status = e.error
             ? '<span style="color:#c00" title="'+e.error+'">⚠ error</span>'
             : '<span style="color:var(--success)">✓ ok</span>';
-          return `<tr>
+          return `<tr data-tidx="${idx}" style="cursor:default">
             <td style="white-space:nowrap;color:var(--ink3)">${ts}</td>
             <td style="color:var(--ink2)">${e.user_email||'—'}</td>
             <td title="${(e.user_message||'').replace(/"/g,'&quot;')}">${msg}</td>
@@ -3013,6 +3044,26 @@ INTERNAL_API_KEY=...   # Claude Code read-only DB access via POST /api/internal/
             <td>${status}</td>
           </tr>`;
         }).join('');
+        tbody.querySelectorAll('tr[data-tidx]').forEach(tr => {
+          const e = _mcfryE[parseInt(tr.dataset.tidx)]; if (!e) return;
+          tr.addEventListener('mouseenter', ev => {
+            const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const toolsHtml = (e.tools_called||[]).length
+              ? '<div style="margin-top:8px"><strong style="color:#e2e8f0">Tools:</strong> <span style="color:#94a3b8">' + esc((e.tools_called||[]).map(t=>t.name).join(', ')) + '</span></div>' : '';
+            const ctxParts = e.context ? Object.entries(e.context).filter(([,v])=>v!=null&&v!=='').map(([k,v])=>`${esc(k)}: <em style="color:#e2e8f0">${esc(String(v))}</em>`) : [];
+            const ctxHtml = ctxParts.length ? '<div style="margin-top:6px;color:#94a3b8">' + ctxParts.join(' · ') + '</div>' : '';
+            const respHtml = e.response
+              ? '<div style="margin-top:8px"><strong style="color:#e2e8f0">Response:</strong><br><span style="color:#94a3b8">' + esc(e.response.substring(0,400)) + (e.response.length>400?'…':'') + '</span></div>' : '';
+            const errHtml = e.error ? '<div style="margin-top:6px;color:#f87171"><strong>Error:</strong> ' + esc(e.error) + '</div>' : '';
+            window.showLogTip(ev,
+              '<div style="font-weight:600;margin-bottom:3px">' + esc(e.user_email||'Unknown') + '</div>' +
+              '<div style="color:#64748b;font-size:0.72rem;margin-bottom:8px">' + new Date(e.created_at).toLocaleString() + ' · ' + (e.tokens_in||0) + ' in / ' + (e.tokens_out||0) + ' out tokens</div>' +
+              '<div><strong style="color:#e2e8f0">Message:</strong><br>' + esc(e.user_message||'').replace(/\n/g,'<br>') + '</div>' +
+              respHtml + toolsHtml + ctxHtml + errHtml
+            );
+          });
+          tr.addEventListener('mouseleave', window.hideLogTip);
+        });
       }
       const pages = document.getElementById('mcfry-log-pages');
       pages.innerHTML = '';
@@ -3377,7 +3428,18 @@ INTERNAL_API_KEY=...   # Claude Code read-only DB access via POST /api/internal/
           <tr><td><code>/delete-data</code></td><td>Subscriber self-service data deletion request page</td></tr>
         </table>
         <h3>Navigation overview</h3>
-        <p>The admin panel is a single-page app at <code>/admin</code>. Top-level nav items — <strong>Forms</strong>, <strong>Branding</strong>, <strong>Media</strong> — are global. The per-form sub-nav (<strong>Build</strong>, <strong>Subscribers</strong>, <strong>Embed</strong>, <strong>Settings</strong>) appears once a form is selected. The <strong>⚙ Platform Settings</strong> icon (top-right) opens global tools such as IP flagging.</p>
+        <p>The admin panel lives at <code>/admin</code>. Top-level nav items in the top bar:</p>
+        <table class="help-table">
+          <tr><th>Nav item</th><th>Where it goes</th></tr>
+          <tr><td><strong>Forms</strong></td><td>Form list + live preview; create, open, delete forms</td></tr>
+          <tr><td><strong>Branding</strong></td><td>Shared design tab (colours, fonts, label typography)</td></tr>
+          <tr><td><strong>Media</strong></td><td>Shared media library (upload, organise, edit images)</td></tr>
+          <tr><td><strong>Reports</strong></td><td>Analytics &amp; reports page (<code>/admin/reports</code>) — subscriber growth, form performance, email metrics, CSV export</td></tr>
+          <tr><td><strong>Integrations</strong></td><td>Integration health board (<code>/admin/integrations</code>) — live status of all external services, [Test] and [Configure] per card</td></tr>
+          <tr><td><strong>Help</strong></td><td>This help panel (searchable accordion)</td></tr>
+          <tr><td><strong>⚙ Platform Settings</strong></td><td>Security (IP flags, anti-bot), Markets, Users, Logs — top-right icon</td></tr>
+        </table>
+        <p>The per-form sub-nav (<strong>Build</strong>, <strong>Subscribers</strong>, <strong>Embed</strong>, <strong>Settings</strong>) appears once a form is selected. <strong>Reports</strong> and <strong>Integrations</strong> open as separate pages (full navigation, not SPA tabs).</p>
       </div>
     </div>
 
@@ -3812,8 +3874,17 @@ INTERNAL_API_KEY=...   # Claude Code read-only DB access via POST /api/internal/
         <p>Counters are updated fire-and-forget (no added latency to the user's request) and stored in the <code>analytics</code> PostgreSQL table.</p>
         <h3>Resetting counters</h3>
         <p>Click the small <strong>reset</strong> button in the analytics row of any form card (on the Forms tab) to zero out all three counters for that form.</p>
+        <h3>Reports page</h3>
+        <p>For richer analytics, visit the <strong>Reports</strong> page (<code>/admin/reports</code>) via the top nav. It shows:</p>
+        <ul>
+          <li><strong>Summary KPIs</strong> — total forms, active subscribers, emails sent, total submissions</li>
+          <li><strong>Subscriber growth</strong> — SVG sparkline chart of daily new subscribers; period picker (30 d / 90 d / 1 y)</li>
+          <li><strong>Form performance</strong> — per-form: visits, submissions, conversion %, active subscribers, errors</li>
+          <li><strong>Email metrics</strong> — per-form: sent, opens, clicks, bounces, open rate %, click rate %</li>
+          <li><strong>Export CSV</strong> — download a full form performance summary as a CSV file</li>
+        </ul>
         <h3>Third-party analytics</h3>
-        <p>For deeper analytics, configure <strong>GA4</strong> and/or <strong>Meta Pixel</strong> in Form Settings → Analytics &amp; Tracking. See the <strong>Embed &amp; Share</strong> section for how embedded form events reach your analytics without extra configuration.</p>
+        <p>For real-time visitor analytics, configure <strong>GA4</strong> and/or <strong>Meta Pixel</strong> in Form Settings → Analytics &amp; Tracking. See the <strong>Embed &amp; Share</strong> section for how embedded form events reach your analytics without extra configuration.</p>
       </div>
     </div>
 
@@ -4922,7 +4993,7 @@ function renderFormsList(){
         ${hasAnalytics&&(a.errors||0)>0?`<span class="analytics-stat errors" title="Submit errors"><span class="material-icons-round mi">error_outline</span> ${fmtNum(a.errors)}</span>`:''}
         <button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:0.7rem;padding:1px 6px" onclick="event.stopPropagation();resetAnalytics('${f.slug}')" title="Reset analytics">reset</button>
       </div>`;
-    return`<div class="form-card${isSelected?' selected':''}" onclick="openFormEditor('${f.slug}')" onmouseenter="selectFormPreview('${f.slug}')">
+    return`<div class="form-card${isSelected?' selected':''}" data-slug="${f.slug}" onclick="openFormEditor('${f.slug}')" onmouseenter="selectFormPreview('${f.slug}')">
       <div class="form-card-top">
         <div class="form-card-info">
           <div class="form-card-name">${escHtml(f.name)}</div>
@@ -4944,8 +5015,10 @@ function renderFormsList(){
 }
 
 function selectFormPreview(slug){
+  if(_formsPreviewSlug===slug)return;
   _formsPreviewSlug=slug;
-  renderFormsList();
+  // Toggle selected class in-place — no full re-render so clicks always fire
+  document.querySelectorAll('.form-card').forEach(c=>c.classList.toggle('selected',c.dataset.slug===slug));
   const wrap=document.getElementById('forms-prev-frame-wrap');
   const placeholder=document.getElementById('forms-preview-placeholder');
   const frame=document.getElementById('forms-preview-frame');
@@ -9417,7 +9490,7 @@ async function loadLogsPageFeedback() {
     if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:20px">No feedback yet</td></tr>`; return; }
     const TYPE_COLOURS = { bug:'#dc2626', change:'#d97706', feature:'#2563eb' };
     const STATUS_COLOURS = { open:'var(--danger)', 'in-progress':'#d97706', resolved:'var(--success)', 'wont-fix':'var(--ink3)' };
-    tbody.innerHTML = rows.map(r => `<tr>
+    tbody.innerHTML = rows.map((r,idx) => `<tr data-tidx="${idx}" style="cursor:default">
       <td style="white-space:nowrap;font-size:0.78rem;color:var(--ink3)">${new Date(r.created_at).toLocaleDateString('en-GB')}</td>
       <td><span style="font-size:0.7rem;font-weight:600;color:#fff;background:${TYPE_COLOURS[r.type]||'#888'};padding:2px 7px;border-radius:10px">${escHtml(r.type)}</span></td>
       <td style="font-size:0.82rem" title="${escHtml(r.description||'')}">${escHtml(r.title)}</td>
@@ -9428,6 +9501,21 @@ async function loadLogsPageFeedback() {
       </select></td>
       <td><button class="tbtn tbtn-ghost" style="padding:3px 6px;font-size:0.72rem;color:var(--danger)" onclick="deleteFeedbackLogs('${r.id}',this)">Delete</button></td>
     </tr>`).join('');
+    tbody.querySelectorAll('tr[data-tidx]').forEach(tr=>{
+      const r=rows[parseInt(tr.dataset.tidx)]; if(!r)return;
+      tr.addEventListener('mouseenter',ev=>{
+        const ctx=r.context&&Object.keys(r.context).length
+          ?Object.entries(r.context).filter(([,v])=>v!=null&&v!=='').map(([k,v])=>escHtml(k)+': <em style="color:#e2e8f0">'+escHtml(String(v))+'</em>').join(' · '):'';
+        showLogTip(ev,
+          '<div style="font-weight:600;margin-bottom:3px">'+escHtml(r.title)+'</div>'+
+          '<div style="color:#64748b;font-size:0.72rem;margin-bottom:8px">'+new Date(r.created_at).toLocaleDateString('en-GB')+(r.reported_by?' · '+escHtml(r.reported_by):'')+'</div>'+
+          (r.description?'<div><strong style="color:#e2e8f0">Description:</strong><br>'+escHtml(r.description)+'</div>':'')+
+          (r.steps?'<div style="margin-top:8px"><strong style="color:#e2e8f0">Steps:</strong><br>'+escHtml(r.steps)+'</div>':'')+
+          (ctx?'<div style="margin-top:6px;color:#94a3b8">'+ctx+'</div>':'')
+        );
+      });
+      tr.addEventListener('mouseleave',hideLogTip);
+    });
   } catch(e) { tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger);padding:16px">${e.message}</td></tr>`; }
 }
 
@@ -9471,10 +9559,11 @@ async function loadAuditLog(page){
       if(diff<86400)return Math.floor(diff/3600)+'h ago';
       return new Date(d).toLocaleString();
     };
-    tbody.innerHTML=data.entries.map(e=>{
+    const _auditE=data.entries;
+    tbody.innerHTML=_auditE.map((e,idx)=>{
       const detail=e.detail&&Object.keys(e.detail).length?JSON.stringify(e.detail):'';
       const tid=e.target_id?`<span style="font-family:monospace;font-size:0.72rem">${escHtml(e.target_id.slice(0,16))}${e.target_id.length>16?'…':''}</span>`:'—';
-      return `<tr>
+      return `<tr data-tidx="${idx}" style="cursor:default">
         <td style="white-space:nowrap;color:var(--ink3);font-size:0.78rem" title="${new Date(e.timestamp).toLocaleString()}">${relTime(e.timestamp)}</td>
         <td style="font-size:0.78rem;color:var(--ink2)">${escHtml(e.user_email||'—')}</td>
         <td style="font-size:0.78rem;font-weight:500">${escHtml(e.action)}</td>
@@ -9482,6 +9571,21 @@ async function loadAuditLog(page){
         <td style="font-size:0.72rem;color:var(--ink3)">${tid}${detail?` <span style="color:var(--ink4)">${escHtml(detail)}</span>`:''}</td>
       </tr>`;
     }).join('');
+    tbody.querySelectorAll('tr[data-tidx]').forEach(tr=>{
+      const e=_auditE[parseInt(tr.dataset.tidx)]; if(!e)return;
+      const detailJson=e.detail&&Object.keys(e.detail).length?JSON.stringify(e.detail,null,2):null;
+      tr.addEventListener('mouseenter',ev=>{
+        showLogTip(ev,
+          '<div style="font-weight:600;margin-bottom:3px">'+escHtml(e.action)+'</div>'+
+          '<div style="color:#64748b;font-size:0.72rem;margin-bottom:8px">'+new Date(e.timestamp).toLocaleString()+'</div>'+
+          '<div><strong style="color:#e2e8f0">User:</strong> '+escHtml(e.user_email||'—')+'</div>'+
+          '<div style="margin-top:4px"><strong style="color:#e2e8f0">Target:</strong> '+escHtml(e.target_type||'—')+
+            (e.target_id?'&nbsp;/&nbsp;<code style="font-size:0.72rem;background:#0f172a;padding:1px 5px;border-radius:3px">'+escHtml(e.target_id)+'</code>':'')+'</div>'+
+          (detailJson?'<div style="margin-top:8px"><strong style="color:#e2e8f0">Detail:</strong><pre style="margin:4px 0;font-size:0.7rem;max-height:180px;overflow-y:auto;background:#0f172a;padding:6px;border-radius:4px;white-space:pre-wrap;color:#94a3b8">'+escHtml(detailJson)+'</pre></div>':'')
+        );
+      });
+      tr.addEventListener('mouseleave',hideLogTip);
+    });
     if(pagEl){
       let pag='';
       for(let i=1;i<=data.pages;i++)pag+=`<button class="page-btn${i===data.page?' active':''}" onclick="loadAuditLog(${i})">${i}</button>`;
@@ -10165,7 +10269,21 @@ async function deleteForm(slug,name){
   }
 }
 
-// ── Init ──
+// ── Log detail tooltip ─────────────────────────────────────────────────────────
+(function(){
+  function tip(){ return document.getElementById('log-tip'); }
+  function pos(e){
+    const el=tip(); if(!el||el.style.display==='none')return;
+    const x=e.clientX+18, y=e.clientY+14;
+    const tw=el.offsetWidth, th=el.offsetHeight;
+    el.style.left=(x+tw>window.innerWidth-10?e.clientX-tw-10:x)+'px';
+    el.style.top =(y+th>window.innerHeight-10?e.clientY-th-14:y)+'px';
+  }
+  window.showLogTip=function(e,html){ const el=tip(); if(!el)return; el.innerHTML=html; el.style.display='block'; pos(e); };
+  window.hideLogTip=function(){ const el=tip(); if(el)el.style.display='none'; };
+  document.addEventListener('mousemove',pos);
+})();
+
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveConfig();}});
 document.getElementById('new-form-modal').addEventListener('click',e=>{if(e.target===document.getElementById('new-form-modal'))closeNewFormModal();});
 // field-modal: backdrop click intentionally disabled — use X or Cancel to close
@@ -10559,5 +10677,11 @@ function _aiStartCooldown(secs) {
     </button>
   </div>
 </div>
+
+<!-- ── Log detail hover tooltip ─────────────────────────────────────────── -->
+<div id="log-tip" style="display:none;position:fixed;z-index:9990;
+  background:#1e293b;color:#f1f5f9;border-radius:8px;padding:12px 16px;
+  max-width:520px;font-size:0.78rem;line-height:1.55;
+  box-shadow:0 8px 32px rgba(0,0,0,.45);pointer-events:none"></div>
 </body>
 </html>

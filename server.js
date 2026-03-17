@@ -13,7 +13,7 @@ const session    = require('express-session');
 const { Issuer, generators } = require('openid-client');
 const nodemailer = require('nodemailer');
 const { Pool }   = require('pg');
-const { S3Client, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const multerS3   = require('multer-s3');
 const Anthropic  = require('@anthropic-ai/sdk');
 const integrationsRouter = require('./routes/integrations');
@@ -615,6 +615,16 @@ const uploadFont = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     FONT_EXTS.has(path.extname(file.originalname).toLowerCase()) ? cb(null, true) : cb(new Error('Font files only'));
+  }
+});
+// Memory-storage multer for chat image uploads — needed because the chat-upload
+// handler does its own S3 PutObjectCommand so it needs req.file.buffer.
+const uploadMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    ['image/jpeg','image/png','image/gif','image/webp'].includes(file.mimetype)
+      ? cb(null, true) : cb(new Error('Images only'));
   }
 });
 
@@ -2402,7 +2412,7 @@ app.put('/api/admin/forms/:slug/markets', requireSuperAdmin, async (req, res) =>
 
 // ── AI Chat Upload ─────────────────────────────────────────────────────────────
 // Uploads image for AI chat; stored under chat-uploads/ in S3, NOT in the media table.
-app.post('/api/admin/chat-upload', adminAuth, upload.single('file'), async (req, res) => {
+app.post('/api/admin/chat-upload', adminAuth, uploadMemory.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file' });
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];

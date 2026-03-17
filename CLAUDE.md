@@ -10,6 +10,10 @@
 ## Project
 - `server.js` — single large file (~3000+ lines), intentional, no module splitting.
 - `admin/index.html` — single-file vanilla JS SPA, no build step.
+- `admin/integrations/index.html` — standalone SPA at `/admin/integrations` (integration health board).
+- `admin/reports/index.html` — standalone SPA at `/admin/reports` (analytics & reports).
+- `routes/integrations.js` — Express router mounted at `/api/admin/integrations` (status, test, config).
+- `routes/reports.js` — Express router mounted at `/api/admin/reports` (summary, subscribers, forms, email, export).
 - Stack: Node.js 20, Express 4, PostgreSQL 16, Amazon S3, PM2, Nginx, Auth0 OIDC.
 
 ## Key DB Tables (PostgreSQL — `DATABASE_URL` in .env)
