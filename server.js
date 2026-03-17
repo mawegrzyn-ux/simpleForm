@@ -2613,6 +2613,7 @@ async function _executeAiTool(name, input) {
     if (!formName) return { error: 'name required' };
     let formSlug = (input.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     if (!formSlug) formSlug = formName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
+    if (RESERVED_SLUGS.has(formSlug)) return { error: `Slug "${formSlug}" is reserved and cannot be used. Choose a different name.` };
     const { rows: ex } = await pool.query('SELECT slug FROM forms WHERE slug=$1', [formSlug]);
     if (ex.length) return { error: `Slug "${formSlug}" is already taken. Provide a different name or a custom slug.` };
     const defaultCfg = {
