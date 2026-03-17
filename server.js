@@ -2616,19 +2616,9 @@ async function _executeAiTool(name, input) {
     if (RESERVED_SLUGS.has(formSlug)) return { error: `Slug "${formSlug}" is reserved and cannot be used. Choose a different name.` };
     const { rows: ex } = await pool.query('SELECT slug FROM forms WHERE slug=$1', [formSlug]);
     if (ex.length) return { error: `Slug "${formSlug}" is already taken. Provide a different name or a custom slug.` };
-    const defaultCfg = {
-      fields: [{ id: 'email', type: 'email', label: 'Email address', required: true }],
-      sections: [
-        { id: 'logo', type: 'logo', visible: true },
-        { id: 'hero', type: 'hero', visible: true },
-        { id: 'form', type: 'form', visible: true },
-        { id: 'footer', type: 'footer', visible: true }
-      ],
-      design: {}, email: {}
-    };
     await pool.query(
       'INSERT INTO forms (slug, name, config, status) VALUES ($1,$2,$3::jsonb,$4)',
-      [formSlug, formName, JSON.stringify(defaultCfg), 'draft']
+      [formSlug, formName, JSON.stringify(defaultFormConfig(formSlug, formName)), 'draft']
     );
     return { ok: true, slug: formSlug, name: formName, status: 'draft' };
   }
@@ -3207,7 +3197,7 @@ app.get('/:slug', async (req, res) => {
     res.send(renderPublicPage(formCfg, sharedFonts, templates,
       { testingPin: status === 'testing' ? testing_pin : null }));
   }
-  catch(e) { res.status(404).send('<p>Page not found.</p>'); }
+  catch(e) { console.error('[/:slug]', e.message); res.status(404).send('<p>Page not found.</p>'); }
 });
 
 // Confirmation/response state preview (admin only)
@@ -4829,6 +4819,8 @@ function buildPinOverlayHtml(pin, primaryColor) {
 }
 
 function renderPublicPage(cfg, sharedFonts = [], templates = [], opts = {}) {
+  // Merge in defaults so McFry-created or legacy forms never throw on missing fields
+  if (!cfg.site) cfg = { ...defaultFormConfig(cfg.slug || '', cfg.name || ''), ...cfg };
   let d = cfg.design || {};
   if (cfg.designTemplateId) {
     const tpl = templates.find(t => t.id === cfg.designTemplateId);
