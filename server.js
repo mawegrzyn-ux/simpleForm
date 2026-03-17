@@ -559,7 +559,7 @@ app.use(helmet({
       styleSrc:       ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc:        ["'self'", 'https://fonts.gstatic.com', 'https://*.amazonaws.com'],
       imgSrc:         ["'self'", 'data:', 'blob:', 'https:'],
-      connectSrc:     ["'self'", 'https://api.hcaptcha.com', 'https://www.google-analytics.com', 'https://region1.google-analytics.com', 'https://www.facebook.com'],
+      connectSrc:     ["'self'", 'https://api.hcaptcha.com', 'https://www.google-analytics.com', 'https://region1.google-analytics.com', 'https://www.facebook.com', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://*.amazonaws.com'],
       frameSrc:       ["'self'", 'https://www.youtube.com', 'https://player.vimeo.com'],  // 'self' needed for admin live preview iframe
       frameAncestors: ["'self'"],   // overridden to * on /:slug/embed routes
       objectSrc:      ["'none'"],
@@ -1659,7 +1659,7 @@ app.get('/api/admin/media/check-dup', adminAuth, async (req, res) => {
 // Avoids the browser CORS restriction that taints canvas when drawing cross-origin images
 app.get('/api/admin/media/img-proxy', adminAuth, async (req, res) => {
   const key = (req.query.key || '').replace(/^\/+/, '');
-  if (!key || !key.startsWith('uploads/')) return res.status(400).send('Invalid key');
+  if (!key || (!key.startsWith('uploads/') && !key.startsWith('fonts/'))) return res.status(400).send('Invalid key');
   try {
     const cmd = new GetObjectCommand({ Bucket: S3_BUCKET, Key: key });
     const s3Res = await s3.send(cmd);
@@ -2511,7 +2511,7 @@ const _AI_TOOLS = [
         },
         fields_patch: {
           type: 'array',
-          description: 'Fields to add or update. Each item needs "id" and "type". If id matches an existing field it is merged (updated); if id is new the field is appended. Available types: text, email, tel, textarea, select (dropdown — include "options":["A","B"]), checkbox (single tick), date, age, year, yearmonth, slider. Example: [{"id":"first-name","type":"text","label":"First Name","required":true,"placeholder":"Your name"},{"id":"interests","type":"select","label":"Interests","options":["Road","Mountain","Cargo"],"required":false}]',
+          description: 'Fields to add or update. Each item needs "id" and "type". If id matches an existing field it is merged (updated); if id is new the field is appended. Available types: text, email, tel, textarea, select (dropdown — include "options":["A","B"]), checkbox (single tick), date, age, year, yearmonth, slider, iconselect (Tile Grid — see TILE GRID section in system prompt for full property list). Example: [{"id":"first-name","type":"text","label":"First Name","required":true,"placeholder":"Your name"},{"id":"bike-type","type":"iconselect","label":"Type of bike","iselItems":[{"value":"road","label":"Road","icon":"🚴","iconType":"emoji"},{"value":"mtb","label":"Mountain","icon":"⛰️","iconType":"emoji"}],"iselLayout":"scroll","iselMulti":false}]',
           items: { type: 'object' }
         }
       },
@@ -2786,6 +2786,7 @@ app.post('/api/admin/ai-chat', adminAuth, async (req, res) => {
     `WRITE OPERATIONS — create_form, update_form_config, create_design_template, apply_design_template: ALWAYS describe exactly what you will create or change (name, slug, colours, template, target form) and ask "Shall I proceed?" then WAIT for the user to confirm in their next message before calling the tool. Never call a write tool without explicit user confirmation.\n\n` +
     `BRAND TEMPLATES FROM WEBSITES: When the user provides a URL and asks to match or use its branding, call analyze_website first. Present the extracted colours, fonts, and logo to the user. Then propose a design_patch or template design, confirm with the user ("Shall I save this as a template?" or "Shall I apply these colours to [form]?"), and only then call create_design_template or update_form_config.\n\n` +
     `BRAND TEMPLATES FROM IMAGES: When the user uploads or shares an image (logo, screenshot, brand asset), analyse the colours and style visible in the image. Propose a matching design_patch covering primaryColor, bgColor, fontFamily and any other relevant fields. Confirm before calling any write tool.\n\n` +
+    `TILE GRID (ICONSELECT) FIELDS — type: "iconselect". Also called Tile Grid, tile/grid selectors, or tiles in the UI. Required property: iselItems — an array where each item has: value (unique string id), label (display text), icon (emoji char, material icon name, image URL from media library, or short text string), iconType ("emoji"|"material"|"image"|"text"). Key optional properties: iselMulti (boolean, allow multiple selections, default false), iselMinSel / iselMaxSel (numbers, multi-select limits), iselLayout ("scroll"|"grid", default "scroll"), iselColumns (1–12, grid mode only), iselFlow ("row"|"col", grid fill direction), iselTileShape ("square"|"rounded"|"circle"|"pill"|"diamond"|"octagon"|"skewed", default "rounded"), iselTileSize (integer px, default 64), iselSizeMode ("fixed"|"fill"), iselShowLabels (boolean, default true), iselSelStyle ("border"|"fill"), iselSelColor (hex), iselTileBg (hex), iselTileBorderColor (hex), iselAlign ("left"|"center"|"right"). Minimal emoji example: {"id":"bike-type","type":"iconselect","label":"What type of bike do you ride?","iselItems":[{"value":"road","label":"Road","icon":"🚴","iconType":"emoji"},{"value":"mountain","label":"Mountain","icon":"⛰️","iconType":"emoji"},{"value":"cargo","label":"Cargo","icon":"📦","iconType":"emoji"}],"iselLayout":"scroll","iselMulti":false}. Material icon example item: {"value":"run","label":"Running","icon":"directions_run","iconType":"material"}. Grid example: set iselLayout:"grid", iselColumns:3, iselFlow:"row". ALWAYS include at least 2 iselItems. Do NOT use iconType "image" unless you have an actual image URL from the media library.\n\n` +
     `Current admin context: tab="${context.currentTab || '?'}", ` +
     `form="${context.currentFormSlug || 'none'}", ` +
     `modal="${context.activeModal || 'none'}", panel="${context.panelTab || 'none'}", role="${_userRole}".` +
@@ -3814,7 +3815,8 @@ function renderFormField(f, cfg) {
         iconHtml = `<img class="sf-isel-icon sf-isel-img" src="${escapeHtml(item.icon || '')}" alt="" loading="lazy">`;
       } else if (item.iconType === 'text') {
         const fontStyle = item.iconFont ? `font-family:'${escapeHtml(item.iconFont)}',sans-serif;` : '';
-        iconHtml = `<span class="sf-isel-icon sf-isel-txt" style="${fontStyle}">${escapeHtml(item.icon || '')}</span>`;
+        const sizeStyle = item.iconFontSize ? `font-size:${parseInt(item.iconFontSize)}px;` : '';
+        iconHtml = `<span class="sf-isel-icon sf-isel-txt" style="${fontStyle}${sizeStyle}">${escapeHtml(item.icon || '')}</span>`;
       } else {
         iconHtml = `<span class="sf-isel-icon sf-isel-emoji">${escapeHtml(item.icon || '')}</span>`;
       }
