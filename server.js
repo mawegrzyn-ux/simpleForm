@@ -3248,8 +3248,9 @@ app.get('/:slug', async (req, res) => {
     if (req.query._generic) {
       formCfg = { ...formCfg, sections: GENERIC_PREVIEW_SECTIONS, fields: GENERIC_PREVIEW_FIELDS };
     }
+    const isAdminPreview = !!(req.query._preview || req.query._tplPreview || req.query._generic);
     res.send(renderPublicPage(formCfg, sharedFonts, templates,
-      { testingPin: status === 'testing' ? testing_pin : null }));
+      { testingPin: (status === 'testing' && !isAdminPreview) ? testing_pin : null }));
   }
   catch(e) { console.error('[/:slug]', e.message); res.status(404).send('<p>Page not found.</p>'); }
 });
