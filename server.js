@@ -2498,13 +2498,22 @@ const _AI_TOOLS = [
   },
   {
     name: 'update_form_config',
-    description: 'Update a form\'s display name and/or merge design settings into its existing design. ALWAYS describe what will change and ask "Shall I proceed?" BEFORE calling this tool.',
+    description: 'Update a form\'s display name, design, section content (hero heading/subheading/etc.), and/or fields (add new fields or update existing ones by id). ALWAYS describe exactly what will change and ask "Shall I proceed?" BEFORE calling this tool.',
     input_schema: {
       type: 'object',
       properties: {
         slug: { type: 'string', description: 'Slug of the form to update' },
         name: { type: 'string', description: 'New display name for the form (optional)' },
-        design_patch: { type: 'object', description: 'Partial design object to merge into the existing design (e.g. {"primaryColor":"#e63946","fontFamily":"Raleway"})' }
+        design_patch: { type: 'object', description: 'Partial design object to merge into the existing design (e.g. {"primaryColor":"#e63946","buttonText":"Subscribe Now","accentColor":"#f5a623"})' },
+        sections_patch: {
+          type: 'object',
+          description: 'Partial section configs keyed by section id. Only the keys you supply are changed; others are preserved. Example: {"hero":{"heading":"Join us","subheading":"Weekly tips"},"form":{"submitSuccessMessage":"Thanks!"}}. Section ids: logo, hero, form, footer (and any custom section ids).'
+        },
+        fields_patch: {
+          type: 'array',
+          description: 'Fields to add or update. Each item needs "id" and "type". If id matches an existing field it is merged (updated); if id is new the field is appended. Available types: text, email, tel, textarea, select (dropdown — include "options":["A","B"]), checkbox (single tick), date, age, year, yearmonth, slider. Example: [{"id":"first-name","type":"text","label":"First Name","required":true,"placeholder":"Your name"},{"id":"interests","type":"select","label":"Interests","options":["Road","Mountain","Cargo"],"required":false}]',
+          items: { type: 'object' }
+        }
       },
       required: ['slug']
     }
@@ -2623,20 +2632,63 @@ async function _executeAiTool(name, input) {
     return { ok: true, slug: formSlug, name: formName, status: 'draft' };
   }
   if (name === 'update_form_config') {
-    const { rows } = await pool.query('SELECT slug FROM forms WHERE slug=$1', [slug]);
-    if (!rows.length) return { error: 'Form not found' };
-    const setClauses = []; const params = [slug];
+    const { rows: cfgRows } = await pool.query('SELECT config FROM forms WHERE slug=$1', [slug]);
+    if (!cfgRows.length) return { error: 'Form not found' };
+    let cfg = cfgRows[0].config || {};
+    const sqlSets = []; const sqlParams = [slug]; const updated = {};
+
+    // Update forms.name column (and keep cfg.site.title in sync)
     if (input.name && typeof input.name === 'string') {
-      params.push(input.name.trim().substring(0, 100));
-      setClauses.push(`name=$${params.length}`);
+      const newName = input.name.trim().substring(0, 100);
+      sqlParams.push(newName);
+      sqlSets.push(`name=$${sqlParams.length}`);
+      if (cfg.site) cfg.site.title = newName;
+      updated.name = newName;
     }
+
+    // Patch design (shallow merge)
     if (input.design_patch && typeof input.design_patch === 'object') {
-      params.push(JSON.stringify(input.design_patch));
-      setClauses.push(`config = jsonb_set(config, '{design}', COALESCE(config->'design','{}') || $${params.length}::jsonb)`);
+      cfg.design = { ...(cfg.design || {}), ...input.design_patch };
+      updated.design_patch = Object.keys(input.design_patch);
     }
-    if (!setClauses.length) return { error: 'No updates provided — supply name and/or design_patch' };
-    await pool.query(`UPDATE forms SET ${setClauses.join(', ')} WHERE slug=$1`, params);
-    return { ok: true, slug, updated: setClauses.map(c => c.split('=')[0].trim()) };
+
+    // Patch sections by id — only keys supplied are overwritten
+    if (input.sections_patch && typeof input.sections_patch === 'object') {
+      cfg.sections = (cfg.sections || []).map(sec => {
+        const patch = input.sections_patch[sec.id];
+        return patch ? { ...sec, ...patch } : sec;
+      });
+      updated.sections_patch = Object.keys(input.sections_patch);
+    }
+
+    // Add or update fields — matched by id; new ids appended at end
+    if (Array.isArray(input.fields_patch) && input.fields_patch.length) {
+      const fieldMap = new Map((cfg.fields || []).map(f => [f.id, f]));
+      const newIds = [];
+      for (const f of input.fields_patch) {
+        if (!f.id || !f.type) continue;
+        if (fieldMap.has(f.id)) {
+          fieldMap.set(f.id, { ...fieldMap.get(f.id), ...f });
+        } else {
+          fieldMap.set(f.id, f);
+          newIds.push(f.id);
+        }
+      }
+      cfg.fields = [
+        ...(cfg.fields || []).map(f => fieldMap.get(f.id) || f),
+        ...newIds.map(id => fieldMap.get(id))
+      ];
+      updated.fields_patch = input.fields_patch.map(f => f.id);
+    }
+
+    if (!Object.keys(updated).length) {
+      return { error: 'No updates provided — supply name, design_patch, sections_patch, and/or fields_patch' };
+    }
+
+    sqlParams.push(JSON.stringify(cfg));
+    sqlSets.push(`config=$${sqlParams.length}::jsonb`);
+    await pool.query(`UPDATE forms SET ${sqlSets.join(', ')} WHERE slug=$1`, sqlParams);
+    return { ok: true, slug, updated };
   }
   if (name === 'list_design_templates') {
     const { rows } = await pool.query('SELECT id, name, created_at FROM design_templates ORDER BY name');
