@@ -3338,6 +3338,83 @@ app.get('/:slug/challenge', async (req, res) => {
   res.json(resp);
 });
 
+// ── Acteol CRM integration ────────────────────────────────────────────────────
+// OAuth2 Resource Owner Password Credentials. Token lasts 24 h; we refresh
+// 60 min early. Endpoint: https://{host}/token → Bearer token.
+// Contact push: POST https://{host}/api/Contact (verify path with Acteol support).
+const _acteolCache = { token: null, expiresAt: 0 };
+
+async function _getActeolToken(host, usr, pwd) {
+  if (_acteolCache.token && Date.now() < _acteolCache.expiresAt) return _acteolCache.token;
+  const https = require('https');
+  const formBody = `grant_type=password&username=${encodeURIComponent(usr)}&password=${encodeURIComponent(pwd)}`;
+  const buf = Buffer.from(formBody);
+  const json = await new Promise((resolve, reject) => {
+    const req = https.request(
+      { hostname: host, path: '/token', method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': buf.length } },
+      res => { let d = ''; res.on('data', c => d += c); res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } }); }
+    );
+    req.setTimeout(8000, () => { req.destroy(); reject(new Error('Acteol auth timeout')); });
+    req.on('error', reject);
+    req.write(buf); req.end();
+  });
+  if (!json.access_token) throw new Error(json.error_description || json.error || 'Acteol auth failed');
+  const ttlMs = ((json.expires_in || 86400) - 3600) * 1000; // refresh 1 h before expiry
+  _acteolCache.token = json.access_token;
+  _acteolCache.expiresAt = Date.now() + ttlMs;
+  return json.access_token;
+}
+
+async function pushSubscriberToActeol(pool, record, formSlug) {
+  const { rows } = await pool.query(
+    `SELECT value->'integrations'->>'acteol_host'     AS host,
+            value->'integrations'->>'acteol_username' AS usr,
+            value->'integrations'->>'acteol_password' AS pwd
+     FROM global_settings WHERE id=1`
+  );
+  const { host, usr, pwd } = rows[0] || {};
+  if (!host || !usr || !pwd) return; // integration not configured
+
+  const token = await _getActeolToken(host, usr, pwd);
+
+  // Map common name field patterns from custom_fields (field IDs are admin-defined)
+  const cf = record.customFields || {};
+  const pick = (...keys) => keys.map(k => cf[k]).find(v => v && String(v).trim()) || '';
+  const firstName = pick('first_name','firstName','fname','FirstName','first','forename','given_name');
+  const lastName  = pick('last_name','lastName','lname','LastName','surname','Surname','family_name');
+  const phone     = pick('phone','mobile','telephone','phone_number','mobile_number','Phone','Mobile');
+
+  const contact = {
+    Email:       record.email,
+    FirstName:   firstName,
+    Surname:     lastName,
+    MobilePhone: phone,
+    OptedIn:     true,
+    ConsentDate: record.consentTimestamp,
+    Source:      'SignFlow',
+    SourceRef:   formSlug,  // lets Acteol track which form the contact came from
+  };
+
+  // NOTE: Endpoint /api/Contact is inferred from the API pattern (known: /api/Webhook).
+  // Confirm the exact path and payload schema with your Acteol account manager.
+  const https = require('https');
+  const body = JSON.stringify(contact);
+  const buf  = Buffer.from(body);
+  await new Promise((resolve, reject) => {
+    const req = https.request(
+      { hostname: host, path: '/api/Contact', method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`,
+                   'Content-Length': buf.length } },
+      res => { res.resume(); res.on('end', resolve); }
+    );
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Acteol contact push timeout')); });
+    req.on('error', reject);
+    req.write(buf); req.end();
+  });
+  console.log(`[acteol] pushed ${record.email} → ${formSlug}`);
+}
+
 // Form submission
 app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   const { slug } = req.params;
@@ -3567,6 +3644,8 @@ app.post('/:slug/subscribe', submitLimiter, async (req, res) => {
   bumpAnalytic(slug, 'submits');
   // Fire-and-forget welcome email (never blocks the response)
   sendWelcomeEmail(cfg, record).catch(e => console.error('[email]', e.message));
+  // Fire-and-forget CRM push
+  pushSubscriberToActeol(pool, record, slug).catch(e => console.error('[acteol]', e.message));
   res.json({ success: true, ...(prizeResult ? { prizeResult } : {}) });
   } catch(routeErr) {
     console.error('[subscribe]', routeErr.message);

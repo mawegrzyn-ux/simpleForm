@@ -24,6 +24,7 @@ const PORTALS = {
   hubspot:    'https://app.hubspot.com',
   salesforce: 'https://login.salesforce.com',
   postgres:   'https://lightsail.aws.amazon.com',
+  acteol:     'https://developers.atreemo.com',
 };
 
 // ── Helper: lightweight HTTP GET with timeout ─────────────────────────────────
@@ -40,6 +41,27 @@ function httpGet(url, headers = {}, timeoutMs = 5000) {
     );
     req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error('Timeout')); });
     req.on('error', reject);
+    req.end();
+  });
+}
+
+// ── Helper: lightweight HTTP POST with timeout ────────────────────────────────
+function httpPost(url, body, headers = {}, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const buf = Buffer.from(body);
+    const req = https.request(
+      { hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: 'POST',
+        headers: { 'Content-Length': buf.length, ...headers } },
+      res => {
+        let data = '';
+        res.on('data', d => { data += d; });
+        res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      }
+    );
+    req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error('Timeout')); });
+    req.on('error', reject);
+    req.write(buf);
     req.end();
   });
 }
@@ -154,6 +176,27 @@ async function checkSalesforce(pool) {
   } catch(e) { return { status: 'error', detail: e.message }; }
 }
 
+async function checkActeol(pool) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT value->'integrations'->>'acteol_host'     AS host,
+              value->'integrations'->>'acteol_username' AS usr,
+              value->'integrations'->>'acteol_password' AS pwd
+       FROM global_settings WHERE id=1`
+    );
+    const { host, usr, pwd } = rows[0] || {};
+    if (!host || !usr || !pwd) return { status: 'unconfigured', detail: 'Not configured' };
+    const t = Date.now();
+    const formBody = `grant_type=password&username=${encodeURIComponent(usr)}&password=${encodeURIComponent(pwd)}`;
+    const r = await httpPost(`https://${host}/token`, formBody,
+      { 'Content-Type': 'application/x-www-form-urlencoded' });
+    let json;
+    try { json = JSON.parse(r.body); } catch(_) { json = {}; }
+    if (json.access_token) return { status: 'ok', detail: host, latencyMs: Date.now() - t };
+    return { status: 'error', detail: json.error_description || json.error || `HTTP ${r.status}` };
+  } catch(e) { return { status: 'error', detail: e.message }; }
+}
+
 async function checkPostgres(pool) {
   const t = Date.now();
   try {
@@ -174,6 +217,7 @@ async function runCheck(id, pool, app) {
     case 'klaviyo':    return checkKlaviyo(pool);
     case 'hubspot':    return checkHubSpot(pool);
     case 'salesforce': return checkSalesforce(pool);
+    case 'acteol':     return checkActeol(pool);
     case 'postgres':   return checkPostgres(pool);
     default: return { status: 'error', detail: 'Unknown service' };
   }
@@ -190,6 +234,7 @@ const SERVICE_META = [
   { id: 'klaviyo',    name: 'Klaviyo',                icon: 'campaign' },
   { id: 'hubspot',    name: 'HubSpot',                icon: 'hub' },
   { id: 'salesforce', name: 'Salesforce',             icon: 'cloud_sync' },
+  { id: 'acteol',     name: 'Acteol (Atreemo)',       icon: 'contact_page' },
 ];
 
 // ── GET /status — all services in parallel ────────────────────────────────────
@@ -237,13 +282,17 @@ router.get('/config', async (req, res) => {
       hubspot_token:       mask(cfg.hubspot_token),
       salesforce_instance: cfg.salesforce_instance || '',
       salesforce_token:    mask(cfg.salesforce_token),
+      acteol_host:         cfg.acteol_host     || '',
+      acteol_username:     mask(cfg.acteol_username),
+      acteol_password:     mask(cfg.acteol_password),
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── PATCH /config — save integration keys ─────────────────────────────────────
 router.patch('/config', async (req, res) => {
-  const allowed = ['mailchimp_key','klaviyo_key','hubspot_token','salesforce_instance','salesforce_token'];
+  const allowed = ['mailchimp_key','klaviyo_key','hubspot_token','salesforce_instance','salesforce_token',
+                   'acteol_host','acteol_username','acteol_password'];
   const patch = {};
   for (const k of allowed) {
     if (req.body[k] !== undefined) patch[k] = req.body[k];

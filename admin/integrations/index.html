@@ -152,9 +152,10 @@ const PORTALS = {
   klaviyo:    'https://www.klaviyo.com/login',
   hubspot:    'https://app.hubspot.com',
   salesforce: 'https://login.salesforce.com',
+  acteol:     'https://developers.atreemo.com',
 };
 
-const CONFIGURABLE = ['mailchimp','klaviyo','hubspot','salesforce'];
+const CONFIGURABLE = ['mailchimp','klaviyo','hubspot','salesforce','acteol'];
 
 function dotClass(status) {
   return { ok:'dot-ok', error:'dot-error', unconfigured:'dot-unconfigured', checking:'dot-checking' }[status] || 'dot-unconfigured';
@@ -170,9 +171,12 @@ function renderCard(svc) {
     hubspot:    [{ key:'hubspot_token',  label:'Access Token' }],
     salesforce: [{ key:'salesforce_instance', label:'Instance (e.g. na1.salesforce.com)' },
                  { key:'salesforce_token',    label:'Access Token' }],
+    acteol:     [{ key:'acteol_host',     label:'Host (e.g. yourco.atreemo.com)', password: false },
+                 { key:'acteol_username', label:'Username' },
+                 { key:'acteol_password', label:'Password' }],
   };
   const fields = (configFields[svc.id] || []).map(f =>
-    `<div><label>${f.label}</label><input type="password" id="cfg-${svc.id}-${f.key}" placeholder="Enter ${f.label.toLowerCase()}"></div>`
+    `<div><label>${f.label}</label><input type="${f.password === false ? 'text' : 'password'}" id="cfg-${svc.id}-${f.key}" placeholder="Enter ${f.label.toLowerCase()}"></div>`
   ).join('');
 
   return `<div class="svc-card" id="card-${svc.id}">
@@ -256,6 +260,7 @@ async function saveConfig(id) {
     klaviyo:    ['klaviyo_key'],
     hubspot:    ['hubspot_token'],
     salesforce: ['salesforce_instance','salesforce_token'],
+    acteol:     ['acteol_host','acteol_username','acteol_password'],
   };
   const body = {};
   for (const k of (configFields[id] || [])) {
